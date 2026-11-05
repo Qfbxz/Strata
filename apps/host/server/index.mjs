@@ -632,7 +632,16 @@ async function runAgentTurn({ res, controller, chatId, body, message, workspaceI
     const researchLine = /^\/research(?:\s+([\s\S]*))?$/i.exec(message.trim());
     // "/compact" summarises the older messages of this chat now (it used to go to the model as text, which answered it as a question).
     const compactLine = /^\/compact\s*$/i.test(message.trim());
-    const turnOptions = { chatId, message, workspacePath: cwd, choice, images, mode: typeof body.mode === 'string' ? body.mode : null, thinking: typeof body.thinking === 'string' ? body.thinking : null, thinkingBudget: Number.isFinite(body.thinkingBudget) ? body.thinkingBudget : 0, history: Array.isArray(body.history) ? body.history : [], onFrame: write, signal: controller.signal };
+    // P0-8 F1: the old "Enable tools" switch used to set mode:'bypass' as a side effect. The agent
+    // path never needed that switch (its servers come from Settings → Tools), so a bypass arriving
+    // together with useTools is the old client's baggage, not a choice: it is downgraded to Manual
+    // and the chat is told so, instead of silently running without approvals.
+    let mode = typeof body.mode === 'string' ? body.mode : null;
+    if (mode === 'bypass' && body.useTools === true) {
+      mode = 'manual';
+      write({ type: 'notice', code: 'tools-mode-decoupled', message: 'Connected tools are on; this chat stays in Manual approvals — the old tools switch no longer sets Bypass.' });
+    }
+    const turnOptions = { chatId, message, workspacePath: cwd, choice, images, mode, thinking: typeof body.thinking === 'string' ? body.thinking : null, thinkingBudget: Number.isFinite(body.thinkingBudget) ? body.thinkingBudget : 0, history: Array.isArray(body.history) ? body.history : [], onFrame: write, signal: controller.signal };
     const result = typeof body.planId === 'string' && body.message === '/plan start' ? await agent.planGoal({ ...turnOptions, planId: body.planId })
       : compactLine ? await agent.compactCommand(turnOptions)
       : researchLine ? await agent.researchCommand({ ...turnOptions, line: researchLine[1] ?? '' })
@@ -942,6 +951,19 @@ const tasks = createTaskService({
 const taskTimer = setInterval(() => tasks.tick(), 15000);
 taskTimer.unref();
 
+// P0-9: with the local API token required, mint one at start and keep it in a 0600 file the shell
+// can read (the env var carries it to child processes).
+if (process.env.STRATA_REQUIRE_API_TOKEN === '1' && !process.env.STRATA_LOCAL_API_TOKEN) {
+  const token = randomBytes(32).toString('base64url');
+  process.env.STRATA_LOCAL_API_TOKEN = token;
+  try {
+    mkdirSync(store.HOME, { recursive: true });
+    writeFileSync(join(store.HOME, 'local-api-token'), token + '\n', { mode: 0o600 });
+  } catch (e) {
+    console.error('[strata] could not write the local API token:', e?.message ?? e);
+  }
+}
+
 // The share and tunnel listeners take a free port (the next ones above the host's own) instead of a fixed PORT+1 / PORT+2 that Docker, WSL or Hyper-V may hold or reserve.
 const sharePort = await findFreePort(Number(process.env.STRATA_SHARE_PORT ?? PORT + 1), '0.0.0.0', { skip: [PORT] });
 const localShare = createLocalShare({ handle: openai, hasKey: () => !!store.get().serving?.apiKey, port: sharePort, changed: () => serving.setSharing(localShare.state()) });
@@ -971,6 +993,19 @@ const server = http.createServer(async (req, res) => {
     if (path.startsWith('/api/') && req.headers.origin) {
       const origin = new URL(req.headers.origin);
       if (!['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)) return error(res, 403, 'Open the local Strata app to use host controls.');
+    }
+    // P0-9: with STRATA_REQUIRE_API_TOKEN=1, host controls need the local token (written 0600 to
+    // STRATA_HOME/local-api-token at start, and given to the shell through STRATA_LOCAL_API_TOKEN).
+    // Off by default until the desktop shell ships the delivery: the web UI cannot send it yet.
+    if (path.startsWith('/api/') && process.env.STRATA_REQUIRE_API_TOKEN === '1') {
+      const supplied = req.headers['x-strata-token'] ?? url.searchParams.get('token');
+      const expected = process.env.STRATA_LOCAL_API_TOKEN ?? '';
+      const tokenFile = join(store.HOME, 'local-api-token');
+      const valid = expected
+        ? supplied === expected
+        : typeof supplied === 'string' && supplied.length >= 32
+          && supplied === readFileSync(tokenFile, 'utf8').trim();
+      if (!valid) return error(res, 401, 'Host controls need the local API token (x-strata-token).');
     }
     if (path.startsWith('/api/')) {
       const modelOperation = !['GET', 'OPTIONS'].includes(method) && /^\/api\/(models|local-models|runtime|image-models|engine|native)(\/|$)/.test(path) && !['/api/runtime/plan', '/api/engine/validate', '/api/local-models/inspect'].includes(path);

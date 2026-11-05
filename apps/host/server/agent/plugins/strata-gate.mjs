@@ -48,6 +48,21 @@ export const READ_ONLY_TOOLS = new Set([
 
 const SHELL_TOOLS = new Set(['pwsh', 'bash']);
 
+const FS_TOOLS = new Set(['read', 'read_image', 'glob', 'grep']);
+
+/* P0-8 F2: the chat folder the read-only fast lane is allowed to prove paths inside. Loaded lazily
+   (the plugin ships with no imports): when it cannot be loaded, every fs/shell read asks. */
+let pathGuard = null;
+async function loadPathGuard() {
+  if (pathGuard !== null) return pathGuard;
+  try { pathGuard = await import(new URL('../path-guard.mjs', import.meta.url)); }
+  catch { pathGuard = false; }                       // fail-closed: no module means everything asks
+  return pathGuard;
+}
+function sessionCwd(session) {
+  return session?.header?.cwd ?? session?.cwd ?? session?.header?.workspacePath ?? null;
+}
+
 /**
  * Which shell commands run without a card in Manual mode, and with which options. Safe by construction (#3975): a command is on the list WITH the
  * options that are known to only look. Every other option, long or short, abbreviated or attached, makes the command ask. So a write mode
@@ -332,10 +347,33 @@ export function webDecision(exec, options = {}) {
 export function manualDecision(exec, options = {}) {
   const tool = String(exec.name ?? '');
   const args = exec.arguments && typeof exec.arguments === 'object' ? exec.arguments : {};
+  const hasCwd = typeof options.cwd === 'string' || options.cwd === null;   // the hook always passes one; unit callers may not
+  const guard = options.guard;
   if (WEB_TOOLS.has(tool)) return webDecision(exec, options);
-  if (READ_ONLY_TOOLS.has(tool)) return null;
+  if (READ_ONLY_TOOLS.has(tool)) {
+    if (hasCwd && FS_TOOLS.has(tool)) {
+      // P0-8 F2: an open sandbox lets these read ANY path. Prove the path is inside the chat's
+      // folder, or ask. A missing cwd fails closed (ask), never silently allows.
+      if (!guard || options.cwd === null) {
+        return { kind: 'ask', reason: 'Approve this read: this chat\'s folder could not be proven' };
+      }
+      const out = guard.fsToolOutside(options.cwd, args);
+      if (out.length) return { kind: 'ask', reason: `Read outside this chat's folder: ${clip(out.join(', '), 200)}` };
+    }
+    return null;
+  }
   if (SHELL_TOOLS.has(tool)) {
-    if (isReadOnlyShell(args.command)) return null;
+    if (isReadOnlyShell(args.command)) {
+      if (hasCwd) {
+        if (!guard || options.cwd === null) {
+          return { kind: 'ask', reason: 'Approve this read: this chat\'s folder could not be proven' };
+        }
+        const out = guard.shellCommandOutside(options.cwd, args.command);
+        if (out.length) return { kind: 'ask', reason: `Read outside this chat's folder: ${clip(out.join(', '), 200)}` };
+        return null;
+      }
+      return null;                                 // legacy unit callers without a cwd keep the old verdicts
+    }
     const what = args.description ? clip(args.description, 160) : clip(args.command, 160);
     return { kind: 'ask', reason: `Run a command that may change things: ${what}` };
   }
@@ -433,7 +471,9 @@ export function apply(ctx, config = {}) {
     }
     if (preset === PLAN_PRESET) return planDecision(exec) ?? next();
     if (preset !== MANUAL_PRESET) return next();
-    const gate = manualDecision(exec, { provider: web.provider });
+    const guard = await loadPathGuard();
+    const cwd = sessionCwd(agent.session);
+    const gate = manualDecision(exec, { provider: web.provider, cwd, guard });
     if (!gate) return next();
     if (gate.web) {
       // The person's switch, or a yes already given in this chat: no question.
