@@ -3533,5 +3533,6 @@
   "s9041": "{0} installierte Modellfamilien sind nicht in diesem Katalog.",
   "s9042": "Heruntergeladen, nicht geladen - unter Modelle laden",
   "s9043": "Dieses Modell nutzt seinen einen Drafter selbst: DeepSeek nimmt seinen eigenen, die anderen Familien den MTP (Einstellungen > Draft layer schaltet ihn ab).",
-  "s9044": "DFlash2 läuft auf dieser Engine nicht; Auto ist daher der MTP."
+  "s9044": "DFlash2 läuft auf dieser Engine nicht; Auto ist daher der MTP.",
+  "s9045": "Bekannte Tool-Server"
 }

@@ -3533,5 +3533,6 @@
   "s9041": "{0} familias de modelos instaladas no están en este catálogo.",
   "s9042": "Descargado, sin cargar - abre Modelos para cargarlo",
   "s9043": "Este modelo usa su único borrador: DeepSeek elige el suyo, las demás familias usan el MTP (Ajustes > Capa de borrador lo apaga).",
-  "s9044": "DFlash2 no funciona en este motor, así que Auto es el MTP."
+  "s9044": "DFlash2 no funciona en este motor, así que Auto es el MTP.",
+  "s9045": "Servidores de herramientas conocidos"
 }

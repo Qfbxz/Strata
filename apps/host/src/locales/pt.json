@@ -3533,5 +3533,6 @@
   "s9041": "{0} famílias de modelos instalados não estão neste catálogo.",
   "s9042": "Descarregado, não carregado - abra Modelos para carregar",
   "s9043": "Este modelo usa o seu único drafter: o DeepSeek escolhe o dele, as outras famílias usam o MTP (Definições > Draft layer desliga-o).",
-  "s9044": "O DFlash2 não funciona neste motor, por isso o Auto é o MTP."
+  "s9044": "O DFlash2 não funciona neste motor, por isso o Auto é o MTP.",
+  "s9045": "Servidores de ferramentas conhecidos"
 }
