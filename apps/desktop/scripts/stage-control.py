@@ -144,10 +144,55 @@ def write_bundle_record(folder: Path, archive: Path) -> dict:
     return record
 
 
+def macho_cpu(path: Path) -> str:
+    """The CPU slice of a Mach-O binary: 'arm64', 'x86_64', 'fat' (universal) or 'unknown'."""
+    import struct
+    try:
+        with open(path, "rb") as fh:
+            magic, cpu = struct.unpack("<II", fh.read(8))
+    except (OSError, Exception):
+        return "unknown"
+    if magic == 0xFEEDFACF and cpu == 0x0100000C:
+        return "arm64"
+    if magic == 0xFEEDFACF and cpu == 0x00000007:
+        return "x86_64"
+    return "fat" if magic in (0xCAFEBABE, 0xBEBAFECA) else "unknown"
+
+
+def target_problems(folder: Path, target: str) -> list[str]:
+    """The staged payload must be FOR this machine. An x86_64 stage passes a files-exist check
+    on an arm64 Mac (Rosetta runs the interpreter fine), and the finished app then calls itself
+    macos-x86_64 and cannot find its engine (the 2026-11-06 04:00 case: the app shipped with a
+    darwin-x86_64 control left over from a cross build). The manifest's target AND the bundled
+    interpreter's slice both have to match."""
+    problems = []
+    manifest = {}
+    try:
+        manifest = json.loads((folder / "BUNDLE.json").read_text())
+    except (OSError, ValueError):
+        problems.append("BUNDLE.json is missing or unreadable")
+        manifest = {}
+    staged = manifest.get("target")
+    if staged and staged != target:
+        problems.append(f"the staged control is for {staged}, this build is {target}: re-stage (drop the stale folder or --target {target})")
+    want = {"darwin-arm64": "arm64", "darwin-x86_64": "x86_64"}.get(target)
+    if want:
+        # the pin's path is the bin/python3 shell wrapper - read the real binary beside it
+        slice_ = "unknown"
+        for candidate in [folder / pt.PYTHON_PINS[target]["python"], *sorted((folder / "python" / "bin").glob("python3.*"))]:
+            if candidate.is_file():
+                slice_ = macho_cpu(candidate)
+                if slice_ != "unknown":
+                    break
+        if slice_ not in (want, "fat"):
+            problems.append(f"the bundled python is a {slice_} binary, {target} needs {want}: re-stage")
+    return problems
+
+
 def check(folder: Path) -> int:
     target = pt.host_target()
+    problems = target_problems(folder, target)
     python = folder / pt.PYTHON_PINS[target]["python"]
-    problems = []
     for need in (python, folder / "strata.py", folder / "strata_control", folder / "serve" / "server.py", folder / "BUNDLE.json",
                  folder / "setup.py", folder / "tools" / "strata_mcp.py", folder / "tools" / "iq_pack.py", folder / "data" / "draft_vocab.bin"):
         if not need.exists():
