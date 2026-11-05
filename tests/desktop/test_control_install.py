@@ -462,7 +462,9 @@ class DeleteModelTests(unittest.TestCase):
         mine = self.make(Path(self.tmp.name) / "mine" / "own.gguf", 99)
         (self.root / "strata-iq3x.json").write_text(json.dumps({"exe": "component:strata-engine", "args": [
             "--pack", str(pack), "--native", str(shard), "--ple-gguf", str(mine)]}), encoding="utf-8")
-        result = self.tools.strata_remove(model="iq3x", confirm=True)
+        result = self.tools.strata_remove(model="iq3x", confirm=True, confirm_outside=True)
+        # 2026-11-05 contract: files outside Strata's own folders still go with the model (#3716),
+        # but freeing them is now an explicit choice (confirm_outside) instead of a silent side effect.
         self.assertEqual(result["failed"], [])
         self.assertFalse(shard.exists())
         self.assertFalse(pack.exists())

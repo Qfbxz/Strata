@@ -829,36 +829,59 @@ class Strata:
         for p, is_dir in [(x, False) for x in files] + [(x, True) for x in dirs]:
             if not p.exists():
                 continue
-            if not self.allowed(p) and not self.made_by_strata(p, is_dir):
-                keep.append({"path": str(p), "reason": "outside Strata's folders"})
+            is_out = not self.allowed(p)
+            if is_out and not self.made_by_strata(p, is_dir):
+                # the person's own GGUFs (no .done / conversions.json) are never deleted, wherever they are (#3716)
+                keep.append({"path": str(p), "reason": "the person's own file (no Strata marks)"})
             elif shared(p, is_dir):
                 keep.append({"path": str(p), "reason": "another installed model still uses it"})
             else:
-                remove.append({"path": str(p), "kind": "folder" if is_dir else "file", "bytes": self.tree_bytes(p)})
+                entry = {"path": str(p), "kind": "folder" if is_dir else "file", "bytes": self.tree_bytes(p)}
+                if is_out:
+                    # P0-1: Strata-made files in a folder the person chose are removable (#3716) but
+                    # need their own explicit confirmation (confirm_outside) — the 2026-11-05 incident
+                    # freed 430 GB in ~/gguf behind a generic "Delete model" click.
+                    entry["outside"] = True
+                remove.append(entry)
                 if not is_dir:
                     for extra in (p.with_name(p.name + ".done"), p.with_name(p.name + ".part"),
                                   p.with_name(p.name + ".part.chunks")):
                         if extra.exists():
-                            remove.append({"path": str(extra), "kind": "file", "bytes": self.tree_bytes(extra)})
+                            extra_item = {"path": str(extra), "kind": "file", "bytes": self.tree_bytes(extra)}
+                            if is_out:
+                                extra_item["outside"] = True
+                            remove.append(extra_item)
         tag = config.stem[len("strata-"):]
         for extra in (config, config.with_name(config.name + ".bak"), config.with_name(f"strata-{tag}.log"),
                       self.root / f"run-{tag}.bat", self.root / f"run-{tag}.sh"):
             if extra.exists():
                 remove.append({"path": str(extra), "kind": "file", "bytes": self.tree_bytes(extra)})
         total = sum(x["bytes"] for x in remove)
-        return {"model": tag, "remove": remove, "keep": keep, "bytes": total, "gb": round(total / 1e9, 2)}
+        outside = [x for x in remove if x.get("outside")]
+        return {"model": tag, "remove": remove, "keep": keep, "bytes": total, "gb": round(total / 1e9, 2),
+                # P0-1: bytes that live in folders the person chose (outside Strata's own). Deleting
+                # them needs confirm_outside=true (or also_remove naming them one by one).
+                "outside_bytes": sum(x["bytes"] for x in outside),
+                "outside_gb": round(sum(x["bytes"] for x in outside) / 1e9, 2),
+                "outside_paths": [x["path"] for x in outside]}
 
     def find_config(self, model: str | None) -> Path:
         have = self.configs()
         if not have:
             raise ToolError("no model is installed in " + str(self.root) + " yet: install one first (strata_install)")
         if not model:
-            return have[0]                              # the most recently used, as setup starts it
+            # P0-4: removal is destructive — never guess "the most recently used".
+            raise ToolError("name which model: " + ", ".join(c.stem[len("strata-"):] for c in have))
         m = model.strip().lower()
         exact = [c for c in have if c.stem[len("strata-"):] == m]
         if exact:
             return exact[0]
         by_name = [c for c in have if str(self.read_config(c).get("model_name", "")).lower() == m]
+        if len(by_name) > 1:
+            # P0-4: an ambiguous model_name must not resolve to "whichever came first".
+            raise ToolError(f"{model!r} matches several installed models by name: " +
+                            ", ".join(c.stem[len("strata-"):] for c in by_name) +
+                            "; use the exact model id")
         if by_name:
             return by_name[0]
         ends = [c for c in have if c.stem.endswith("-" + m)]
@@ -2033,7 +2056,11 @@ def tool_defs(models: dict, families: dict, contexts: list) -> list:
                         "another installed model still uses (a shared MTP draft or PLE file). Without confirm=true it only "
                         "returns the plan (what would be removed and how big, what is kept). Stop the model first.",
          "inputSchema": {"type": "object", "additionalProperties": False, "required": ["model"],
-                         "properties": {"model": installed_model, "confirm": {"type": "boolean"}}},
+                         "properties": {"model": installed_model, "confirm": {"type": "boolean"},
+                                        "confirm_outside": {"type": "boolean",
+                                                            "description": "the plan frees files inside folders the person chose (outside Strata's own): true = the person agreed to those bytes too"},
+                                        "also_remove": {"type": "array", "items": {"type": "string"},
+                                                        "description": "free only these outside files (exact paths from the plan); the rest of them is kept"}}},
          "annotations": {"readOnlyHint": False, "destructiveHint": True}},
         {"name": "strata_install", "title": "Install Strata",
          "description": "Install a Strata model on this PC by running Strata's setup non-interactively in the "
@@ -2228,19 +2255,58 @@ class Tools:
                             **({"gpu_note": hw["gpu_note"]} if hw.get("gpu_note") else {})}}
 
     # ---- strata_remove
-    def strata_remove(self, model=None, confirm=False) -> dict:
+    def strata_remove(self, model=None, confirm=False, confirm_outside=False, also_remove=None) -> dict:
         s = self.s
         config = s.find_config(model)
-        plan = s.removal_plan(config)
-        if not confirm:
-            return {"summary": f"Plan: delete {plan['model']} ({plan['gb']:.1f} GB). Nothing was done yet.", "plan": plan}
         with s.lock:
+            plan = s.removal_plan(config)
+            if also_remove:
+                # P0-4b: the surgical channel — free exactly the outside files the person named;
+                # every other outside file is kept. With this, confirm_outside is not needed.
+                named = {norm(Path(x)) for x in also_remove}
+                kept_outside = []
+                for item in list(plan["remove"]):
+                    if item.get("outside") and norm(Path(item["path"])) not in named:
+                        kept_outside.append(item)
+                plan["remove"] = [i for i in plan["remove"]
+                                  if not i.get("outside") or norm(Path(i["path"])) in named]
+                if kept_outside:
+                    plan["keep"].extend({"path": x["path"], "reason": "the person kept this one"}
+                                        for x in kept_outside)
+                missing = [x for x in also_remove
+                           if norm(Path(x)) not in {norm(Path(i["path"])) for i in plan["remove"]}]
+                if missing:
+                    raise ToolError(f"not offered for cleanup: {', '.join(missing)} (pass exact paths "
+                                    f"from the plan; the person's own files are never deleted)")
+            elif confirm and not confirm_outside and plan.get("outside_bytes"):
+                size_words = (f"{plan['outside_gb']:.1f} GB" if plan["outside_bytes"] >= 1e8
+                              else f"{plan['outside_bytes'] / 1e6:.1f} MB")
+                raise ToolError(
+                    f"this plan frees {size_words} inside folders the person chose "
+                    f"(outside Strata's own): {', '.join(plan['outside_paths'][:3])}"
+                    f"{' …' if len(plan['outside_paths']) > 3 else ''}. Call again with "
+                    f"confirm_outside=true to allow it, or name the files with also_remove to free "
+                    f"only some of them.")
+            if not confirm:
+                summary = f"Plan: delete {plan['model']} ({plan['gb']:.1f} GB). Nothing was done yet."
+                if plan.get("outside_bytes"):
+                    summary += (f" It also frees {plan['outside_gb']:.1f} GB inside folders the person "
+                                f"chose: confirm_outside=true allows it, or name files with also_remove "
+                                f"to free only some of them.")
+                return {"summary": summary, "plan": plan}
             job = s.install_job()
             if job and job["running"]:
                 raise ToolError("an install is running: wait for it to finish or stop it first")
             tracked = s.tracked_server()
             if tracked and not tracked.get("ended") and tracked.get("model") == plan["model"]:
                 raise ToolError("this model is running: stop it first")
+            # P0-3: the forensic record, written before anything is deleted.
+            try:
+                s.state_dir.mkdir(parents=True, exist_ok=True)
+                (s.state_dir / "last-removal.json").write_text(
+                    json.dumps({"when": time.time(), **plan}, indent=1), encoding="utf-8")
+            except OSError:
+                pass
             failed = []
             # The plan can list a folder and files inside it, or a file that is already gone (an earlier delete, a file moved by hand):
             # a path that is not there is already removed, not an error. Only what is still there afterwards counts as a failure.
@@ -2258,6 +2324,11 @@ class Tools:
                         failed.append(f"{p.name}: {e}")
             files, dirs = s.model_paths(s.read_config(config)) if config.exists() else ([], [])
             for p in {x.parent for x in [Path(i["path"]) for i in plan["remove"]] if x.suffix == ".gguf"}:
+                # P0-2: only collect parents inside Strata's own folders (root / data_dir).
+                # A folder the person chose outside them (~/gguf/metal, ~/gguf/models/<name>) is
+                # never removed — an empty folder is not worth the risk of taking someone else's.
+                if not s.allowed(p):
+                    continue
                 try:
                     p.rmdir()                           # the model's own folder, when nothing else is in it
                 except OSError:
