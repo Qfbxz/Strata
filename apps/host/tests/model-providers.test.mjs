@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -158,4 +159,27 @@ test('a model the server does not report a window for takes the catalog value (g
   const saved = service.save({ kind: 'custom', name: 'Z', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat' }] }).connections[0];
   const out = await service.refreshModelInfo(saved.id);
   assert.equal(out.models[0].contextMax, 32768, 'the server reported it: the real value');
+});
+
+test('glm-5.3-flash really gets its 1M window: a server that reports no context fields still yields the catalog value', async t => {
+  // a private mock that answers a model list WITHOUT context fields (what Zhipu's list does),
+  // carrying the glm id — the shared mock cannot serve this case
+  const server = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: [{ id: 'glm-5.3-flash', display_name: 'GLM 5.3 Flash' }, { id: 'glm-4.7', display_name: 'GLM 4.7' }] }));
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); });
+  const directory = mkdtempSync(join(tmpdir(), 'strata-glm-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const service = createModelProviders({ directory });
+  const saved = service.save({ kind: 'custom', name: 'Z.ai', baseUrl: `http://127.0.0.1:${port}`, protocol: 'openai-chat', apiKey: '', models: [{ id: 'glm-5.3-flash' }, { id: 'glm-4.7' }] }).connections[0];
+  const out = await service.refreshModelInfo(saved.id);
+  const glm = out.models.find(m => m.id === 'glm-5.3-flash');
+  const old = out.models.find(m => m.id === 'glm-4.7');
+  assert.equal(glm.contextMax, 1000000, 'glm-5.3: the catalog\'s 1M, not the 128K assumption');
+  assert.equal(old.contextMax, 256000, 'glm-4.7: the catalog\'s 256K');
+  const later = createModelProviders({ directory }).list().connections[0];
+  assert.equal(later.models.find(m => m.id === 'glm-5.3-flash').contextMax, 1000000, 'persisted');
 });

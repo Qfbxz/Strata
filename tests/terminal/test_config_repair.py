@@ -145,3 +145,34 @@ class RealDataTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DryRunTests(unittest.TestCase):
+    """kimi round 2 F4: --dry-run reports what would change and writes nothing."""
+
+    def test_dry_run_reports_fixes_without_touching_the_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            comps = make_components(td)
+            cfg = td / "strata-iq3_s.json"
+            make_config(cfg, "0.1.55")
+            before = cfg.read_text()
+            out = config_repair.repair_config(cfg, comps.parent, dry_run=True)
+            self.assertTrue(out["changed"])
+            self.assertEqual(len(out["fixes"]), 1)
+            self.assertIn("0.1.55", out["fixes"][0]) and self.assertIn("0.1.56", out["fixes"][0])
+            self.assertEqual(cfg.read_text(), before, "dry run: the file is untouched")
+
+    def test_unreadable_json_is_a_row_not_a_stop(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            comps = make_components(td)
+            (td / "install").mkdir()
+            make_config(td / "install" / "strata-good.json", "0.1.55")
+            (td / "install" / "strata-broken.json").write_text("{not json at all")
+            report = config_repair.repair_install(td / "install", comps.parent)
+            by = {r["config"]: r for r in report}
+            # the broken config is a no-op row (its text holds no components path to fix) -
+            # whatever its shape, it must not stop the walk
+            self.assertFalse(by["strata-broken.json"]["changed"])
+            self.assertTrue(by["strata-good.json"]["changed"], "the walk continues past it")

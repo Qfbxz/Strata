@@ -47,3 +47,13 @@ class ConnectionPayloadTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RegisterBaseUrlTests(unittest.TestCase):
+    """kimi round 2 F4: the payload's baseUrl must be the bridge this register talked to."""
+
+    def test_payload_base_url_follows_the_bridge_argument(self):
+        p = mlx_register.connection_payload([{"id": "A", "context_max": 8192}], bridge_url="http://127.0.0.1:9999")
+        self.assertEqual(p["baseUrl"], "http://127.0.0.1:9999/v1", "a non-default bridge registers ITS address")
+        p2 = mlx_register.connection_payload([{"id": "A", "context_max": 8192}])
+        self.assertEqual(p2["baseUrl"], "http://127.0.0.1:8759/v1", "the default stays the default")
