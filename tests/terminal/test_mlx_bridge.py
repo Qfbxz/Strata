@@ -178,3 +178,25 @@ class StatusContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class BudgetArbitrationTests(unittest.TestCase):
+    """The P1 budget table (mlx-integration-design.md §3.3): MLX's tier is what is LEFT of the
+    pool after the Metal engine's resident pack and a headroom for the system - and the two
+    drafters of one memory pool must refuse to coexist when they cannot both fit."""
+
+    def test_tier_is_pool_minus_resident_minus_headroom(self):
+        # 128 GB of RAM: pool 96 GB (98304 MB), resident 54.8 GB (56115 MB), 8 GB headroom -> 33996 MB for MLX
+        self.assertAlmostEqual(mlx_bridge.budget_tier_mb(128, 54.8), 33996, delta=4)
+        self.assertEqual(mlx_bridge.budget_tier_mb(128, 0), int(128 * 1024 * 0.75 - 8192), "nothing resident: the pool share")
+
+    def test_tier_never_goes_negative(self):
+        self.assertEqual(mlx_bridge.budget_tier_mb(128, 200), 0)
+
+    def test_ud_q4_and_a_big_mlx_worker_refuse_to_coexist(self):
+        ok, why = mlx_bridge.coexistence_ok(worker_gb=16.1, gguf_resident_gb=91.7, ram_gb=128)
+        self.assertFalse(ok, "UD-Q4 resident (91.7 GB wired) with a 16 GB MLX worker is the fight the design forbids")
+        self.assertTrue(why)
+        ok, _ = mlx_bridge.coexistence_ok(worker_gb=2.3, gguf_resident_gb=91.7, ram_gb=128)
+        self.assertTrue(ok, "a small drafter-scale worker beside a resident engine is the allowed shape")
+        ok, _ = mlx_bridge.coexistence_ok(worker_gb=16.1, gguf_resident_gb=54.8, ram_gb=128)
+        self.assertTrue(ok, "IQ3_S resident leaves room: MLX may load")

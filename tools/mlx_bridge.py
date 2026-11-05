@@ -159,6 +159,26 @@ def cap_wired_mb(requested: int, cap: int) -> int:
     return min(int(requested), int(cap))
 
 
+def budget_tier_mb(ram_gb: float, gguf_resident_gb: float) -> int:
+    """The MLX tier of the unified pool (the design's §3.3): what the recommended working set
+    (about 75% of RAM) still holds after the Metal engine's resident pack and 8 GB of headroom
+    for the system. 0 when nothing is left."""
+    pool = ram_gb * 1024 * 0.75
+    return max(0, int(pool - gguf_resident_gb * 1024 - 8192))
+
+
+def coexistence_ok(worker_gb: float, gguf_resident_gb: float, ram_gb: float) -> tuple[bool, str]:
+    """The coexistence rule: GGUF first, MLX after; the pool is one. A resident engine of the
+    UD-Q4 class (the wired pack fills the pool) and a worker of the 4-bit-27B class (10 GB and
+    up) cannot both fit - loading one while the other holds the pool is the fight that pages
+    both. Small workers (drafters, distills) stay allowed beside a resident engine, and a big
+    worker is fine with an IQ3_S-sized resident."""
+    if gguf_resident_gb >= 60 and worker_gb >= 10:
+        return False, (f"a resident engine of {gguf_resident_gb:.0f} GB holds the pool; a {worker_gb:.1f} GB MLX "
+                       f"worker cannot coexist with it on {ram_gb:.0f} GB of RAM - unload the local model first")
+    return True, ""
+
+
 def needs_swap(active: str | None, requested: str) -> bool:
     return active != requested
 
