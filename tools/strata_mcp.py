@@ -1138,7 +1138,7 @@ class Strata:
         ram = float(hw.get("ram_gb") or 0)
         have = {c.stem[len("strata-"):] for c in self.configs()}
         out = []
-        for family in ("qwen", "gyro"):                # Gyro after the regular sizes, as on a PC: never the default
+        for family in ("qwen", "unsloth", "gyro"):                # Gyro after the regular sizes, as on a PC: never the default
             fd = families.get(family)
             if fd is None:
                 continue

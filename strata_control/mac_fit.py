@@ -88,7 +88,7 @@ GPU_SHARE = 0.75
 RESIDENT_LEAVE_SHARE = 0.30
 BIG_MAC_GB = 64.0
 GIB_GB = 1.073741824    # a GiB in GB: ram_gb is binary, the model sizes are decimal
-CONTEXTS = [8192, 32768, 65536, 131072]
+CONTEXTS = [8192, 32768, 65536, 131072, 262144]
 MAC_ABOUT = {"Q2_0": "2-bit, the fastest", "IQ3_XXS": "3-bit i-quant, better quality",
              "IQ3_S": "3.5-bit i-quant, the best quality (matches the full model), the slowest",
              "UD-Q4_K_XL": "Unsloth ~4.5-bit (111 GB download)", "UD-Q5_K_XL": "Unsloth ~5.5-bit (158 GB download)",
@@ -208,7 +208,7 @@ def model_note(model: str, ram_gb: float) -> list[str]:
 
 
 def recommend_context(ram_gb: float) -> int:
-    return 32768 if ram_gb < 96 else 65536
+    return 32768 if ram_gb < 96 else 262144  # 自定义: IQ3_S 默认 256K 原生
 
 
 def stream_mtp(stream: bool, ram_gb: float) -> bool:
