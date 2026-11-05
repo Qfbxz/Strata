@@ -413,3 +413,41 @@ def run_config_for(gguf: Path, install_places: list[Place]) -> Path | None:
             if any(os.path.normcase(a) == want for a in args if a.lower().endswith(".gguf")):
                 return cfg_path
     return None
+
+
+def resolve_data_root(default: Path, *, environ=None, windows: bool | None = None, home: Path | None = None,
+                      on_change=None) -> tuple[Path, str]:
+    """P0-6: THE single entry point for "where does Strata's data live".
+
+    Same precedence as `data_dir` (settings vs app: the one changed last wins, the other file is
+    brought up to date; then a Documents/Strata that holds models; else `default`), with two
+    additions the 2026-11-05 audit asked for:
+
+    - every time the shared data_dir key is rewritten by the sync, `on_change(what, where)` fires
+      (the app's setup log prints it) — the drift that put weights in ~/gguf while the app pointed
+      at Documents/Strata used to happen in silence;
+    - a `default` of ``root.parent / 'Strata-data'`` is still returned, but marked as source
+      "default", so a caller can tell the drift apart from a choice.
+    """
+    before = _data_dir_snapshot(environ=environ, windows=windows, home=home)
+    result = data_dir(default, environ=environ, windows=windows, home=home)
+    after = _data_dir_snapshot(environ=environ, windows=windows, home=home)
+    if on_change:
+        for label, (file, entry) in after.items():
+            was = before.get(label)
+            if entry and (was is None or was[0] != entry[0]):
+                on_change(entry[0], f"{label}:{file.name}")
+    return result
+
+
+def _data_dir_snapshot(*, environ=None, windows: bool | None = None, home: Path | None = None) -> dict:
+    """{label: (file, (folder, at))} for both settings files that name a data_dir — what resolve_data_root
+    compares across the sync to report changes."""
+    own_file = own_settings_file(environ=environ, windows=windows, home=home)
+    app_file = app_settings_file(environ=environ, windows=windows, home=home)
+    out = {}
+    for label, f in (("settings", own_file), ("app", app_file)):
+        entry = _data_dir_entry(f)
+        if entry:
+            out[label] = (f, entry)
+    return out
