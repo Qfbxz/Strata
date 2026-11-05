@@ -174,14 +174,12 @@ def apply(cfg: dict, changes: dict) -> tuple[dict, list[str]]:
 
 
 def save(path: str | Path, cfg: dict) -> Path:
-    """The config written whole (a temporary file moved over the old one), the earlier one kept as <name>.bak."""
+    """The config written whole under the shared write lock (P0-5), the earlier one kept as <name>.bak
+    (with .bak.1/.bak.2 rotated behind it). A whole write that would drop the required keys the
+    current file has is refused — build on `atomic.guarded_write`'s mutate to change single keys."""
     path = Path(path)
-    bak = path.with_name(path.name + ".bak")
-    shutil.copyfile(path, bak)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(cfg, indent=1), encoding="utf-8")
-    _atomic_mod.replace(tmp, path)
-    return bak
+    _atomic_mod.guarded_write(path, lambda current: cfg, required_keys=("exe", "args"))
+    return path.with_name(path.name + ".bak")
 
 
 def load(path: str | Path) -> dict:
