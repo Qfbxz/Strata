@@ -3540,5 +3540,6 @@
   "s9048": "mobile-mcp (Telefon)",
   "s9049": "Den eigenen Chrome oder Edge steuern: navigieren, klicken, Formulare füllen, Seiten lesen, Screenshots.",
   "s9050": "Native Desktop-Steuerung unter macOS und Windows: klicken, tippen, Bildschirm lesen, Apps bedienen.",
-  "s9051": "Ein echtes Android- oder iOS-Gerät steuern: tippen, eingeben, Apps installieren, Bildschirm über adb lesen."
+  "s9051": "Ein echtes Android- oder iOS-Gerät steuern: tippen, eingeben, Apps installieren, Bildschirm über adb lesen.",
+  "s9052": "{0}K Kontext"
 }

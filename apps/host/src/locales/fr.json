@@ -3540,5 +3540,6 @@
   "s9048": "mobile-mcp (téléphone)",
   "s9049": "Piloter le Chrome ou Edge de la personne : naviguer, cliquer, remplir, lire les pages, capturer.",
   "s9050": "Contrôle natif du bureau sur macOS et Windows : cliquer, taper, lire l'écran, piloter une app.",
-  "s9051": "Piloter un vrai appareil Android ou iOS : toucher, taper, installer, lire l'écran via adb."
+  "s9051": "Piloter un vrai appareil Android ou iOS : toucher, taper, installer, lire l'écran via adb.",
+  "s9052": "contexte {0}K"
 }

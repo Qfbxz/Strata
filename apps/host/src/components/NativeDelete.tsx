@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Btn, Dialog, ErrorNotice } from './ui';
 import { nativeAction, nativeState, refreshNative, useNative, type NativeJob } from '../lib/native';
 import { catalogVersionLabel, nativeCatalogModels } from '../lib/native-catalog';
+import { modelDisplay } from '../lib/model-display';
 import { sizeGb } from '../lib/format';
 
 /** Delete a downloaded (native) model: its own files and run config. What another installed model still uses stays. A loaded model
@@ -11,7 +12,7 @@ export function NativeDeleteDialog({ id, onClose }: { id: string | null; onClose
     const native = useNative();
     const [pending, setPending] = useState(false), [error, setError] = useState('');
     const entry = native?.installed?.models.find(m => m.model === id);
-    const label = (() => { const sizes = nativeCatalogModels(native?.catalog?.families ?? []).flatMap(f => f.sizes); const v = sizes.find(s => s.id === id); return v ? `${catalogVersionLabel(v)} · ${v.model}` : entry?.model_name ?? id ?? ''; })();
+    const label = (() => { const sizes = nativeCatalogModels(native?.catalog?.families ?? []).flatMap(f => f.sizes); const v = sizes.find(s => s.id === id); return v ? `${catalogVersionLabel(v)} · ${v.model}` : entry ? `${modelDisplay(entry).main}${modelDisplay(entry).sub ? ` · ${modelDisplay(entry).sub}` : ''}` : id ?? ''; })();
     const running = !!native?.instances.some(i => i.model === id);
     const busy = !!native?.jobs.some(j => j.state === 'running');
     const size = entry?.diskGb ?? 0, gb = entry?.removableGb ?? size;

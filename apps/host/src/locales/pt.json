@@ -3540,5 +3540,6 @@
   "s9048": "mobile-mcp (telefone)",
   "s9049": "Usa o Chrome ou Edge da pessoa: navegar, clicar, preencher formulários, ler páginas e capturar.",
   "s9050": "Controlo nativo do ambiente de trabalho em macOS e Windows: clicar, escrever, ler o ecrã, usar apps.",
-  "s9051": "Usa um dispositivo Android ou iOS real: tocar, escrever, instalar apps, ler o ecrã por adb."
+  "s9051": "Usa um dispositivo Android ou iOS real: tocar, escrever, instalar apps, ler o ecrã por adb.",
+  "s9052": "contexto {0}K"
 }
