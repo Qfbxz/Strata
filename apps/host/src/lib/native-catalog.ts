@@ -29,8 +29,13 @@ export function nativeCatalogModels(families:NativeFamily[]):CatalogModel[]{
  return groups;
 }
 
-/** Every size id the catalog offers, across all families and versions. */
-export const catalogSizeIds=(families:NativeFamily[]):Set<string>=>new Set(families.flatMap(f=>f.sizes.map(s=>s.id)));
+/** Every size id the catalog offers, across all families and versions - EXCEPT the families the
+ * display groups would drop (unknownFamilies): their installed models must reach the own-models
+ * block, not vanish with the group (the unsloth accident's family-level shape). */
+export const catalogSizeIds=(families:NativeFamily[]):Set<string>=>{
+ const unknown=new Set(unknownFamilies(families));
+ return new Set(families.filter(f=>!unknown.has(f.family)).flatMap(f=>f.sizes.map(s=>s.id)));
+};
 
 /** Installed models the current catalog does not list: hand-written run configs, catalog entries
  * that were removed, or a whole family the display groups do not know (the unsloth accident's

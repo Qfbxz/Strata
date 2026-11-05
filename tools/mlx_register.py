@@ -27,15 +27,17 @@ def pretty(name: str) -> str:
     return name.replace("-MLX-", " MLX·").replace("-", " ")
 
 
-def connection_payload(models: list[dict], existing_id: str | None = None) -> dict:
-    """The POST /api/model-providers body. models rows: {id, context_max} from the bridge registry."""
+def connection_payload(models: list[dict], existing_id: str | None = None, bridge_url: str = BRIDGE_DEFAULT) -> dict:
+    """The POST /api/model-providers body. models rows: {id, context_max} from the bridge registry.
+    The connection points at THE BRIDGE THIS PROCESS TALKED TO (bridge_url) - a bridge on a non-default
+    port must not register a connection that leads to :8759."""
     if len(models) > MAX_MODELS:
         raise ValueError(f"{len(models)} models exceed the connection limit of {MAX_MODELS}")
     rows = [{"id": m["id"], "name": m.get("name") or pretty(m["id"]),
              "contextMax": m.get("context_max"), "maxOutput": None, "vision": None, "reasoning": None}
             for m in models]
     payload = {"kind": "custom", "provider": None, "name": NAME,
-               "baseUrl": f"{BRIDGE_DEFAULT.rstrip('/')}/v1", "protocol": PROTOCOL, "apiKey": "", "models": rows}
+               "baseUrl": f"{bridge_url.rstrip('/')}/v1", "protocol": PROTOCOL, "apiKey": "", "models": rows}
     if existing_id:
         payload["id"] = existing_id
     return payload
@@ -61,10 +63,14 @@ def register(bridge: str = BRIDGE_DEFAULT, host: str = HOST_DEFAULT) -> dict:
         connections = get_json(f"{host.rstrip('/')}/api/model-providers").get("connections", [])
     except (urllib.error.URLError, OSError):
         raise RuntimeError(f"the Strata host at {host} is not reachable - start the app first")
-    existing = next((c for c in connections if c.get("name") == NAME), None)
+    bridge_url = bridge.rstrip('/')
+    # idempotent by name; a connection the person renamed is still ours when its baseUrl is the bridge
+    existing = next((c for c in connections if c.get("name") == NAME or c.get("baseUrl") == f"{bridge_url}/v1"), None)
     result = post_json(f"{host.rstrip('/')}/api/model-providers",
-                       connection_payload(models, existing.get("id") if existing else None))
-    return {"updated": existing is not None, "models": len(models), "connection": result["connections"][0] if "connections" in result else result}
+                       connection_payload(models, existing.get("id") if existing else None, bridge_url))
+    saved = result.get("connections") or []
+    mine = next((c for c in saved if c.get("id") == (existing or {}).get("id") or c.get("name") == NAME), result if "id" in result else (saved[0] if saved else result))
+    return {"updated": existing is not None, "models": len(models), "connection": mine}
 
 
 def main() -> int:

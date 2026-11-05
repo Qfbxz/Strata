@@ -71,7 +71,10 @@ export function ComposerControls({ session, onPreview, onAttach, onError, onSlas
     attachLatest.current = onAttach;
     const addFilesLatest = useRef<(files: File[]) => Promise<void>>(async () => { });
     // A model on an API takes a reasoning effort when its provider says it can think (OpenRouter's model list); otherwise the provider decides.
-    const apiOnlyDefault = !!apiModel && apiModel.thinks !== true;
+    // The effort menu lights for every API model whose row does not say otherwise: an Anthropic-style
+    // connection has no probe, so "unknown" must not grey it (the wire decides per protocol, and the
+    // row's own switch is the explicit off).
+    const apiOnlyDefault = !!apiModel && apiModel.thinks === false;
     const pictures = pictureStatus(native, remoteModel, providers);
     const mode = modes.find(m => m.value === session?.preferences?.mode) ?? modes[0];
     const effort = efforts.includes(session?.preferences?.thinking ?? '') ? session!.preferences!.thinking! : 'Medium';

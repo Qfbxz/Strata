@@ -1176,7 +1176,7 @@ class Strata:
         ram = float(hw.get("ram_gb") or 0)
         have = {c.stem[len("strata-"):] for c in self.configs()}
         out = []
-        for family in (self.mac().APP_FAMILIES if self.mac() else ("qwen", "gyro")):      # Qwen, Unsloth's sets, then Gyro (one source with the installer): never the default
+        for family in (tuple(self.mac().APP_FAMILIES) if self.mac() else ()):      # no mac_fit: _mac_sizes returns [] anyway, so no family renders      # Qwen, Unsloth's sets, then Gyro (one source with the installer): never the default
             fd = families.get(family)
             if fd is None:
                 continue

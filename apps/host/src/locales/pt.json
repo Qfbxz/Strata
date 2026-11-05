@@ -3534,5 +3534,11 @@
   "s9042": "Descarregado, não carregado - abra Modelos para carregar",
   "s9043": "Este modelo usa o seu único drafter: o DeepSeek escolhe o dele, as outras famílias usam o MTP (Definições > Draft layer desliga-o).",
   "s9044": "O DFlash2 não funciona neste motor, por isso o Auto é o MTP.",
-  "s9045": "Servidores de ferramentas conhecidos"
+  "s9045": "Servidores de ferramentas conhecidos",
+  "s9046": "Playwright (navegador)",
+  "s9047": "ScreenHand (desktop)",
+  "s9048": "mobile-mcp (telefone)",
+  "s9049": "Usa o Chrome ou Edge da pessoa: navegar, clicar, preencher formulários, ler páginas e capturar.",
+  "s9050": "Controlo nativo do ambiente de trabalho em macOS e Windows: clicar, escrever, ler o ecrã, usar apps.",
+  "s9051": "Usa um dispositivo Android ou iOS real: tocar, escrever, instalar apps, ler o ecrã por adb."
 }

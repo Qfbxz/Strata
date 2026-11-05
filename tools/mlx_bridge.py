@@ -123,22 +123,41 @@ def scan_registry(roots: list[str]) -> list[dict]:
             out.append({"id": d.name, "name": d.name.replace("-", " "), "path": str(d),
                         "ctx": int(ctx) if isinstance(ctx, int) and ctx > 0 else DEFAULT_CTX,
                         "gb": gb, "root": str(root)})
-    out.sort(key=lambda r: r["id"])
-    return out
+    # two roots holding the same folder name would collide into one id (the profiles and the
+    # worker logs would cross): keep the first, say the other out loud
+    seen: dict[str, dict] = {}
+    for row in out:
+        first = seen.get(row["id"])
+        if first:
+            print(f"mlx-bridge: model id {row['id']!r} exists under two roots; keeping {first['path']}, skipping {row['path']}", flush=True)
+            continue
+        seen[row["id"]] = row
+    return sorted(seen.values(), key=lambda r: r["id"])
 
 
 def models_payload(registry: list[dict]) -> dict:
     """The /v1/models face: every registry model, so the app's discovery lists them all."""
     return {"object": "list", "data": [{"id": r["id"], "object": "model", "owned_by": "mlx-bridge",
-                                        "context_max": r["ctx"], "gb": r["gb"]} for r in registry]}
+                                        "context_length": r["ctx"], "context_max": r["ctx"], "gb": r["gb"]} for r in registry]}
 
 
 # ---- lifecycle ----------------------------------------------------------------------------------------------
 
 def choose_port(used: set[int]) -> int:
+    """The first pool port that is neither reserved, already used, nor held by another
+    program - a port that cannot be bound would kill every worker start on it."""
+    import socket
     for port in WORKER_PORTS:
-        if port not in used and port not in RESERVED_PORTS:
+        if port in used or port in RESERVED_PORTS:
+            continue
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            probe.bind(("127.0.0.1", port))
             return port
+        except OSError:
+            continue   # someone else holds it: on to the next
+        finally:
+            probe.close()
     raise RuntimeError(f"the worker port pool {WORKER_PORTS[0]}-{WORKER_PORTS[-1]} is exhausted")
 
 
@@ -218,6 +237,7 @@ class Bridge:
         except Exception:
             try:
                 self.worker.kill()
+                self.worker.wait(timeout=5)
             except Exception:
                 pass
         self.worker = None
@@ -241,13 +261,21 @@ class Bridge:
         self.worker_port = port
         self.active = model_id
 
-    def ensure_worker(self, model_id: str) -> None:
-        """The active worker for this model, loading it first if needed (the load is the warmup)."""
+    def ensure_worker(self, model_id: str) -> tuple[str, int]:
+        """The active worker for this model, loading it first if needed (the load is the warmup).
+        Returns the (model path, worker port) SNAPSHOT to proxy against: the lock stays held only
+        through here, and a swap that starts afterwards must not re-route this request to another
+        model's worker (the race that silently answered with the wrong model). The fast path
+        re-checks the worker is alive: a worker that loaded and then crashed must not keep
+        'ready' forever (the self-healing the 502-forever review finding asked for)."""
         if model_id not in self.by_id:
             raise KeyError(f"unknown model {model_id!r}: not in the registry")
         with SWAP_LOCK:
+            if self.worker is not None and self.worker.poll() is not None:
+                self.log(f"mlx-bridge: worker for {self.active} is gone (exit {self.worker.returncode}); reloading")
+                self.worker_ready = False
             if not needs_swap(self.active, model_id) and self.worker_ready:
-                return
+                return self.by_id[model_id]["path"], self.worker_port
             self.swapping = True
             try:
                 self.stop_worker()
@@ -259,7 +287,7 @@ class Bridge:
                     if self._first_answer():
                         self.worker_ready = True
                         self.log(f"mlx-bridge: {model_id} ready on :{self.worker_port}")
-                        return
+                        return self.by_id[model_id]["path"], self.worker_port
                     time.sleep(2)
                 raise RuntimeError(f"worker for {model_id} did not answer within {READY_TIMEOUT_S}s")
             finally:
@@ -338,29 +366,33 @@ def make_handler(bridge: Bridge):
                 if not wanted:
                     wanted = bridge.active
                 try:
-                    bridge.ensure_worker(wanted)
+                    wanted = wanted if wanted else bridge.active
+                    worker_path, worker_port = bridge.ensure_worker(wanted)
                 except KeyError as e:
                     return self._send_json(404, {"error": str(e)})
                 except RuntimeError as e:
                     return self._send_json(503, {"error": str(e)})
                 if not bridge.worker_ready:
                     return self._send_json(503, {"error": "no worker is loaded; POST /load first"})
-                # the worker speaks in paths, the app speaks in ids (see _first_answer)
-                req["model"] = bridge.by_id[bridge.active]["path"]
+                # the worker speaks in paths, the app speaks in ids (see _first_answer); proxy
+                # against the SNAPSHOT - a swap that starts now serves the NEXT request, not this one
+                req["model"] = worker_path
                 if req.get("stream") and not req.get("stream_options"):
                     # mlx_lm ends the stream with a real usage frame when asked; the host books
                     # reported usage from it (without it a stream reports no tokens at all)
                     req["stream_options"] = {"include_usage": True}
-                return self._proxy(json.dumps(req).encode(), wanted)
+                return self._proxy(json.dumps(req).encode(), wanted, worker_port)
             self._send_json(404, {"error": f"no route {self.path}"})
 
-        def _proxy(self, raw: bytes, wanted_model: str | None = None):
-            """Bytes through to the worker: status, headers, and a streamed body stay a stream.
-            A non-stream reply's usage is timed into the bridge's metrics (tokens per second,
-            so /status can show what the model actually delivers)."""
+        def _proxy(self, raw: bytes, wanted_model: str | None = None, worker_port: int | None = None):
+            """Bytes through to the worker SNAPSHOT: status, headers, and a streamed body stay a
+            stream. A non-stream reply's usage is timed into the bridge's metrics (tokens per
+            second, so /status can show what the model actually delivers); a failed worker reply
+            writes no metrics (the last_request line stays the last GOOD request)."""
+            worker_port = worker_port or bridge.worker_port
             t0 = time.time()
             try:
-                conn = http.client.HTTPConnection("127.0.0.1", bridge.worker_port, timeout=1800)
+                conn = http.client.HTTPConnection("127.0.0.1", worker_port, timeout=1800)
                 headers = {k: v for k, v in self.headers.items() if k.lower() in ("content-type", "authorization")}
                 conn.request("POST", "/v1/chat/completions", raw, headers)
                 resp = conn.getresponse()
@@ -371,6 +403,8 @@ def make_handler(bridge: Bridge):
                     body = resp.read()
                     try:
                         usage = json.loads(body).get("usage") or {}
+                        if resp.status != 200:
+                            raise ValueError("not an ok reply")
                         bridge.last_metrics = {"model": wanted_model, "wall_s": round(time.time() - t0, 2),
                                                "prompt_tokens": usage.get("prompt_tokens"),
                                                "completion_tokens": usage.get("completion_tokens")}
@@ -411,7 +445,7 @@ def make_handler(bridge: Bridge):
                         break
                     data = line.strip()
                     if data[:1].isdigit():
-                        size = int(data, 16)
+                        size = int(data.split(b";")[0], 16)
                         if size == 0:
                             break
                         payload = resp.fp.read(size)

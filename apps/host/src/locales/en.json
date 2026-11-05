@@ -3534,5 +3534,11 @@
   "s9042": "Downloaded, not loaded - open Models to load it",
   "s9043": "This model runs its one drafter by itself: DeepSeek picks its own, the other families run the MTP (Settings > Draft layer turns it off).",
   "s9044": "DFlash2 does not run on this engine, so Auto is the MTP.",
-  "s9045": "Known tool servers"
+  "s9045": "Known tool servers",
+  "s9046": "Playwright (browser)",
+  "s9047": "ScreenHand (desktop)",
+  "s9048": "mobile-mcp (phone)",
+  "s9049": "Drive the person's own Chrome or Edge: navigate, click, fill forms, read pages and take screenshots.",
+  "s9050": "Native desktop control on macOS and Windows: click, type, read the screen, drive any app.",
+  "s9051": "Drive a real Android or iOS device: tap, type, install apps, read the screen over adb or a simulator."
 }

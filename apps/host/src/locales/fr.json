@@ -3534,5 +3534,11 @@
   "s9042": "Téléchargé, non chargé - ouvrez Modèles pour le charger",
   "s9043": "Ce modèle utilise son unique drafter : DeepSeek choisit le sien, les autres familles utilisent le MTP (Réglages > Draft layer pour le désactiver).",
   "s9044": "DFlash2 ne fonctionne pas sur ce moteur ; Auto est donc le MTP.",
-  "s9045": "Serveurs d'outils connus"
+  "s9045": "Serveurs d'outils connus",
+  "s9046": "Playwright (navigateur)",
+  "s9047": "ScreenHand (bureau)",
+  "s9048": "mobile-mcp (téléphone)",
+  "s9049": "Piloter le Chrome ou Edge de la personne : naviguer, cliquer, remplir, lire les pages, capturer.",
+  "s9050": "Contrôle natif du bureau sur macOS et Windows : cliquer, taper, lire l'écran, piloter une app.",
+  "s9051": "Piloter un vrai appareil Android ou iOS : toucher, taper, installer, lire l'écran via adb."
 }

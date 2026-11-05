@@ -78,10 +78,16 @@ def lint_args(args: list[str]) -> list[dict]:
 
     # -- versioned component paths: dead after the next engine upgrade (the vision.exe trap)
     for i, a in enumerate(args):
+        candidates = []
         if a.startswith("--") and i + 1 < len(args) and not args[i + 1].startswith("--"):
-            if VERSIONED_PATH.search(args[i + 1]):
+            candidates.append((a, args[i + 1]))
+        elif "=" in a and a.startswith("--"):
+            flag, _, value = a.partition("=")
+            candidates.append((flag, value))
+        for flag, value in candidates:
+            if VERSIONED_PATH.search(value):
                 issues.append({"level": "warn", "rule": "versioned-path",
-                               "message": f"{a} {args[i + 1]}: the path pins a component version - the next "
+                               "message": f"{flag} {value}: the path pins a component version - the next "
                                           f"engine upgrade breaks it (the vision.exe dead link)"})
     return issues
 

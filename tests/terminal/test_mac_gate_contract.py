@@ -67,7 +67,11 @@ class MacGateContractTests(unittest.TestCase):
         self.assertNotIn('("qwen", "gyro")', setup_src, "the hand-typed family tuple is gone from the gate")
         mcp_src = (ROOT / "tools" / "strata_mcp.py").read_text(encoding="utf-8")
         self.assertIn("self.mac().APP_FAMILIES", mcp_src, "the picker must read the single-source constant")
-        self.assertNotIn('("qwen", "unsloth", "gyro")', mcp_src, "no hand-typed family tuple in the picker either")
+        import re as _re
+        fn = mcp_src[mcp_src.index("def _mac_model_table"):]
+        fn = fn[:fn.index("\ndef ", 1)]          # the Mac picker's own body (the PC side may say ("qwen", ...) for its own families)
+        hand_typed = [line for line in fn.splitlines() if _re.search(r'\(\s*"qwen"\s*,', line)]
+        self.assertEqual(hand_typed, [], "no hand-typed family list in the Mac picker: " + "; ".join(hand_typed))
 
 
 if __name__ == "__main__":

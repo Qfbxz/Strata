@@ -3534,5 +3534,11 @@
   "s9042": "Descargado, sin cargar - abre Modelos para cargarlo",
   "s9043": "Este modelo usa su único borrador: DeepSeek elige el suyo, las demás familias usan el MTP (Ajustes > Capa de borrador lo apaga).",
   "s9044": "DFlash2 no funciona en este motor, así que Auto es el MTP.",
-  "s9045": "Servidores de herramientas conocidos"
+  "s9045": "Servidores de herramientas conocidos",
+  "s9046": "Playwright (navegador)",
+  "s9047": "ScreenHand (escritorio)",
+  "s9048": "mobile-mcp (teléfono)",
+  "s9049": "Maneja el Chrome o Edge del usuario: navegar, hacer clic, rellenar formularios, leer páginas y capturar.",
+  "s9050": "Control nativo del escritorio en macOS y Windows: clic, escribir, leer la pantalla, manejar cualquier app.",
+  "s9051": "Maneja un dispositivo Android o iOS real: tocar, escribir, instalar apps, leer la pantalla por adb."
 }
