@@ -86,6 +86,13 @@ PYTHON_PINS = {
         "sha256": "83dcb04777c798bd95f3687acf9ae84b09860272ee6bdfb05be8bcf9447f75b8",
         "python": "python/bin/python3", "archive": "tar.gz",
     },
+    # 2026-11-05: x86_64 Mac (MacBook Pro 16" 2019 等 Intel 机) 的自定义构建钉版；
+    # sha256 来自 gh-proxy 镜像下载的本文件实测（PBS release 未提供该文件单独 .sha256 时以此为准）
+    "darwin-x86_64": {
+        "file": f"cpython-{PYTHON_VERSION}+{PBS_RELEASE}-x86_64-apple-darwin-install_only.tar.gz",
+        "sha256": "4c84ef5abe4bc145646175fce9b881936d60126b9a3f9a24c6308e2d035ca5c6",
+        "python": "python/bin/python3", "archive": "tar.gz",
+    },
 }
 for _pin in PYTHON_PINS.values():
     _pin["url"] = PBS_BASE + _pin["file"].replace("+", "%2B")
@@ -361,8 +368,14 @@ def main() -> int:
 
     target = args.target or host_target()
     if not args.skip_deps and target != host_target():
-        raise SystemExit(f"{target} must be built on {target} (this is {host_target()}): the locked install runs the "
-                         "bundled interpreter. Use --skip-deps for a layout check.")
+        # 2026-11-05: darwin-x86_64 builds on an arm64 Mac through Rosetta 2 — slower (translated
+        # execution for the locked-wheels install) but correct, and the only path to the Intel
+        # payload without an Intel Mac (A2141 custom build). If Rosetta is missing, the install
+        # below fails visibly on the first x86_64 exec — same information as this guard, later.
+        if not (host_target() == "darwin-arm64" and target == "darwin-x86_64"):
+            raise SystemExit(f"{target} must be built on {target} (this is {host_target()}): the locked install runs the "
+                             "bundled interpreter. Use --skip-deps for a layout check.")
+        print(f"note: building {target} on {host_target()} through Rosetta 2 — slower, the wheels install translated")
     commit = build_commit(args.commit)
     if commit is None:
         message = ("the commit of these sources is unknown (no .git here, no --commit, no STRATA_COMMIT): the archive would carry "

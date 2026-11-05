@@ -29,4 +29,4 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 panic = "abort"
-strip = true
+strip = false   # 本地定制 2026-11-05: rustc strip 在 macOS 26 上错位 LINKEDIT（E0463 假象根因），不再剥离符号

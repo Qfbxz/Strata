@@ -43,8 +43,10 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def build_archive(work: Path, wheelhouse: str | None) -> Path:
+def build_archive(work: Path, wheelhouse: str | None, target: str | None = None) -> Path:
     command = [sys.executable, str(ROOT / "packaging" / "package_terminal.py"), "--out", str(work)]
+    if target:
+        command += ["--target", target]
     if wheelhouse:
         command += ["--wheelhouse", wheelhouse]
     subprocess.run(command, check=True, cwd=str(ROOT))
@@ -172,6 +174,7 @@ def check(folder: Path) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--archive", type=Path, help="stage this terminal archive instead of building one")
+    ap.add_argument("--target", choices=["darwin-arm64", "darwin-x86_64", "windows-x86_64", "linux-x86_64", "linux-aarch64"], help="stage the payload for this target (default: this machine)")
     ap.add_argument("--wheelhouse", help="build with the wheels in this folder (no network)")
     ap.add_argument("--out", type=Path, default=OUT)
     ap.add_argument("--check", action="store_true", help="verify the staged component and exit")
@@ -179,7 +182,7 @@ def main() -> int:
     if a.check:
         return check(a.out)
     with tempfile.TemporaryDirectory(prefix="strata-stage-control-") as work:
-        archive = a.archive.resolve() if a.archive else build_archive(Path(work), a.wheelhouse)
+        archive = a.archive.resolve() if a.archive else build_archive(Path(work), a.wheelhouse, a.target)
         keep = [p for p in a.out.iterdir() if p.name == ".gitignore"] if a.out.exists() else []
         if a.out.exists():
             for child in a.out.iterdir():
