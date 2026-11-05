@@ -29,6 +29,26 @@ export function nativeCatalogModels(families:NativeFamily[]):CatalogModel[]{
  return groups;
 }
 
+/** Every size id the catalog offers, across all families and versions. */
+export const catalogSizeIds=(families:NativeFamily[]):Set<string>=>new Set(families.flatMap(f=>f.sizes.map(s=>s.id)));
+
+/** Installed models the current catalog does not list: hand-written run configs, catalog entries
+ * that were removed, or a whole family the display groups do not know (the unsloth accident's
+ * family-level shape). These come back so the UI can give them a block of their own - without
+ * this they are only visible in the Manage dialog, if at all (frontend-report F2). */
+export function unlistedInstalled<M extends {model:string}>(installed:M[]|undefined|null,families:NativeFamily[]):M[]{
+ const listed=catalogSizeIds(families);
+ return (installed??[]).filter(m=>!listed.has(m.model));
+}
+
+/** Family ids the display groups would drop: neither one of the known installation families nor
+ * a recognized title pattern. The caller shows "N installed models are not in this catalog"
+ * instead of losing them silently (nativeCatalogModels's `continue`). */
+export function unknownFamilies(families:NativeFamily[]):string[]{
+ const known=['qwen','swift','coder','unsloth','gyro','deepseek41'];
+ return families.filter(f=>!known.includes(f.family)&&!/qwen3[._-]?8|flash.next|qwen3[._-]?6|35b[-_]?a3b/i.test((f.title??'')+' '+f.family)).map(f=>f.family);
+}
+
 /** Where the first-run model step starts: a version already on this computer and ready (the recommended one if it is among them), else the catalog's recommendation. Null when neither is in the list (the caller then keeps its own fallback). */
 export function startingChoice(families:CatalogModel[],readyIds:string[],pick?:{family?:string|null;model?:string|null}|null):{family:string;size:string}|null{
  const ready=new Set(readyIds);

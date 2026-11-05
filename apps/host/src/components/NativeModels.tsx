@@ -34,7 +34,8 @@ import { useStore } from '../lib/store';
 import { NativePresets } from './NativePresets';
 import { NativeTune } from './NativeTune';
 import { NativeTuneBadge } from './NativeTuneBadge';
-import { nativeCatalogModels, catalogVersionLabel, fetchesPictures } from '../lib/native-catalog';
+import { nativeCatalogModels, catalogVersionLabel, fetchesPictures, unlistedInstalled, unknownFamilies } from '../lib/native-catalog';
+import { modelDisplay } from '../lib/model-display';
 export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine }: {
     onOtherModels: () => void;
     onImport?: () => void;
@@ -53,6 +54,11 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
     const presetPending = useRef(false), visionPicks = useRef(new Map<string, string>());   // Read pictures per version: what the person set, or what the version opened with; later reports of the host never overwrite it
     const [deleting, setDeleting] = useState<string | null>(null);
     const families = nativeCatalogModels(native?.catalog?.families ?? []);
+    // Own models the catalog does not list (hand-written run configs, removed catalog entries): they get their own
+    // block, or they are invisible everywhere but the Manage dialog (frontend-report F2). Families the display
+    // groups would drop are named instead of silently lost.
+    const unlisted = unlistedInstalled(native?.installed?.models, native?.catalog?.families ?? []);
+    const unknown = unknownFamilies(native?.catalog?.families ?? []);
     const expertSection = useRef<HTMLElement>(null);
     // The card is inserted above the fold and the browser's scroll anchoring
     // immediately compensates by scrolling down, which cancelled the smooth
@@ -242,6 +248,9 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
     // The drafter note belongs to the download that is running; the not-enough-disk message belongs to the version it was said for.
     useEffect(() => { if (!active) setDrafterGb(null); }, [!!active]);
     useEffect(() => { setPlan(null); }, [selectedSize?.id]);
+    // A model that is not in the catalog loads straight from its run config: the load operation takes the
+    // config tag, so the version picker is not on this path (it only knows catalog sizes).
+    const loadUnlisted = (model: string) => void perform(() => nativeAction<NativeJob>('operations', { kind: 'load', args: { model, resourceProfile, vision: 'no', multiple: expert && multiple } }));
     return <Screen plainHeader title={<span className="sr-only">{tr("Models")}</span>} titleDetail={<FamilySwitch families={families} selected={selectedFamily?.family} onPick={f => { setFamily(f.family); setSize((f.sizes.find(s => native?.installed?.models.some(m => m.model === s.id && m.ready)) ?? f.sizes[0])?.id ?? ''); setVision('yes'); setError(''); }}/>} actions={<Btn icon="sliders" aria-pressed={expert} aria-expanded={expert} aria-controls="native-expert-settings" onClick={() => { setExpert(v => !v); setMultiple(false); }}>{tr(expert ? 'Close expert mode' : 'Expert mode')}</Btn>}>
   <div className="native-model-layout native-model-layout--fit">
    <div className="stack">
@@ -275,6 +284,11 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
      {selectedSize && installed?.ready ? <NativeTuneBadge model={selectedSize.id} resourceProfile={resourceProfile} vision={selectedSize.images ? vision : 'no'}/> : null}
      <div className="native-model-actions">{tr(!loadedSelected && !listPending && !installed?.ready && selectedSize?.download_gb && !active ? <span className="native-download-size small muted">{tr("{0} download", [sizeGb(selectedSize.download_gb)])}</span> : null)}{tr(loadedSelected ? <><Btn disabled={pending || !!active} onClick={() => void perform(() => nativeAction(`instances/${loadedSelected.id}/unload`))}>{tr("Unload")}</Btn>{tr(onReady ? <Btn variant="primary" onClick={onReady}>{tr("Start chatting")}</Btn> : <span className="native-ready">{tr("Ready")}</span>)}</> : onReady && native?.instances.some(i => i.status === 'ready') ? <Btn variant="primary" onClick={onReady}>{tr("Start chatting")}</Btn> : <><Btn icon="gauge" disabled={listPending || !installed?.ready || !native?.available || !!active || !selectedSize || selectedSize.needsNewerEngine} onClick={() => setTuneOpen(true)}>{tr("Tune model")}</Btn><Btn variant="primary" icon="models" disabled={pending || listPending || !native?.available || !!active || !selectedSize || !!selectedSize.needsNewerEngine} onClick={() => void load()}>{tr(pending || listPending ? 'Checking…' : installed?.ready ? 'Load model' : 'Download & load')}</Btn></>)}</div>
     </section>
+    {tr(unlisted.length ? <section className="st-card native-own-models"><h2 className="h4">{tr("On this computer, not in the catalog")}</h2>{tr(unknown.length ? <p className="small muted">{tr("{0} installed model families are not in this catalog.", [String(unknown.length)])}</p> : null)}<div className="native-manage-list" role="list">{tr(unlisted.map(m => { const d = modelDisplay(m), loaded = native?.instances.some(i => i.model === m.model && i.status === 'ready'); return <div className="native-manage-row" role="listitem" key={m.model}>
+     <span className="native-manage-name"><strong>{d.main}</strong><small>{tr(m.model)}{d.sub ? tr(` · ${d.sub}`) : ''}</small></span>
+     <span className={m.ready === false ? 'st-pill' : loaded ? 'st-pill st-pill--accent' : 'st-pill'}>{tr(m.ready === false ? 'Files missing' : loaded ? 'Loaded' : 'Ready')}</span>
+     <span className="native-manage-actions">{tr(m.ready === false ? null : <Btn size="sm" disabled={!!active || pending || loaded} onClick={() => loadUnlisted(m.model)}>{tr(loaded ? 'Loaded' : 'Load')}</Btn>)}<Btn size="sm" variant="danger" disabled={!!active} onClick={() => setDeleting(m.model)}>{tr("Delete")}</Btn></span>
+    </div>; }))}</div></section> : null)}
     {tr(expert && IMAGE_GENERATION_VISIBLE ? <><details className="native-generation"><summary>{tr("Image generation ")}<span className="muted">{tr("Optional")}</span></summary><RunImageModel library={imageLibrary} disabled={pending || !!active} onChange={() => { }}/></details></> : null)}
     {tr(expert ? <section id="native-expert-settings" ref={expertSection} className="st-card native-execution"><h2 className="h4">{tr("Expert settings")}</h2>{tr(tunedNow ? <p className="small muted native-tuned-note">{tr("Showing the values of your tuning '{0}'.", [tunedNow.name])}</p> : null)}<label className="native-toggle"><span><strong>{tr("Run multiple models")}</strong><small>{tr("Loading another model keeps the others loaded.")}</small></span><button className="st-toggle" role="switch" aria-label={tr("Run multiple models")} aria-checked={multiple} onClick={() => setMultiple(v => !v)}/></label>{tr(cardsGpus.length > 1 ? <label className="input-field"><span>{tr("Layer split")}</span><input className="st-input" value={split} placeholder={tr("auto or 16,32")} onChange={e => setSplit(e.target.value)}/></label> : null)}<div className="native-field-grid"><label className="input-field"><span>{tr("Context memory")}</span><Select ariaLabel={tr("Native KV format")} value={kv} options={KV_CHOICES.map(c => ({ value: c.value, label: c.label, title: c.hint }))} onChange={setKv}/>{tr(KV_CHOICES.find(c => c.value === kv)?.hint ? <small className="muted native-kv-hint">{tr(KV_CHOICES.find(c => c.value === kv)!.hint)}</small> : null)}</label><label className="input-field"><span>{tr("Low-RAM mode")}</span><Select ariaLabel={tr("Native low RAM mode")} value={lowRam} options={['auto', 'resident', 'mmap'].map(v => ({ value: v, label: v === 'auto' ? 'Automatic' : v === 'resident' ? 'Keep experts in RAM' : 'Read experts from disk' }))} onChange={setLowRam}/></label></div>{tr(installed ? <><NativeSettingsFile model={installed.model}/><NativeSettings model={installed.model}/></> : <p className="small muted">{tr("More engine parameters become available after preparing this version.")}</p>)}</section> : null)}
    </div>
@@ -285,8 +299,8 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
   <Dialog open={manage} compact title={tr("Manage models")} onClose={() => setManage(false)} actions={<Btn onClick={() => setManage(false)}>{tr("Done")}</Btn>}><div className="native-manage">
    {tr(downloaded.some(m => m.ready || m.diskGb) ? <div className="native-manage-list" role="list">{tr(downloaded.filter(m => m.ready || m.diskGb).map(m => { const v = allSizes.find(x => x.id === m.model), loaded = native?.instances.some(i => i.model === m.model && i.status === 'ready'); return <div className="native-manage-row" role="listitem" key={m.model} data-selected={selectedSize?.id === m.model || undefined}>
      <span className="native-manage-name"><strong>{tr(v ? `${catalogVersionLabel(v)}` : m.model_name ?? m.model)}</strong><small>{tr(v ? v.model : m.model)}{tr(m.diskGb ? ` · ${sizeGb(m.diskGb)}` : '')}</small></span>
-     <span className={loaded ? 'st-pill st-pill--accent' : 'st-pill'}>{tr(loaded ? 'Loaded' : 'Downloaded')}</span>
-     <span className="native-manage-actions"><Btn size="sm" disabled={!!active || !v} onClick={() => { if (v) setSize(v.id); setManage(false); }}>{tr(selectedSize?.id === m.model ? 'Selected' : 'Use version')}</Btn><Btn size="sm" variant="danger" disabled={!!active} onClick={() => setDeleting(m.model)}>{tr("Delete")}</Btn></span>
+     <span className={m.ready === false ? 'st-pill' : loaded ? 'st-pill st-pill--accent' : 'st-pill'}>{tr(m.ready === false ? 'Files missing' : loaded ? 'Loaded' : 'Downloaded')}</span>
+     <span className="native-manage-actions">{v ? <Btn size="sm" disabled={!!active} onClick={() => { setSize(v.id); setManage(false); }}>{tr(selectedSize?.id === m.model ? 'Selected' : 'Use version')}</Btn> : <Btn size="sm" disabled={!!active || pending || loaded || m.ready === false} onClick={() => { loadUnlisted(m.model); setManage(false); }}>{tr(loaded ? 'Loaded' : 'Load')}</Btn>}<Btn size="sm" variant="danger" disabled={!!active} onClick={() => setDeleting(m.model)}>{tr("Delete")}</Btn></span>
     </div>; }))}</div> : <p className="small muted native-manage-empty">{tr("No downloaded models")}</p>)}
    <div className="native-manage-foot"><Btn variant="ghost" icon="folder" onClick={() => { setManage(false); (onImport ?? onOtherModels)(); }}>{tr("Use a local GGUF…")}</Btn></div>
   </div></Dialog>
