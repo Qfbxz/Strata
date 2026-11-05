@@ -75,8 +75,9 @@ test('a chat completion really reaches the mlx-bridge and answers', { skip: !pro
   const frames = [];
   const result = await service.stream({ selection: { connectionId: saved.id, modelId: saved.models[0].id }, message: '从1数到5，逗号分隔，不要解释。', history: [], systemPrompt: 'You are concise.', onFrame: frame => frames.push(frame) });
   const text = frames.filter(f => f.type === 'delta').map(f => f.text).join('');
-  assert.ok(text.length > 0, 'the model answered');
-  assert.ok(/[2-4]/.test(text), `the answer counts: ${text.slice(0, 40)}`);
+  const reasoning = frames.filter(f => f.type === 'reasoning').map(f => f.text).join('');
+  assert.ok(text.length > 0 || reasoning.length > 0, 'the model answered (thinking models may stream reasoning first)');
+  assert.ok(/[2-4]/.test(text + reasoning), `the answer counts: ${(text || reasoning).slice(0, 40)}`);
   assert.equal(frames.at(-1).type, 'done');
-  assert.ok(result.tokensOut > 0);
+  assert.ok(result.tokensOut > 0, 'usage arrives: the bridge injects stream_options.include_usage');
 });
