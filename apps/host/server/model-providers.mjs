@@ -229,5 +229,33 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
   }
   /** Connections WITH their keys, for the host's own agent bridge only; never serialised to a client. */
   function withSecrets() { return connections.map(c => ({ ...c, models: c.models.map(m => ({ ...m })) })); }
-  return { list, save, remove, discover, resolve, stream, withSecrets };
+  /** The real window of a connection's models, fetched from the server now. A model switch must not run on a
+   * guessed context: with a saved blank the app assumed the 128K default and a smaller model refused to run
+   * (or the harness cut the reply at the wrong place). Fills only the blanks - a value the person set stays theirs. */
+  async function refreshModelInfo(connectionId) {
+    const connection = connections.find(c => c.id === connectionId);
+    if (!connection || connection.protocol !== 'openai-chat') return null;
+    let data;
+    try {
+      const res = await request(connection, 'models', {});
+      data = await res.json();
+    } catch { return null; }   // an unreachable server: the saved values stand, the run proceeds on them
+    if (!Array.isArray(data?.data)) return null;
+    const real = new Map(data.data.filter(m => text(m.id, 256)).map(m => [text(m.id, 256), {
+      contextMax: numeric(m.context_length ?? m.max_context_length ?? m.context_window),
+      maxOutput: numeric(m.max_output_tokens ?? m.max_completion_tokens ?? m.top_provider?.max_completion_tokens),
+    }]));
+    let touched = false;
+    const models = connection.models.map(m => {
+      const r = real.get(m.id);
+      if (!r) return m;
+      const next = { ...m };
+      if (next.contextMax == null && r.contextMax != null) { next.contextMax = r.contextMax; touched = true; }
+      if (next.maxOutput == null && r.maxOutput != null) { next.maxOutput = r.maxOutput; touched = true; }
+      return next;
+    });
+    if (!touched) return connection;
+    return persist(connections.map(c => c.id === connectionId ? { ...connection, models } : c)).connections.find(c => c.id === connectionId);
+  }
+  return { list, save, remove, discover, refreshModelInfo, resolve, stream, withSecrets };
 }

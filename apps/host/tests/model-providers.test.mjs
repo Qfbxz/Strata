@@ -97,3 +97,17 @@ test('every API key preset discovers and streams with its configured protocol', 
   }
   assert.throws(() => service.save({ kind: 'provider', provider: 'qwen', apiKey: 'test-key', models: [{ id: 'test' }] }), /full http/);
 });
+
+test('a model switch refreshes the real context from the server, filling only the blanks', async t => {
+  const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  const service = createModelProviders({ directory });
+  const saved = service.save({ kind: 'custom', name: 'Local', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat' }, { id: 'hand-set', name: 'Hand set', contextMax: 40960 }] }).connections[0];
+  const out = await service.refreshModelInfo(saved.id);
+  assert.equal(out.models.find(m => m.id === 'mock-chat').contextMax, 32768, 'the blank gets the real window from /v1/models');
+  assert.equal(out.models.find(m => m.id === 'hand-set').contextMax, 40960, 'a value the person set stays theirs');
+  const later = createModelProviders({ directory }).list().connections[0];
+  assert.equal(later.models.find(m => m.id === 'mock-chat').contextMax, 32768, 'persisted, not just returned');
+  const unreachable = await service.refreshModelInfo('no-such-id');
+  assert.equal(unreachable, null, 'an unknown connection: nothing to do');
+});

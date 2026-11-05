@@ -585,8 +585,16 @@ async function runRemoteTurn({ selection, message, history, images = [], thinkin
   let entry;
   const started = Date.now();
   try {
-    const { connection, model } = modelProviders.resolve(selection);
-    if (connection.protocol === 'openai-chat' && model.reasoning == null) await visionProbe.check(connection, model.id);
+    let { connection, model } = modelProviders.resolve(selection);
+    if (connection.protocol === 'openai-chat') {
+      // A switch to this model must run on its real window: a saved blank means a guess, and a smaller
+      // model then refuses to run. The refresh fills only the blanks, from the server's own model list.
+      if (model.contextMax == null || model.maxOutput == null) {
+        const refreshed = await modelProviders.refreshModelInfo(connection.id).catch(() => null);
+        if (refreshed) ({ connection, model } = modelProviders.resolve(selection));
+      }
+      if (model.reasoning == null) await visionProbe.check(connection, model.id);
+    }
     const appliedSkills = selectSkills(skillState, message, workspaceId);
     entry = serving.open({ client: 'Strata chat', endpoint: connection.protocol === 'anthropic' ? '/messages' : connection.protocol === 'openai-responses' ? '/responses' : '/chat/completions', model: `${connection.name} · ${model.name}`, cancel: () => controller.abort(new DOMException('Cancelled by the user', 'AbortError')) });
     serving.mark(entry.id, { state: 'generating' });
@@ -615,8 +623,13 @@ async function runAgentTurn({ res, controller, chatId, body, message, workspaceI
   if (body.remoteModel) {
     choice = { connectionId: String(body.remoteModel.connectionId), modelId: String(body.remoteModel.modelId) };
     // Does this server read pictures? Asked before the agent is built, so a picture is never sent to one that cannot.
+    // A blank context is refreshed first (the profile then builds on the server's real window, not a guess).
     const own = modelProviders.withSecrets().find(c => c.id === choice.connectionId);
-    if (own && own.protocol === 'openai-chat') await visionProbe.check(own, choice.modelId);
+    if (own && own.protocol === 'openai-chat') {
+      const row = own.models.find(m => m.id === choice.modelId);
+      if (row?.contextMax == null || row?.maxOutput == null) await modelProviders.refreshModelInfo(own.id).catch(() => null);
+      await visionProbe.check(own, choice.modelId);
+    }
   }
   else {
     try { instance = native.resolveInstance(body.nativeModelId ?? native.state().defaultId); }
