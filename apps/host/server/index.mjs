@@ -586,14 +586,15 @@ async function runRemoteTurn({ selection, message, history, images = [], thinkin
   const started = Date.now();
   try {
     let { connection, model } = modelProviders.resolve(selection);
-    if (connection.protocol === 'openai-chat') {
+    if (['openai-chat', 'anthropic'].includes(connection.protocol)) {
       // A switch to this model must run on its real window: a saved blank means a guess, and a smaller
-      // model then refuses to run. The refresh fills only the blanks, from the server's own model list.
-      if (model.contextMax == null || model.maxOutput == null) {
+      // model then refuses to run; a catalog preset can be plainly wrong. The refresh fills blanks and
+      // overwrites catalog presets, from the server's own model list (both protocols answer one).
+      if (model.contextMax == null || model.maxOutput == null || connection.kind === 'provider') {
         const refreshed = await modelProviders.refreshModelInfo(connection.id).catch(() => null);
         if (refreshed) ({ connection, model } = modelProviders.resolve(selection));
       }
-      if (model.reasoning == null) await visionProbe.check(connection, model.id);
+      if (connection.protocol === 'openai-chat' && model.reasoning == null) await visionProbe.check(connection, model.id);
     }
     const appliedSkills = selectSkills(skillState, message, workspaceId);
     entry = serving.open({ client: 'Strata chat', endpoint: connection.protocol === 'anthropic' ? '/messages' : connection.protocol === 'openai-responses' ? '/responses' : '/chat/completions', model: `${connection.name} · ${model.name}`, cancel: () => controller.abort(new DOMException('Cancelled by the user', 'AbortError')) });
@@ -622,13 +623,14 @@ async function runAgentTurn({ res, controller, chatId, body, message, workspaceI
   let choice, instance = null;
   if (body.remoteModel) {
     choice = { connectionId: String(body.remoteModel.connectionId), modelId: String(body.remoteModel.modelId) };
-    // Does this server read pictures? Asked before the agent is built, so a picture is never sent to one that cannot.
-    // A blank context is refreshed first (the profile then builds on the server's real window, not a guess).
+    // Does this server read pictures? Asked before the agent is built, so a picture is never sent to one that
+    // cannot. A blank or catalog-preset context is refreshed first (the profile then builds on the server's
+    // real window, not a guess) - both protocols answer a model list.
     const own = modelProviders.withSecrets().find(c => c.id === choice.connectionId);
-    if (own && own.protocol === 'openai-chat') {
+    if (own && ['openai-chat', 'anthropic'].includes(own.protocol)) {
       const row = own.models.find(m => m.id === choice.modelId);
-      if (row?.contextMax == null || row?.maxOutput == null) await modelProviders.refreshModelInfo(own.id).catch(() => null);
-      await visionProbe.check(own, choice.modelId);
+      if (row?.contextMax == null || row?.maxOutput == null || own.kind === 'provider') await modelProviders.refreshModelInfo(own.id).catch(() => null);
+      if (own.protocol === 'openai-chat') await visionProbe.check(own, choice.modelId);
     }
   }
   else {

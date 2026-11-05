@@ -111,3 +111,40 @@ test('a model switch refreshes the real context from the server, filling only th
   const unreachable = await service.refreshModelInfo('no-such-id');
   assert.equal(unreachable, null, 'an unknown connection: nothing to do');
 });
+
+test('a provider connection\'s catalog presets are overwritten by the server truth; anthropic connections refresh too', async t => {
+  const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  const service = createModelProviders({ directory });
+  const saved = service.save({ kind: 'custom', name: 'Local custom', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat', contextMax: 131072 }] }).connections[0];
+  const kept = await service.refreshModelInfo(saved.id);
+  assert.equal(kept.models[0].contextMax, 131072, 'a custom connection: the person\'s value stays even when the server differs');
+  service.save({ kind: 'provider', provider: 'deepseek', apiKey: 'test-key', baseUrl: mock.baseUrl, models: [{ id: 'mock-chat', contextMax: 131072 }] });
+  const providerRow = service.list().connections.find(c => c.kind === 'provider');
+  const over = await service.refreshModelInfo(providerRow.id);
+  assert.equal(over.models[0].contextMax, 32768, 'a provider connection: the server truth overwrites the catalog preset');
+});
+
+for (const [protocol, check] of [
+  ['openai-chat', body => { assert.equal(body.reasoning_effort, 'high'); }],
+  ['openai-responses', body => { assert.deepEqual(body.reasoning, { effort: 'high' }); }],
+  ['anthropic', body => { assert.deepEqual(body.thinking, { type: 'enabled', budget_tokens: 32768 }); assert.ok(body.max_tokens > 32768, 'max_tokens has room for the budget'); }],
+]) test(`${protocol}: a chosen reasoning effort reaches the wire in the protocol's own shape`, async t => {
+  const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  const service = createModelProviders({ directory });
+  const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol, apiKey: 'test-key', models: [{ id: 'mock-chat' }] }).connections[0];
+  await service.stream({ selection: { connectionId: connection.id, modelId: 'mock-chat' }, message: 'Hello', history: [], thinking: 'max', onFrame: () => {} });
+  check(mock.requests.at(-1).body);
+});
+
+test('no chosen effort: nothing thinking-shaped goes on the wire (and off sends nothing)', async t => {
+  const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  const service = createModelProviders({ directory });
+  const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol: 'anthropic', apiKey: 'test-key', models: [{ id: 'mock-chat' }] }).connections[0];
+  await service.stream({ selection: { connectionId: connection.id, modelId: 'mock-chat' }, message: 'Hello', history: [], onFrame: () => {} });
+  assert.equal(mock.requests.at(-1).body.thinking, undefined, 'no choice: no thinking block');
+  await service.stream({ selection: { connectionId: connection.id, modelId: 'mock-chat' }, message: 'Hello', history: [], thinking: 'off', onFrame: () => {} });
+  assert.equal(mock.requests.at(-1).body.thinking, undefined, 'off: no thinking block');
+});

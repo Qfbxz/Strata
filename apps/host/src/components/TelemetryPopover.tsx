@@ -35,11 +35,16 @@ export function ChatTelemetry({ session }: {
     const native = useNative();
     const running = native?.instances.find(i => i.id === native.defaultId && i.status === 'ready') ?? native?.instances.find(i => i.status === 'ready');
     const runningContext = running ? Number(running.metrics?.engine?.max_context) || running.context || undefined : undefined;
+    // A selected third-party model owns the context figure from the moment it is chosen - not after its first reply,
+    // and never the loaded local model's (the switch showed 128K until a reply landed).
+    const remoteSel = useStore(s => s.remoteModel);
+    const providers = useStore(s => s.providers);
+    const remoteContext = remoteSel ? providers?.connections.find(c => c.id === remoteSel.connectionId)?.models.find(x => x.id === remoteSel.modelId)?.contextMax : undefined;
     // While a reply is being written the durations keep counting once a second; the readings come from the Monitor's own stream.
     const [now, setNow] = useState(() => Date.now());
     const working = !!session?.messages.some(x => x.streaming);
     useEffect(() => { if (!working) return; setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, [working]);
-    const m = chatMetrics(session, monitor, runningContext ?? (engine ? contextTokens(engine.beginner.contextLength) : undefined), now);
+    const m = chatMetrics(session, monitor, remoteContext ?? runningContext ?? (engine ? contextTokens(engine.beginner.contextLength) : undefined), now);
     const speed = m.speed;
     if (!m.hasReplies)
         return null;

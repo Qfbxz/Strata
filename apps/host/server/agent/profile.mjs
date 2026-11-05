@@ -278,7 +278,11 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
         // Pictures are on by default (owner rule): only an explicit no (the person's switch, or the server's own model list or /props) leaves them out.
         // (any OpenAI-style API: a cloud model the person marked, or whose model list says it reads pictures, takes image_url the same way)
         input: protocol === 'openai-completions' && m.vision !== false ? ['text', 'image'] : ['text'],
-        ...(ownServer ? { reasoning: true, reasoningEfforts: LOCAL_EFFORTS } : openRouter && m.reasoning === true ? { reasoning: true, reasoningEfforts: OPENROUTER_EFFORTS } : {}),
+        // The Reasoning menu lights for every connection model unless the row says the model cannot think
+        // (any third-party thinking model then gets its efforts; a non-thinking server that rejects the
+        // parameter shows the error, and the row's switch turns the menu off). OpenRouter takes its own
+        // effort vocabulary; a server on this computer or network takes the local chat-template one.
+        ...(m.reasoning === false ? {} : { reasoning: true, reasoningEfforts: openRouter ? OPENROUTER_EFFORTS : LOCAL_EFFORTS }),
       })),
     };
     const fp = fingerprint(providers[route], conn.apiKey ?? '');

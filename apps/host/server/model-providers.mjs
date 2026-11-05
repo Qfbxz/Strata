@@ -158,9 +158,17 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
         : { model: model.id, messages: [...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []), ...messages], stream: true, ...(['openai', 'deepseek', 'openrouter', 'google', 'moonshotai'].includes(connection.provider) ? { stream_options: { include_usage: true } } : {}) };
     // Match the native composer's effort names. Unknown support and other protocols keep provider defaults.
     const choice = typeof thinking === 'string' ? thinking.toLowerCase() : '';
-    if (protocol === 'openai-chat' && (model.reasoning ?? knownThinks(connection, model.id)) === true && ['off', 'low', 'medium', 'high', 'max'].includes(choice)) {
+    if (protocol === 'openai-chat' && (model.reasoning ?? knownThinks(connection, model.id)) !== false && ['low', 'medium', 'high', 'max'].includes(choice)) {
       if (isOpenRouter(connection)) payload.reasoning = { effort: OPENROUTER_EFFORTS[choice] };
-      else payload.reasoning_effort = ({ off: 'none', max: 'high' })[choice] ?? choice;
+      else payload.reasoning_effort = ({ max: 'high' })[choice] ?? choice;
+    }
+    if (protocol === 'openai-responses' && (model.reasoning ?? true) !== false && ['low', 'medium', 'high', 'max'].includes(choice))
+      payload.reasoning = { effort: ({ max: 'high' })[choice] ?? choice };
+    if (protocol === 'anthropic' && (model.reasoning ?? true) !== false && ['low', 'medium', 'high', 'max'].includes(choice)) {
+      // the Messages API: thinking on with a budget per effort, and a max_tokens that has room for it
+      const budget = ({ low: 4096, medium: 8192, high: 16384, max: 32768 })[choice] ?? 8192;
+      payload.thinking = { type: 'enabled', budget_tokens: budget };
+      payload.max_tokens = Math.max(numeric(payload.max_tokens) ?? 0, budget + 1024);
     }
     const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(10 * 60 * 1000)]) : AbortSignal.timeout(10 * 60 * 1000);
     const res = await request(connection, protocol === 'anthropic' ? 'messages' : protocol === 'openai-responses' ? 'responses' : 'chat/completions', { method: 'POST', body: JSON.stringify(payload), signal: requestSignal });
@@ -230,28 +238,40 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
   /** Connections WITH their keys, for the host's own agent bridge only; never serialised to a client. */
   function withSecrets() { return connections.map(c => ({ ...c, models: c.models.map(m => ({ ...m })) })); }
   /** The real window of a connection's models, fetched from the server now. A model switch must not run on a
-   * guessed context: with a saved blank the app assumed the 128K default and a smaller model refused to run
-   * (or the harness cut the reply at the wrong place). Fills only the blanks - a value the person set stays theirs. */
+   * guessed context: with a saved blank the app assumed the 128K default and a smaller model refused to run; a
+   * CATALOG preset can be plainly wrong (a 128K row on a 1M model). Both OpenAI-style and Anthropic-style
+   * servers answer a model list. On a `provider` connection (the catalog's preset rows) the real value
+   * overwrites; on a `custom` connection only the blanks are filled - what the person typed stays theirs. */
   async function refreshModelInfo(connectionId) {
     const connection = connections.find(c => c.id === connectionId);
-    if (!connection || connection.protocol !== 'openai-chat') return null;
-    let data;
+    if (!connection || !['openai-chat', 'anthropic'].includes(connection.protocol)) return null;
+    let rows;
     try {
-      const res = await request(connection, 'models', {});
-      data = await res.json();
+      rows = [];
+      let after = null;
+      for (let page = 0; page < 10; page++) {
+        const path = connection.protocol === 'anthropic' ? `models?limit=100${after ? `&after_id=${encodeURIComponent(after)}` : ''}` : 'models';
+        const res = await request(connection, path, {});
+        let data;
+        try { data = await res.json(); } catch { return null; }
+        if (!Array.isArray(data?.data)) return null;
+        rows.push(...data.data);
+        if (connection.protocol !== 'anthropic' || !data.has_more) break;
+        after = data.last_id; if (!after) break;
+      }
     } catch { return null; }   // an unreachable server: the saved values stand, the run proceeds on them
-    if (!Array.isArray(data?.data)) return null;
-    const real = new Map(data.data.filter(m => text(m.id, 256)).map(m => [text(m.id, 256), {
+    const real = new Map(rows.filter(m => text(m.id, 256)).map(m => [text(m.id, 256), {
       contextMax: numeric(m.context_length ?? m.max_context_length ?? m.context_window),
       maxOutput: numeric(m.max_output_tokens ?? m.max_completion_tokens ?? m.top_provider?.max_completion_tokens),
     }]));
+    const overwrite = connection.kind === 'provider';   // catalog presets: the server is the truth
     let touched = false;
     const models = connection.models.map(m => {
       const r = real.get(m.id);
       if (!r) return m;
       const next = { ...m };
-      if (next.contextMax == null && r.contextMax != null) { next.contextMax = r.contextMax; touched = true; }
-      if (next.maxOutput == null && r.maxOutput != null) { next.maxOutput = r.maxOutput; touched = true; }
+      if (r.contextMax != null && (overwrite || next.contextMax == null) && next.contextMax !== r.contextMax) { next.contextMax = r.contextMax; touched = true; }
+      if (r.maxOutput != null && (overwrite || next.maxOutput == null) && next.maxOutput !== r.maxOutput) { next.maxOutput = r.maxOutput; touched = true; }
       return next;
     });
     if (!touched) return connection;
