@@ -29,6 +29,16 @@ export const PROVIDER_CATALOG = [
   { id: 'zai', name: 'Z.AI', baseUrl: 'https://api.z.ai/api/paas/v4', protocol: 'openai-chat' },
 ];
 const PROTOCOLS = ['openai-chat', 'openai-responses', 'anthropic'];
+/** Context windows the servers do not report. Zhipu's model lists (the Anthropic-style and the OpenAI-style
+ * one alike) carry no context fields, so the catalog holds them: GLM-5.3 opens a 1M window, the 5.2/5.1/4.7
+ * line sits at 256K (Zhipu's own model pages). Matched by prefix, so a variant ("glm-5.3-flash") inherits
+ * its base model's window. The refresh fills a blank or overwrites a provider preset with these. */
+const KNOWN_CONTEXTS = [
+  [/^glm-5\.3/, 1_000_000],
+  [/^glm-5\.[12]/, 256_000],
+  [/^glm-4\.7/, 256_000],
+];
+const knownContext = id => KNOWN_CONTEXTS.find(([re]) => re.test(String(id)))?.[1] ?? null;
 const fail = message => { throw new Error(message); };
 const text = (value, max = 160) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 /** The answer speed of a model API's reply: the tokens it reports over the time from its first streamed token to the end, never over the whole
@@ -261,7 +271,7 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
       }
     } catch { return null; }   // an unreachable server: the saved values stand, the run proceeds on them
     const real = new Map(rows.filter(m => text(m.id, 256)).map(m => [text(m.id, 256), {
-      contextMax: numeric(m.context_length ?? m.max_context_length ?? m.context_window),
+      contextMax: numeric(m.context_length ?? m.max_context_length ?? m.context_window) ?? knownContext(m.id),
       maxOutput: numeric(m.max_output_tokens ?? m.max_completion_tokens ?? m.top_provider?.max_completion_tokens),
     }]));
     const overwrite = connection.kind === 'provider';   // catalog presets: the server is the truth

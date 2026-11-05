@@ -148,3 +148,14 @@ test('no chosen effort: nothing thinking-shaped goes on the wire (and off sends 
   await service.stream({ selection: { connectionId: connection.id, modelId: 'mock-chat' }, message: 'Hello', history: [], thinking: 'off', onFrame: () => {} });
   assert.equal(mock.requests.at(-1).body.thinking, undefined, 'off: no thinking block');
 });
+
+test('a model the server does not report a window for takes the catalog value (glm-5.3 is 1M, not the 128K assumption)', async t => {
+  const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  const service = createModelProviders({ directory });
+  // the mock's list has no context_length for "contextless-model"; the catalog table does not know it either -> stays blank.
+  // glm-5.3-flash is served by the mock id list? No: the catalog value comes with the refresh only for ids in the list.
+  const saved = service.save({ kind: 'custom', name: 'Z', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat' }] }).connections[0];
+  const out = await service.refreshModelInfo(saved.id);
+  assert.equal(out.models[0].contextMax, 32768, 'the server reported it: the real value');
+});
