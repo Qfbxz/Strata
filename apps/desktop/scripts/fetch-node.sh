@@ -30,6 +30,7 @@ DEST="$HERE/../src-tauri/resources/node"
 digest_for() {
   case "$1" in
     darwin-arm64) echo "319f221adc5e44ff0ed57e8a441b2284f02b8dc6fc87b8eb92a6a93643fd8080" ;;
+    darwin-x64)   echo "b82ea4c62fd08e250cab59d625e75d77cc5b0a3d60c6698ebee4545c88a169c5" ;;
     linux-x64)    echo "6159227e0af7d7c3c6bb2fa900452b04a6cb8841a702a79acc613209d70b04d0" ;;
     linux-arm64)  echo "9b2a2eeb98a8eb37361224e2a1d060300ad2dd143af58dfdb16de785df0f1228" ;;
     win-x64)      echo "9c125f61ae947b52e779095830f9cac267846a043ef7192183c84016aaad2812" ;;
@@ -41,6 +42,7 @@ target() {
   if [ "${1:-}" = "--target" ]; then echo "${2:?--target needs a value}"; return; fi
   case "$(uname -s)-$(uname -m)" in
     Darwin-arm64) echo darwin-arm64 ;;
+    Darwin-x64)   echo darwin-x64 ;;
     Linux-x86_64) echo linux-x64 ;;
     Linux-aarch64) echo linux-arm64 ;;
     MINGW*|MSYS*|CYGWIN*) echo win-x64 ;;

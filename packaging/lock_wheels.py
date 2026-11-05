@@ -41,6 +41,9 @@ TARGETS = {
     "darwin-arm64": {"platforms": ["macosx_11_0_arm64", "macosx_12_0_arm64", "macosx_13_0_arm64",
                                    "macosx_14_0_arm64"],
                      "env": {"sys_platform": "darwin", "platform_system": "Darwin", "os_name": "posix"}},
+    "darwin-x86_64": {"platforms": ["macosx_11_0_x86_64", "macosx_12_0_x86_64", "macosx_13_0_x86_64",
+                                    "macosx_14_0_x86_64"],
+                      "env": {"sys_platform": "darwin", "platform_system": "Darwin", "os_name": "posix"}},
 }
 PYTHON = "3.12"
 ABI = "cp312"

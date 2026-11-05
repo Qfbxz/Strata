@@ -205,8 +205,11 @@ def install_locked(py: Path, lock: Path, root: Path, wheelhouse: Path | None = N
     for name in ("PYTHONHOME", "PYTHONPATH", "PIP_REQUIRE_VIRTUALENV", "PIP_INDEX_URL", "PIP_EXTRA_INDEX_URL"):
         env.pop(name, None)
     source = ["--no-index", "--find-links", str(wheelhouse)] if wheelhouse else []
+    # --isolated ignores PIP_INDEX_URL by design: a mirror (China networks, a local wheelhouse) is
+    # passed explicitly through STRATA_PIP_INDEX instead (2026-11-05: pypi.org unreachable here).
+    index_args = ["--index-url", os.environ["STRATA_PIP_INDEX"]] if os.environ.get("STRATA_PIP_INDEX") else []
     subprocess.run([str(py), "-m", "pip", "install", "--isolated", "--no-cache-dir", "--no-warn-script-location",
-                    "--require-hashes", "--no-deps", "--only-binary=:all:", *source, "-r", str(lock)],
+                    "--require-hashes", "--no-deps", "--only-binary=:all:", *source, *index_args, "-r", str(lock)],
                    check=True, cwd=str(root), env=env)
     subprocess.run([str(py), "-m", "pip", "check"], check=True, cwd=str(root), env=env)
     listed = subprocess.run([str(py), "-m", "pip", "list", "--format=json", "--isolated"], check=True,

@@ -1,6 +1,12 @@
 # macOS 26 的默认（新版）链接器在部分 arm64 dylib 上产出错位的 LINKEDIT，dyld 拒载，
-# rustc 表现为 E0463 "can't find crate for <proc-macro>"（2026-11-05 本机构建实测：
+# rustc 表现为 E0463 "can't find crate for <proc-macro>"（2026-11-05 本机实测：
 # time_macros / phf_macros / zerofrom_derive 全中；-Wl,-ld_classic 后加载成功）。
-# 自定义构建统一走经典链接器，直到上游/系统修复。
+# 自定义构建统一走经典链接器，直到上游/系统修复。[build].rustflags 对宿主与交叉目标都生效。
+[build]
+rustflags = ["-C", "link-arg=-Wl,-ld_classic"]
+
 [target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-Wl,-ld_classic"]
+
+[target.x86_64-apple-darwin]
 rustflags = ["-C", "link-arg=-Wl,-ld_classic"]
