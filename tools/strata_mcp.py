@@ -1117,7 +1117,7 @@ class Strata:
         file, no repack). Unsloth's many-shard files need metal/tools/metal_repack.py, which the Terminal's setup uses; the app does not
         offer them yet."""
         mf = self.mac()
-        return [m for m, d in mf.MAC_MODELS.items() if d.get("family", "qwen") == family and m in models] if mf else []
+        return [m for m, d in mf.MAC_MODELS.items() if d.get("family", "qwen") == family and d.get("tested") and m in models] if mf else []
 
     def _mac_verdict(self, model: str, ram: float) -> str:
         mf = self.mac()
@@ -1161,7 +1161,7 @@ class Strata:
         ram = float(hw.get("ram_gb") or 0)
         have = {c.stem[len("strata-"):] for c in self.configs()}
         out = []
-        for family in ("qwen", "unsloth", "gyro"):                # Gyro after the regular sizes, as on a PC: never the default
+        for family in self.mac().app_families():                # Gyro after the regular sizes, as on a PC: never the default
             fd = families.get(family)
             if fd is None:
                 continue

@@ -35,6 +35,20 @@ MAC_MODELS = {
 
 # The recommended sizes (owner's decision): IQ3_S is the default where it stays resident, UD-Q4_K_XL the higher-quality one
 RECOMMENDED = ("IQ3_S", "UD-Q4_K_XL")   # the owner's recommended sizes (UD-IQ4_XS is not offered on Mac yet)
+
+
+def app_families() -> list[str]:
+    """P0: the families the app offers on a Mac - qwen first, then the tested ones in stable order.
+    THE source for the picker (tools/strata_mcp.py _mac_model_table) and the installer's gate
+    (setup.py mac_control_setup): one list, so what is shown is exactly what can be installed."""
+    others = sorted({d.get("family", "qwen") for d in MAC_MODELS.values() if d.get("tested")} - {"qwen"})
+    return ["qwen"] + others
+
+
+def app_sizes(family=None):
+    """The tested sizes the app offers on a Mac, optionally of one family, in table order."""
+    return [m for m, d in MAC_MODELS.items()
+            if d.get("tested") and (family is None or d.get("family", "qwen") == family)]   # the owner's recommended sizes (UD-IQ4_XS is not offered on Mac yet)
 # a pack that does not fit Metal's share streams its experts from the SSD (the engine decides by itself, f-mac-ssd):
 # measured on a 32 GB M4 Mac mini, one token per step (MTP is slower there: its layer's memory is worth more as cache)
 STREAM_MEASURED = {"Q2_0": "~14 tok/s", "IQ3_XXS": "~10 tok/s"}

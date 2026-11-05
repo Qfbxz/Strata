@@ -6427,7 +6427,9 @@ def save_settings(s: dict) -> None:
         s = {**s, "data_dir_at": time.time()}           # when the models folder was chosen: the app and the Terminal keep the newer choice
     try:
         settings_path().parent.mkdir(parents=True, exist_ok=True)
-        settings_path().write_text(json.dumps(s, indent=1), encoding="utf-8")
+        temp = settings_path().with_name(f"{settings_path().name}.{os.getpid()}.tmp")
+        temp.write_text(json.dumps(s, indent=1), encoding="utf-8")
+        os.replace(temp, settings_path())               # P1-10: atomic - a torn settings file used to read back {} and drift the data_dir
     except OSError as e:
         warn(f"could not save {settings_path()} ({e})")
 
@@ -9378,8 +9380,8 @@ def mac_control_setup(a) -> int:
         fail(problems[0])
 
     step(2, "your choices")
-    app_sizes = [m for m, d in MF.MAC_MODELS.items() if d.get("family", "qwen") in ("qwen", "gyro")]   # Gyro: one file, no repack
-    if a.family not in (None, "qwen", "gyro"):
+    app_sizes = MF.app_sizes()                          # P0: one source with the picker - no drift   # Gyro: one file, no repack
+    if a.family not in (None, *MF.app_families()):
         fail(f"the app on a Mac runs the Qwen3.8-Flash-Next sizes ({', '.join(app_sizes)}); {a.family} is not one of them",
              "choose Qwen3.8-Flash-Next")
     rec, notes = MF.recommend_model(ram)
