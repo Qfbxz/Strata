@@ -203,7 +203,8 @@ def lock_names(lock: Path) -> dict[str, str]:
     return out
 
 
-def install_locked(py: Path, lock: Path, root: Path, wheelhouse: Path | None = None) -> dict[str, str]:
+def install_locked(py: Path, lock: Path, root: Path, wheelhouse: Path | None = None,
+                   cross: bool = False, site: Path | None = None, platform: str | None = None) -> dict[str, str]:
     """pip install --require-hashes into the bundled interpreter, then check what is there is exactly the lock.
     With a wheelhouse (lock_wheels.py --download) nothing is fetched at all: pip reads the wheels from the folder and
     still checks every hash against the lock."""
@@ -215,13 +216,36 @@ def install_locked(py: Path, lock: Path, root: Path, wheelhouse: Path | None = N
     # --isolated ignores PIP_INDEX_URL by design: a mirror (China networks, a local wheelhouse) is
     # passed explicitly through STRATA_PIP_INDEX instead (2026-11-05: pypi.org unreachable here).
     index_args = ["--index-url", os.environ["STRATA_PIP_INDEX"]] if os.environ.get("STRATA_PIP_INDEX") else []
-    subprocess.run([str(py), "-m", "pip", "install", "--isolated", "--no-cache-dir", "--no-warn-script-location",
-                    "--require-hashes", "--no-deps", "--only-binary=:all:", *source, *index_args, "-r", str(lock)],
-                   check=True, cwd=str(root), env=env)
-    subprocess.run([str(py), "-m", "pip", "check"], check=True, cwd=str(root), env=env)
-    listed = subprocess.run([str(py), "-m", "pip", "list", "--format=json", "--isolated"], check=True,
-                            cwd=str(root), env=env, capture_output=True, text=True).stdout
-    have = {re.sub(r"[-_.]+", "-", d["name"]).lower(): d["version"] for d in json.loads(listed)}
+    if cross:
+        # 2026-11-06: the target's interpreter cannot run on this host (windows on a mac). Install the
+        # locked wheels with the HOST pip straight into the target's site-packages: pip --platform
+        # --target never executes the installed binaries, so a win_amd64 wheel lands correctly.
+        assert site is not None and platform is not None
+        site.mkdir(parents=True, exist_ok=True)
+        subprocess.run([sys.executable, "-m", "pip", "install", "--isolated", "--no-cache-dir",
+                        "--no-warn-script-location", "--require-hashes", "--no-deps", "--only-binary=:all:",
+                        "--platform", platform, "--target", str(site), *source, *index_args, "-r", str(lock)],
+                       check=True, cwd=str(root), env=env)
+        have = {}
+        for meta in site.glob("*.dist-info/METADATA"):
+            name = version = None
+            for line in meta.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("Name: ") and name is None:
+                    name = line[6:].strip()
+                elif line.startswith("Version: ") and version is None:
+                    version = line[9:].strip()
+                elif not line.strip():
+                    break
+            if name and version:
+                have[re.sub(r"[-_.]+", "-", name).lower()] = version
+    else:
+        subprocess.run([str(py), "-m", "pip", "install", "--isolated", "--no-cache-dir", "--no-warn-script-location",
+                        "--require-hashes", "--no-deps", "--only-binary=:all:", *source, *index_args, "-r", str(lock)],
+                       check=True, cwd=str(root), env=env)
+        subprocess.run([str(py), "-m", "pip", "check"], check=True, cwd=str(root), env=env)
+        listed = subprocess.run([str(py), "-m", "pip", "list", "--format=json", "--isolated"], check=True,
+                                cwd=str(root), env=env, capture_output=True, text=True).stdout
+        have = {re.sub(r"[-_.]+", "-", d["name"]).lower(): d["version"] for d in json.loads(listed)}
     want = lock_names(lock)
     extra = {k: v for k, v in have.items() if k not in want and k not in ("pip", "setuptools", "wheel")}
     wrong = {k: (want[k], have.get(k)) for k in want if have.get(k) != want[k]}
@@ -372,7 +396,8 @@ def main() -> int:
         # execution for the locked-wheels install) but correct, and the only path to the Intel
         # payload without an Intel Mac (A2141 custom build). If Rosetta is missing, the install
         # below fails visibly on the first x86_64 exec — same information as this guard, later.
-        if not (host_target() == "darwin-arm64" and target == "darwin-x86_64"):
+        if not (host_target() == "darwin-arm64" and target == "darwin-x86_64") \
+                and not (target == "windows-x86_64" and host_target() != "windows-x86_64"):
             raise SystemExit(f"{target} must be built on {target} (this is {host_target()}): the locked install runs the "
                              "bundled interpreter. Use --skip-deps for a layout check.")
         print(f"note: building {target} on {host_target()} through Rosetta 2 — slower, the wheels install translated")
@@ -441,7 +466,10 @@ def main() -> int:
         removed: list[str] = []
         if not args.skip_deps:
             print("installing the locked runtime wheels into the bundled interpreter (build time only)")
-            installed = install_locked(py, lock, root, Path(args.wheelhouse).resolve() if args.wheelhouse else None)
+            installed = install_locked(py, lock, root, Path(args.wheelhouse).resolve() if args.wheelhouse else None,
+                                 cross=(target == "windows-x86_64" and host_target() != "windows-x86_64"),
+                                 site=(root / "python" / "Lib" / "site-packages"),
+                                 platform="win_amd64")
             removed = drop_build_path_launchers(root, staging, target)
             # nothing the bundle writes while it is built may stay: compiled files are rebuilt on first use
             for cache_dir in list(root.rglob("__pycache__")):
