@@ -32,14 +32,14 @@ test('Off leaves the draft layer out of every start, the same as "Draft layer (M
 
 test('the Models screen offers the choice next to context, DFlash2 only for Qwen3.8-Flash-Next, and carries it to the plan and the load', () => {
   const screen = read('../src/components/NativeModels.tsx');
-  assert.match(screen, /draftingOptions\(selectedSize\.sourceFamily \?\? selectedFamily\?\.family, native\?\.capabilities\?\.dflash2\)/);
+  assert.match(screen, /draftingChoiceBox\(selectedSize\.sourceFamily \?\? selectedFamily\?\.family, native\?\.capabilities\?\.dflash2\)/);
   assert.match(screen, /draftingWords: Record<string, string> = \{ auto: 'Auto \(recommended\)', mtp: 'MTP', dflash2: 'DFlash2', off: 'Off' \}/);
   const row = screen.slice(screen.indexOf('<div className="native-choice__row">'), screen.indexOf('{roleCards.length > 1 ? <GpuRoles'));
   assert.ok(row.indexOf('Conversation context') < row.indexOf('tr("Drafting")') && row.indexOf('tr("Drafting")') < row.indexOf('Computer use'), 'in the same row, between context and computer use');
   assert.match(row, /<Select ariaLabel=\{tr\("Drafting"\)\}/, 'the existing Select, no new component');
   assert.match(screen, /setDrafting\(installed\.drafting \?\? 'auto'\)/, 'a model shows what it was saved with');
-  assert.match(screen, /const downloadValues = \{ \.\.\.values, \.\.\.\(draftingChoices \? \{ drafting \} : \{\}\)/);
-  assert.match(screen, /\.\.\.\(draftingChoices \? \{ values: \{ drafting \} \} : \{\}\)/);
+  assert.match(screen, /const downloadValues = \{ \.\.\.values, \.\.\.\(draftingChoices && !draftingChoices\.disabled \? \{ drafting \} : \{\}\)/);
+  assert.match(screen, /\.\.\.\(draftingChoices && !draftingChoices\.disabled \? \{ values: \{ drafting \} \} : \{\}\)/);
   assert.match(screen, /Choosing MTP downloads its drafter: about \{0\} GB, once\./);
   assert.match(screen, /Choosing DFlash2 downloads its drafter: about \{0\} GB, once\./);
   assert.match(screen, /resolveDrafter\(drafting, selectedSize\?\.sourceFamily \?\? selectedFamily\?\.family, native\?\.capabilities\?\.dflash2, splitCards\)/, 'the fit uses the drafter that is chosen, and the split word counts only with two or more cards');
@@ -147,7 +147,7 @@ test('the DFlash2 drafter is fetched only by the Models screen own Load: a resta
   const prepare = source.slice(source.indexOf('async function prepareDrafter'), source.indexOf('function rememberSetting'));
   assert.match(prepare, /asked===undefined\|\|drafts\?\.needed!==true/, 'no explicit choice in this job: return before any fetch');
   const loadScreen = read('../src/components/NativeModels.tsx');
-  assert.match(loadScreen, /\.\.\.\(draftingChoices \? \{ values: \{ drafting \} \} : \{\}\)/, 'the screen passes the choice only when it showed the dropdown');
+  assert.match(loadScreen, /\.\.\.\(draftingChoices && !draftingChoices\.disabled \? \{ values: \{ drafting \} \} : \{\}\)/, 'the screen passes the choice only when it showed a live dropdown');
   const tune = source.slice(source.indexOf("const loaded=await loadEngine(job,{model:args.model,multiple:false"), source.indexOf("const loaded=await loadEngine(job,{model:args.model,multiple:false") + 140);
   assert.doesNotMatch(tune, /values:/, 'the tuning run loads without a choice');
 });
@@ -283,4 +283,24 @@ test('0.2.10.1: the app plans and fetches like the Terminal (no --no-split), and
   assert.equal(ts.resolveDrafter('off', 'unsloth', true, true), 'off');
   assert.match(read('../server/native-control.mjs'), /dflash2Split=p\.split===true/, 'the probe reads the split word of Control');
   assert.doesNotMatch(read('../server/control-runtime.mjs'), /'--no-split', '--output', 'json'\]|'--no-split', '--if-needed'/);
+});
+
+test('the Drafting select is never hidden: one-drafter families get it greyed with the reason, an engine without DFlash2 keeps three live choices (the owner rule of 2026-11-05)', async () => {
+  const { transform } = await import('esbuild');
+  const code = (await transform(read('../src/lib/drafting.ts'), { loader: 'ts', format: 'esm' })).code;
+  const { draftingChoiceBox } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  for (const family of ['coder', 'swift', 'deepseek41', undefined]) {
+    const box = draftingChoiceBox(family, true);
+    assert.equal(box.disabled, true, `${family}: the select stays visible but greyed`);
+    assert.ok(box.reason, `${family}: the reason is on the screen`);
+    assert.ok(box.values.length, 'a greyed select still shows its values');
+  }
+  const missing = draftingChoiceBox('qwen', false);
+  assert.equal(missing.disabled, false);
+  assert.deepEqual(missing.values, ['auto', 'mtp', 'off']);
+  assert.ok(missing.reason, 'the missing-DFlash2 reason is on the screen');
+  const full = draftingChoiceBox('qwen', true);
+  assert.equal(full.disabled, false);
+  assert.deepEqual(full.values, ['auto', 'mtp', 'dflash2', 'off']);
+  assert.equal(full.reason, '');
 });

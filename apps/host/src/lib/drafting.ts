@@ -22,3 +22,20 @@ export interface Dflash2Support { level: 'tested' | 'slower' | 'untested'; line:
 export function draftingChoices(family: string | null | undefined, dflash2Served: boolean | null | undefined): string[] | null {
   return DRAFTING_FAMILIES.includes(String(family)) && dflash2Served === true ? ['auto', 'mtp', 'dflash2', 'off'] : null;
 }
+
+/** The Drafting select as the screen draws it, including the greyed state (the owner's rule of 2026-11-05: an
+ * option that does not apply stays VISIBLE and disabled with its reason - never hidden, never forced).
+ *  - a family with one drafter: the select is greyed with the reason (the MTP runs; Settings turns it off);
+ *  - a Qwen3.8 family on an engine without DFlash2: three live choices, Auto is the MTP, and the reason says why;
+ *  - the full choice: auto / mtp / dflash2 / off. */
+export interface DraftingBox { values: string[]; disabled: boolean; reason: string }
+
+export function draftingChoiceBox(family: string | null | undefined, dflash2Served: boolean | null | undefined): DraftingBox {
+  if (!DRAFTING_FAMILIES.includes(String(family)))
+    return {values: ['auto', 'off'], disabled: true,
+            reason: 'This model runs its one drafter by itself: DeepSeek picks its own, the other families run the MTP (Settings > Draft layer turns it off).'};
+  if (dflash2Served !== true)
+    return {values: ['auto', 'mtp', 'off'], disabled: false,
+            reason: 'DFlash2 does not run on this engine, so Auto is the MTP.'};
+  return {values: ['auto', 'mtp', 'dflash2', 'off'], disabled: false, reason: ''};
+}

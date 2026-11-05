@@ -3531,5 +3531,7 @@
   "s9039": "On this computer, not in the catalog",
   "s9040": "Files missing",
   "s9041": "{0} installed model families are not in this catalog.",
-  "s9042": "Downloaded, not loaded - open Models to load it"
+  "s9042": "Downloaded, not loaded - open Models to load it",
+  "s9043": "This model runs its one drafter by itself: DeepSeek picks its own, the other families run the MTP (Settings > Draft layer turns it off).",
+  "s9044": "DFlash2 does not run on this engine, so Auto is the MTP."
 }

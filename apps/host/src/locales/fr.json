@@ -3531,5 +3531,7 @@
   "s9039": "Sur cet ordinateur, hors catalogue",
   "s9040": "Fichiers manquants",
   "s9041": "{0} familles de modèles installées ne sont pas dans ce catalogue.",
-  "s9042": "Téléchargé, non chargé - ouvrez Modèles pour le charger"
+  "s9042": "Téléchargé, non chargé - ouvrez Modèles pour le charger",
+  "s9043": "Ce modèle utilise son unique drafter : DeepSeek choisit le sien, les autres familles utilisent le MTP (Réglages > Draft layer pour le désactiver).",
+  "s9044": "DFlash2 ne fonctionne pas sur ce moteur ; Auto est donc le MTP."
 }

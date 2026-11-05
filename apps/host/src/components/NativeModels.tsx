@@ -24,7 +24,7 @@ import { installedListPending, nativeAction, useNative, type NativeJob } from '.
 import { tuneEffective } from '../lib/native-tune';
 import { tunedFields } from '../lib/tune-values';
 import { shownVision, steadyNoReader } from '../lib/pictures-choice';
-import { draftingChoices as draftingOptions, resolveDrafter } from '../lib/drafting';
+import { draftingChoiceBox, resolveDrafter } from '../lib/drafting';
 import { deepseekContexts, deepseekContextNote } from '../lib/deepseek-context';
 import { NativeSettings } from './NativeSettings';
 import { NativeSettingsFile } from './NativeSettingsFile';
@@ -139,8 +139,9 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
     const fitState = selectedSize ? versionFit(selectedSize, fitHardware, { context, kv }) : 'unknown';
     // A layer split written for another number of cards no longer fits: back to automatic.
     useEffect(() => { if (cardsGpus.length <= 1 && split !== 'auto') setSplit('auto'); }, [cardsGpus.length]);
-    // Drafting (which drafter guesses ahead): a choice exists only for Qwen3.8-Flash-Next (the qwen and gyro families) on a computer whose engine can run DFlash2; every other model has no dropdown.
-    const draftingChoices = selectedSize ? draftingOptions(selectedSize.sourceFamily ?? selectedFamily?.family, native?.capabilities?.dflash2) : null;
+    // Drafting (which drafter guesses ahead): every model shows the select - a family with one drafter gets it greyed with its reason,
+    // a Qwen3.8 family without DFlash2 on this engine gets the three that remain. Nothing applies-hidden (the owner's rule of 2026-11-05).
+    const draftingChoices = selectedSize ? draftingChoiceBox(selectedSize.sourceFamily ?? selectedFamily?.family, native?.capabilities?.dflash2) : null;
     // Control's plan says the all-cards split engine takes an Auto start on this computer (it runs the MTP draft layer); it needs two or more cards, so one card chosen in the roles is not it.
     const splitCards = native?.capabilities?.dflash2Split === true && cardsGpus.length !== 1;
     // The drafter this run loads (one per run): the fit and the plan use its graphics memory (DFlash2 0.89 GB, MTP 1.08 GB).
@@ -149,7 +150,7 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
     const fitDrafter = nowDrafter === 'dflash2' && native?.capabilities?.dflash2Selq4 === true ? 'dflash2_selq4' : nowDrafter;
     const draftingWords: Record<string, string> = { auto: 'Auto (recommended)', mtp: 'MTP', dflash2: 'DFlash2', off: 'Off' };
     const values = useMemo(() => ({ family: selectedSize?.sourceFamily, model: selectedSize?.model, context, vision: selectedSize?.images ? vision : 'no', kv, low_ram: lowRam, resourceProfile, ...(cardsGpus.length > 1 ? { gpus: cardsGpus.join(',') } : cardsGpus.length === 1 ? { gpu: cardsGpus[0] } : {}), loadAfter: true, multiple: expert && multiple }), [selectedSize?.sourceFamily, selectedSize?.model, context, vision, kv, lowRam, resourceProfile, cardsGpus.join(','), expert, multiple]);
-    const downloadValues = { ...values, ...(draftingChoices ? { drafting } : {}), vision: selectedSize?.images && vision !== 'no' ? 'yes' : 'no', loadVision: selectedSize?.images ? vision : 'no', ...(noReader ? { visionUnavailable: true } : {}), ...(contextPicked ? { contextChosen: true } : {}) };
+    const downloadValues = { ...values, ...(draftingChoices && !draftingChoices.disabled ? { drafting } : {}), vision: selectedSize?.images && vision !== 'no' ? 'yes' : 'no', loadVision: selectedSize?.images ? vision : 'no', ...(noReader ? { visionUnavailable: true } : {}), ...(contextPicked ? { contextChosen: true } : {}) };
     useEffect(() => { if (!native?.catalog || family)
         return; const current = native.instances.find(i => i.id === native.defaultId); const rec = native.catalog.recommendation ?? { family: null, model: null }; const loadedFamily = families.find(f => f.sizes.some(s => s.id === current?.model)); const have = new Set((native.installed?.models ?? []).filter(m => m.ready).map(m => m.model)); const installedFamily = families.find(f => f.sizes.some(s => have.has(s.id))); const f = loadedFamily ?? installedFamily ?? families.find(f => f.family === rec.family || f.sizes.some(s => s.sourceFamily === rec.family)) ?? families[0]; if (f) {
         setFamily(f.family);
@@ -222,7 +223,7 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
     const picturesByLoad = fetchesPictures(selectedSize, native?.packaged);
     async function load() { if (!selectedSize)
         return; setPlan(null); setDrafterGb(null); await perform(async () => { if (installed?.ready && context === installed.context && (!selectedSize?.images || vision === 'no' || picturesByLoad || installed.images && installed.images !== 'off') && (!installed.kv || kv === installed.kv || kv === tunedNow?.fields.kv) && (lowRam === (installed.lowRamMode ?? 'auto') || lowRam === tunedNow?.fields.lowRam)) {
-        const result = await nativeAction<NativeJob>('operations', { kind: 'load', args: { model: selectedSize.id, resourceProfile, vision: selectedSize?.images ? vision : 'no', ...(noReader ? { visionUnavailable: true } : {}), ...(contextPicked && !installed.contextChosen ? { contextChosen: true } : {}), multiple: expert && multiple, ...(draftingChoices ? { values: { drafting } } : {}), ...(roleCards.length > 1 ? (roles && customRoles ? { gpuRoles: effectiveRoles, layerSplit: expert && cardsGpus.length > 1 ? split : 'auto' } : cardsGpus.length ? { gpus: cardsGpus, gpusFromRecommendation: true, layerSplit: expert && cardsGpus.length > 1 ? split : 'auto' } : {}) : {}) } });
+        const result = await nativeAction<NativeJob>('operations', { kind: 'load', args: { model: selectedSize.id, resourceProfile, vision: selectedSize?.images ? vision : 'no', ...(noReader ? { visionUnavailable: true } : {}), ...(contextPicked && !installed.contextChosen ? { contextChosen: true } : {}), multiple: expert && multiple, ...(draftingChoices && !draftingChoices.disabled ? { values: { drafting } } : {}), ...(roleCards.length > 1 ? (roles && customRoles ? { gpuRoles: effectiveRoles, layerSplit: expert && cardsGpus.length > 1 ? split : 'auto' } : cardsGpus.length ? { gpus: cardsGpus, gpusFromRecommendation: true, layerSplit: expert && cardsGpus.length > 1 ? split : 'auto' } : {}) : {}) } });
         setJobId(result.id);
     }
     else {
@@ -264,7 +265,7 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
       {tr(selectedSize?.multi_file && deepseekContextNote(context) ? <p className="small muted native-spill-note"><Icon name="info" size={16}/>{tr(deepseekContextNote(context))}</p> : null)}
       <div className="native-choice__row">
        <div className="native-choice__col"><span className="native-choice__label">{tr("Conversation context")}</span><Select ariaLabel={tr("Conversation context")} value={String(context)} options={contextChoices(contextList, context).map(n => ({ value: String(n), label: n % 1024 === 0 ? `${n / 1024}K` : `${n.toLocaleString()} tokens` }))} onChange={n => { setContextPicked(true); setContext(Number(n)); }}/></div>
-       {tr(draftingChoices ? <div className="native-choice__col"><span className="native-choice__label">{tr("Drafting")}</span><Select ariaLabel={tr("Drafting")} value={drafting} disabled={!!active} options={draftingChoices.map(v => ({ value: v, label: tr(draftingWords[v]) }))} onChange={v => setDrafting(String(v))}/></div> : null)}
+       {tr(draftingChoices ? <div className="native-choice__col"><span className="native-choice__label">{tr("Drafting")}</span><Select ariaLabel={tr("Drafting")} value={drafting} disabled={!!active || draftingChoices.disabled} options={(draftingChoices.values.length ? draftingChoices.values : ['auto', 'off']).map(v => ({ value: v, label: tr(draftingWords[v]) }))} onChange={v => setDrafting(String(v))}/>{tr(draftingChoices.reason ? <small className="muted native-kv-hint">{tr(draftingChoices.reason)}</small> : null)}</div> : null)}
        <div className="native-choice__col"><span className="native-choice__label">{tr("Computer use")}</span><div className="native-resource-choice"><button aria-pressed={resourceProfile === 'work'} data-selected={resourceProfile === 'work'} onClick={() => setResourceProfile('work')}><Icon name="computer" size={20}/><span><strong>{tr("Leave room for my work")}</strong><small>{tr("Keeps 5-8 GB of memory free for other programs.")}</small></span>{tr(resourceProfile === 'work' ? <Icon name="check" size={15}/> : null)}</button><button aria-pressed={resourceProfile === 'performance'} data-selected={resourceProfile === 'performance'} onClick={() => setResourceProfile('performance')}><Icon name="bolt" size={20}/><span><strong>{tr("Full performance")}</strong><small>{tr("Give Strata priority")}</small></span>{tr(resourceProfile === 'performance' ? <Icon name="check" size={15}/> : null)}</button></div></div>
       </div>
       {tr(contextIsTight(fitHardware.vram_gb, context, kv) ? <p className="small muted native-spill-note"><Icon name="warning" size={16}/>{tr("This much context takes about {0} GB of graphics memory and leaves little room for the model on this card. Strata will try it; if it does not start, choose a shorter context.", [cacheGb(context, kv).toFixed(1)])}</p> : null)}
