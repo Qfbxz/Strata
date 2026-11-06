@@ -137,3 +137,11 @@ test('the composer is wired to the guard, before the command menu and the send b
   assert.ok(at < chat.indexOf('composerSends(e)'));
   assert.doesNotMatch(chat, /!e\.nativeEvent\.isComposing && composerSends/, 'the old single check is gone');
 });
+
+test('a heavy IME whose commit Enter lands 180ms after compositionend still does not send (the owner report of 2026-11-06)', () => {
+    const guard = createImeGuard();
+    guard.compositionStart();
+    guard.compositionEnd(1000);
+    assert.equal(guard.keyDown({ key: 'Enter', isComposing: false, keyCode: 13 }, 1180), true, 'the commit Enter inside the widened window belongs to the IME');
+    assert.equal(guard.keyDown({ key: 'Enter', isComposing: false, keyCode: 13 }, 1400), false, 'the next Enter sends');
+});

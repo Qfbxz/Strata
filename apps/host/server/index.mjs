@@ -61,6 +61,7 @@ import { createVisionProbe, effectiveVision, readsPicturesByDefault } from './vi
 import { RequestQueue } from './request-queue.mjs';
 import { selectSkills, skillInstructions } from './skill-selection.mjs';
 import { createModelProviders } from './model-providers.mjs';
+import { createWorkspaceFs } from './workspace-fs.mjs';
 import { createForkTimeskip } from './timeskip-fork.mjs';
 import { prepareOversized } from './oversize.mjs';
 import { createChatFolders, chatRootOf, openFile, resolveChatFile, previewFile, rawFile, createAttachments, withAttachments } from './chat-files.mjs';
@@ -1805,6 +1806,22 @@ async function api(req, res, path, method, url) {
     return json(res, 200, skillState);
   }
 
+  // The right-side workspace panel (learning from DeepSeek's and Codex's side panels): the file
+  // tree, a bounded file reader and a fixed git menu over THIS chat's folder. The chat root is the
+  // one source (chatRoot), the paths are guarded inside it, and git is a menu, never a shell.
+  const wsFsMatch = /^\/api\/workspace-fs$/.exec(path);
+  const wsGitMatch = /^\/api\/workspace-git$/.exec(path);
+  if ((wsFsMatch || wsGitMatch) && method === 'GET') {
+    const chat = url.searchParams.get('chat');
+    const root = chatRoot(chat ?? '');
+    const ws = createWorkspaceFs({ root });
+    try {
+      if (wsGitMatch) return json(res, 200, { out: ws.git(String(url.searchParams.get('op') || 'status')), git: ws.isGit() });
+      const rel = String(url.searchParams.get('path') ?? '');
+      const body = String(url.searchParams.get('mode') || 'list') === 'read' ? ws.read(rel) : { entries: ws.list(rel) };
+      return json(res, 200, { root, ...body });
+    } catch (e) { return error(res, 400, e.message); }
+  }
   if (path === '/api/workspace') {
     const root = url.searchParams.get('root');
     const found = root ? workspaces.find((w) => w.id === root) : null;

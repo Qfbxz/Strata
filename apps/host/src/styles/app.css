@@ -7608,3 +7608,24 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 .askq__acts { display: flex; gap: 8px; justify-content: flex-end; position: sticky; bottom: 0; margin: 0; padding: 8px 14px 0 44px; background: var(--st-surface); }
 .approvaldock:has(.askq) { max-height: 56vh; }
 @media (max-width: 560px) { .askq__opts, .askq__own, .askq__problem { margin-left: 0; } .askq__acts { padding-left: 14px; } .askq__own { width: 100%; } .askq__item { padding-right: 0; } }
+
+/* The right-side workspace panel (files / code / git), learning from DeepSeek's and Codex's side panels. */
+.wspanel { display: flex; flex-direction: column; min-width: 320px; max-width: 460px; width: 38%; border-left: 1px solid var(--st-line, rgba(128,128,128,.25)); background: var(--st-surface); font-size: var(--st-fs-sm); }
+.wspanel__head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--st-line, rgba(128,128,128,.25)); }
+.wspanel__head strong { font-size: var(--st-fs-sm); }
+.wspanel__tabs { display: flex; gap: 4px; flex: 1; }
+.wspanel__tabs button { border: 0; background: none; color: var(--st-ink-muted); padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+.wspanel__tabs button[aria-selected='true'] { background: var(--st-surface-raised, rgba(128,128,128,.12)); color: var(--st-ink); }
+.wspanel__close { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; }
+.wspanel__body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+.wspanel__crumb { display: flex; align-items: center; gap: 4px; padding: 6px 12px; color: var(--st-ink-muted); flex-wrap: wrap; }
+.wspanel__crumb button { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+.wspanel__crumb button[aria-pressed='true'] { background: var(--st-surface-raised, rgba(128,128,128,.12)); color: var(--st-ink); }
+.wspanel__split { display: flex; flex: 1; overflow: hidden; }
+.wspanel__tree { width: 42%; overflow: auto; border-right: 1px solid var(--st-line, rgba(128,128,128,.18)); }
+.wspanel__row { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; color: var(--st-ink); text-align: left; padding: 4px 10px; cursor: pointer; font-size: var(--st-fs-sm); }
+.wspanel__row:hover { background: var(--st-surface-raised, rgba(128,128,128,.1)); }
+.wspanel__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wspanel__view { flex: 1; overflow: auto; padding: 8px 12px; }
+.wspanel__filehead { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.wspanel__code { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--st-font-mono); font-size: var(--st-fs-xs); line-height: 1.6; }

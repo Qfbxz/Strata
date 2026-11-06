@@ -13,8 +13,12 @@
  * the composer unable to send. Times are the events' own `timeStamp`s (one clock).
  */
 
-/** How long after a compositionend an Enter still counts as the one that committed. The three engines deliver it in the same tick. */
-export const IME_COMMIT_WINDOW_MS = 50;
+/** How long after a compositionend an Enter still counts as the one that committed. Chrome, Edge and
+ * Firefox deliver the commit Enter in the same tick; a heavy IME on WKWebView has been measured
+ * stretching the gap well past 50 ms (the owner's report 2026-11-06: English through the IME sent on
+ * the commit Enter). 200 ms covers the slow engines, and the person who wants to send right after a
+ * conversion simply presses Enter once more - exactly the behaviour they asked for. */
+export const IME_COMMIT_WINDOW_MS = 200;
 
 export interface ImeKey {
     key: string;

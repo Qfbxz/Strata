@@ -6,6 +6,7 @@ import { TimeSkipPanel } from '../components/TimeSkipPanel';
 import { timeSkipPrompt, timeSkipTabId, type TimeSkipRun } from '../lib/time-skip';
 import { TimeSkipWorking } from '../components/TimeSkipWorking';
 import { ChatToolbar } from '../components/ChatToolbar';
+import { WorkspacePanel } from '../components/WorkspacePanel';
 import { ChatTelemetry } from '../components/TelemetryPopover';
 import { ArtifactCard } from '../components/ArtifactCard';
 import { ChatMedia } from '../components/ChatMedia';
@@ -166,6 +167,7 @@ export function ChatScreen() {
     const selectedRun = timeSkipRuns.find(run => timeSkipTabId(run.id) === selectedPreview);
     const inlinePreview = splitWidth >= (selectedRun || planShown ? 760 : 1120);
     const paneWidth = previewWidth(splitWidth, previewFraction);
+    const [workspaceOpen, setWorkspaceOpen] = useState(false);
     const splitStyle = inlinePreview && selectedPreview && !expanded ? { gridTemplateColumns: `minmax(0,1fr) ${paneWidth}px` } : undefined;
     const resizeHandle = !setupVisible && inlinePreview && selectedPreview && !expanded ? <PreviewResizeHandle container={splitRef} total={splitWidth} fraction={previewFraction} onChange={setPreviewFraction} controls={selectedRun ? 'time-skip-content' : planShown ? 'plan-content' : 'artifact-content'}/> : null;
     const runCount = timeSkipRuns.length;
@@ -478,7 +480,7 @@ export function ChatScreen() {
     function onComposerKey(_e: React.KeyboardEvent) { }
     if (!session) {
         return (<>
-        <ChatToolbar previewWidth={paneWidth} extraTabs={extraTabs} session={session} items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }} inline={inlinePreview} expanded={expanded} onExpand={() => setExpanded(v => !v)}/>
+        <ChatToolbar previewWidth={paneWidth} workspaceOpen={workspaceOpen} onToggleWorkspace={() => setWorkspaceOpen(v => !v)} extraTabs={extraTabs} session={session} items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }} inline={inlinePreview} expanded={expanded} onExpand={() => setExpanded(v => !v)}/>
         <div className="chatsplit" style={splitStyle} data-timeskip={!!selectedRun || undefined} ref={splitRef} data-preview={!!selectedPreview && inlinePreview || undefined} data-expanded={expanded && !!selectedPreview && inlinePreview || undefined}>
          <DropZone className="chatcol">
           <div className="main__body chat" ref={scroller}>
@@ -491,13 +493,14 @@ export function ChatScreen() {
           <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea}/>
          </DropZone>
         <ArtifactPanel items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => setSelectedPreview(null)} inline={inlinePreview}/>
+        {workspaceOpen ? <WorkspacePanel chatId={(session as { id?: string } | null)?.id ?? null} onClose={() => setWorkspaceOpen(false)}/> : null}
          {tr(resizeHandle)}
         </div>
       </>);
     }
     return (<>
       {tr(selection && session ? <button type="button" className="quote-selection" style={{ left: selection.x, top: selection.y }} onMouseDown={e => e.preventDefault()} onClick={() => { addQuote(session.id, selection.text, selection.messageId, selection.role); window.getSelection()?.removeAllRanges(); setSelection(null); }}>{tr("Quote")}</button> : null)}
-      <ChatToolbar previewWidth={paneWidth} extraTabs={extraTabs} session={session} items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }} inline={inlinePreview} expanded={expanded} onExpand={() => setExpanded(v => !v)}/>
+      <ChatToolbar previewWidth={paneWidth} workspaceOpen={workspaceOpen} onToggleWorkspace={() => setWorkspaceOpen(v => !v)} extraTabs={extraTabs} session={session} items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }} inline={inlinePreview} expanded={expanded} onExpand={() => setExpanded(v => !v)}/>
 
       {/* The composer belongs to the conversation column, not the window: with
                 the context panel open, a full-width composer sat underneath the panel
@@ -538,6 +541,7 @@ export function ChatScreen() {
         {tr(!setupVisible && selectedRun && session ? <TimeSkipPanel key={selectedRun.id} run={selectedRun} sessionId={session.id} inline={inlinePreview} expanded={expanded} onCompare={setExpanded} onPreview={openPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }}/> : null)}
         {tr(!setupVisible && planShown ? <PlanPanel chatId={session?.id}/> : null)}
         <ArtifactPanel items={previews} onCloseTab={closeTab} selected={setupVisible || planShown ? null : selectedPreview} onSelect={selectPreview} onClose={() => setSelectedPreview(null)} inline={inlinePreview}/>
+        {workspaceOpen ? <WorkspacePanel chatId={(session as { id?: string } | null)?.id ?? null} onClose={() => setWorkspaceOpen(false)}/> : null}
         {tr(resizeHandle)}
       </div>
     </>);
