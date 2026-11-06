@@ -12,11 +12,12 @@ import { runAcpTurn } from '../server/agent/acp/turns.mjs';
 
 test('the registry speaks native-ACP CLIs with their real subcommands', () => {
   const kinds = BACKENDS.map(b => b.kind);
-  assert.deepEqual(kinds, ['kimi', 'opencode', 'claude']);
+  assert.deepEqual(kinds, ['kimi', 'opencode', 'zcode', 'claude', 'codex', 'dsh']);
   const kimi = backendOf('kimi');
   assert.deepEqual(kimi.args, ['acp']);
   assert.equal(kimi.command, 'kimi');
   assert.equal(backendOf('claude').adapter, 'claude-stream');
+  assert.deepEqual(backendOf('codex').args, ['exec', '--json', '--skip-git-repo-check']);
   assert.equal(backendOf('nope'), undefined);
 });
 
@@ -97,4 +98,37 @@ test('a claude that exits with no result fails loud with its stderr', async t =>
   assert.ok(/exited with code 4/.test(result.error ?? ''), `says the code: ${result.error}`);
   assert.ok(/boom/.test(result.error ?? ''), 'carries stderr');
   assert.equal(frames.filter(f => f.type === 'error').length, 1);
+});
+
+
+/** dsh headless --json: session and status events, a final carrying the answer or the failure. */
+test('a dsh turn maps the final text to a delta and done', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'strata-dsh-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const script = join(dir, 'fake-dsh.mjs');
+  writeFileSync(script, `const send=o=>process.stdout.write(JSON.stringify(o)+'\\n');
+send({type:'session',sessionId:'s',cwd:'/tmp'});
+send({type:'status',phase:'turn_start',turn:1});
+send({type:'status',phase:'step_end',turn:1,step:1});
+send({type:'tool',id:'t1',name:'read_file',arguments:{path:'a'}});
+send({type:'final',sessionId:'s',reason:{kind:'stop'},text:'PONG'});`);
+  const frames = [];
+  const result = await runAcpTurn({ backend: { kind: 'dsh', adapter: 'dsh-headless', label: 'DeepSeek (dsh)', command: process.execPath, args: [script, 'headless'] }, message: 'hi', cwd: dir, onFrame: f => frames.push(f) });
+  assert.deepEqual(frames.map(f => f.type), ['tool', 'delta', 'done']);
+  assert.equal(frames[1].text, 'PONG');
+  assert.equal('error' in result, false);
+});
+
+test('a dsh failure (a missing key) reaches the chat as an error frame, verbatim', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'strata-dsh2-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const script = join(dir, 'fake-dsh.mjs');
+  writeFileSync(script, `const send=o=>process.stdout.write(JSON.stringify(o)+'\\n');
+send({type:'final',sessionId:'s',reason:{kind:'error',error:{message:'no API key for provider route "deepseek-official"',code:'MISSING_CREDENTIAL'}},text:''});`);
+  const frames = [];
+  const result = await runAcpTurn({ backend: { kind: 'dsh', adapter: 'dsh-headless', label: 'DeepSeek (dsh)', command: process.execPath, args: [script, 'headless'] }, message: 'hi', cwd: dir, onFrame: f => frames.push(f) });
+  assert.equal(frames.at(-1).type, 'error');
+  assert.match(frames.at(-1).message, /no API key/);
+  assert.equal(frames.at(-1).code, 'MISSING_CREDENTIAL');
+  assert.ok(/no API key/.test(result.error));
 });
