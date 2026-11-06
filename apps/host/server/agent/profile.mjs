@@ -55,6 +55,10 @@ export const modeOf = value => (Object.hasOwn(MODE_PRESETS, value) ? value : DEF
 
 /** The approval gate plugin (plain ESM, loaded by absolute path). */
 export const GATE_PLUGIN = fileURLToPath(new URL('./plugins/strata-gate.mjs', import.meta.url));
+/** The owner's infinite-generation plugin (auto-continue, dsh-infinite-gen-4 v0.4.0), ported from the
+ * dsh fleet: zero dependencies, one ESM entry, and its prompt files read relative to import.meta.url,
+ * so the absolute-path entry carries the whole plugin. Registered always-on below, next to the gate. */
+export const INFINITE_GEN_PLUGIN = fileURLToPath(new URL('./plugins/dsh-infinite-gen-4/index.js', import.meta.url));
 /** The app's web search (DuckDuckGo, or the person's own Exa / Perplexity key), registered with the Harness's web seam. */
 /** Compaction that measures the real prompt and summarises in pieces that fit the window (plugins/strata-context.mjs). */
 export const CONTEXT_PLUGIN = fileURLToPath(new URL('./plugins/strata-context.mjs', import.meta.url));
@@ -324,6 +328,9 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     // Manual asks before a change runs, so the person sees one Approve/Deny card and nothing has happened yet.
     // Its web question names the search service the person chose (a keyed one only when its key is saved), and the person's switch skips the question.
     ...(gate ? [{ insert: [{ id: 'strata-gate', name: GATE_PLUGIN, config: { web: { provider: SEARCH_NAMES[keyed ?? 'builtin'], skipAsk: tools.webWithoutAsking === true } } }] }] : []),
+    // the owner's auto-continue plugin: every agent session gains it (zero deps; tools + systemPrompt
+    // sections + the armor session projection; the input-box badge is the browser half, later)
+    { insert: [{ id: 'dsh-infinite-gen-4', name: INFINITE_GEN_PLUGIN }] },
     // Compaction decides from what the model server measured, and its summary requests always fit the window (plugins/strata-context.mjs).
     { insert: [{ id: 'strata-context', name: CONTEXT_PLUGIN, config: {} }] },
     // Helper agents on a model the person names: every model the app can reach is allowed, and the plugin makes the choice forgiving (plugins/strata-models.mjs).

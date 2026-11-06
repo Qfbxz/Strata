@@ -81,3 +81,18 @@ test('a chat completion really reaches the mlx-bridge and answers', { skip: !pro
   assert.equal(frames.at(-1).type, 'done');
   assert.ok(result.tokensOut > 0, 'usage arrives: the bridge injects stream_options.include_usage');
 });
+
+test("the owner's auto-continue plugin rides in every profile patch", async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { resolve } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'strata-ig-'));
+  t_after(dir);
+  function t_after(d) { process.on('exit', () => rmSync(d, { recursive: true, force: true })); }
+  const service = createModelProviders({ directory: dir });
+  const profile = buildProfile({ local: [], connections: [], gate: false });
+  assert.match(profile.patch, /dsh-infinite-gen-4/, "the patch inserts the infinite-generation plugin");
+  const entry = JSON.parse(profile.patch.replace(/^#[^\n]*\n/, '')).find(e => e.insert?.[0]?.id === 'dsh-infinite-gen-4');
+  assert.ok(entry.insert[0].name.endsWith('plugins/dsh-infinite-gen-4/index.js'), 'the entry loads the ported plugin by absolute path');
+  const exists = (await readFile(resolve(import.meta.dirname, '../server/agent/plugins/dsh-infinite-gen-4/index.js'))).length > 0;
+  assert.ok(exists, 'the ported plugin ships in the repo');
+});
