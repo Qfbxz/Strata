@@ -7643,3 +7643,5 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 .attach-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--st-line, rgba(128,128,128,.25)); background: var(--st-surface-raised, rgba(128,128,128,.08)); font-size: var(--st-fs-xs); }
 .attach-chip button { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; padding: 0 0 0 4px; }
 .chat-attachments { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+
+.wspanel__branch { color: var(--st-ink); background: var(--st-surface-raised, rgba(128,128,128,.12)); border-radius: 6px; padding: 2px 8px; }

@@ -16,6 +16,13 @@ export function WorkspacePanel({ chatId, onClose }: {
     const [gitOp, setGitOp] = useState('status');
     const [gitOut, setGitOut] = useState('');
     const [error, setError] = useState('');
+    const [branch, setBranch] = useState('');
+    useEffect(() => {
+        if (chatId === null) return;
+        fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=status`).then(r => r.json()).then(d => {
+            setBranch((String(d.out ?? '').match(/^## ([^\s.]+)/) || [])[1] ?? '');
+        }).catch(() => {});
+    }, [chatId, path]);
 
     useEffect(() => {
         if (tab !== 'files' || chatId === null) return;
@@ -50,7 +57,7 @@ export function WorkspacePanel({ chatId, onClose }: {
             <button className="wspanel__close" aria-label={tr('Close')} onClick={onClose}><Icon name="chevron" size={14}/></button>
         </div>
         {tr(tab === 'files' ? <div className="wspanel__body">
-            <div className="wspanel__crumb"><button onClick={() => { setFile(null); setPath(''); }}>{tr('workspace root')}</button>{path.split('/').filter(Boolean).map(seg => <span key={seg}> / <button onClick={() => setPath(path.slice(0, path.lastIndexOf(seg) + seg.length))}>{seg}</button></span>)}</div>
+            <div className="wspanel__crumb"><button onClick={() => { setFile(null); setPath(''); }}>{tr('workspace root')}</button>{branch ? <button className="wspanel__branch" title={tr('Open the git graph')} onClick={() => { setTab('git'); setGitOp('log'); }}>⑂ {branch}</button> : null}{path.split('/').filter(Boolean).map(seg => <span key={seg}> / <button onClick={() => setPath(path.slice(0, path.lastIndexOf(seg) + seg.length))}>{seg}</button></span>)}</div>
             <div className="wspanel__split">
                 <div className="wspanel__tree" role="list">
                     {path ? <button role="listitem" className="wspanel__row" onClick={up}>..</button> : null}
