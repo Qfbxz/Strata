@@ -966,11 +966,15 @@ fn open_window(app: &tauri::App, port: u16, shell_token: &str) -> Result<(), Box
     let origin = format!("http://127.0.0.1:{port}");
     let url = origin.parse().expect("a valid loopback URL");
     let builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url)).title("Strata").inner_size(1440.0, 920.0).min_inner_size(900.0, 600.0);
-    // Dropping pictures on the chat (QA report 1, item 4). Windows: the shell's own file-drop handler is off, because with it on the system hands
-    // the dropped file to the shell and the page never sees it; with it off the page gets ordinary drag and drop events (apps/host DropZone), as
-    // in a browser. Linux and macOS: the page gets the drag events but WebKit gives it no files, so the handler stays on and the shell passes the
-    // drop on (see drop_script and hand_over_drop below).
-    #[cfg(windows)]
+    // Dropping pictures and files on the chat (QA report 1, item 4). Windows: the shell's own file-drop
+    // handler is off, because with it on the system hands the dropped file to the shell and the page never
+    // sees it; with it off the page gets ordinary drag and drop events (apps/host DropZone), as in a
+    // browser. macOS (2026-11-06, live-observed): with the handler on, WebviewEvent::DragDrop NEVER fired
+    // on a real Finder drag - the shell log stayed empty through a file-and-folder drop - so the page saw
+    // nothing either way. The handler is off here too: WKWebView delivers the drop to the page with real
+    // files and the DropZone's own onDrop attaches them, exactly as in a browser. (The shell's
+    // hand_over_drop stays for Linux, where WebKitGTK gives the page no files.)
+    #[cfg(not(target_os = "linux"))]
     let builder = builder.disable_drag_drop_handler();
     // WebKitGTK (2.50 to 2.52 at least) dereferences a null pointer in AcceleratedBackingStore::update in its UI process when a page calls
     // document.startViewTransition (the web process asks the UI process to enter accelerated compositing, and the backing store is not
