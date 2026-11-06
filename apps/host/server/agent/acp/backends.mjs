@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process';
 export const BACKENDS = [
     { kind: 'kimi', label: 'Kimi CLI', command: 'kimi', args: ['acp'], note: 'kimi acp' },
     { kind: 'opencode', label: 'OpenCode', command: 'opencode', args: ['acp'], note: 'opencode acp' },
+    { kind: 'claude', label: 'Claude Code', command: 'claude', adapter: 'claude-stream', note: 'claude -p (stream-json)' },
 ];
 
 export function backendOf(kind) { return BACKENDS.find(b => b.kind === kind); }
