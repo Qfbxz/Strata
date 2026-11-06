@@ -197,3 +197,27 @@ test('the refresh runs once per connection within its TTL: the next message is i
   const row = service.list().connections[0].models.find(m => m.id === 'mock-chat');
   assert.equal(row.contextMax, 32768, 'the filled value still stands');
 });
+
+test('an anthropic base without /v1 reads its model list under /v1/models (zhipu serves it there)', async t => {
+  const seen = [];
+  const server = createServer((req, res) => {
+    seen.push(req.url);
+    if (req.url.includes('/v1/models')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ data: [{ id: 'glm-5.3-flash', display_name: 'GLM' }] }));
+      return;
+    }
+    res.writeHead(404); res.end();
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); });
+  const directory = mkdtempSync(join(tmpdir(), 'strata-zp-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const service = createModelProviders({ directory });
+  const saved = service.save({ kind: 'custom', name: 'Z', baseUrl: `http://127.0.0.1:${port}`, protocol: 'anthropic', apiKey: 'k', models: [{ id: 'glm-5.3-flash' }] }).connections[0];
+  const out = await service.refreshModelInfo(saved.id);
+  assert.equal(out.models[0].contextMax, 1000000, 'the catalog value lands through the /v1/models path');
+  assert.ok(seen.some(u => u.includes('/v1/models')), `the list was read from /v1/models: ${seen.join(',')}`);
+  assert.ok(!seen.some(u => /(?:^|\/)models\?/.test(u) && !u.includes('/v1/')), 'no bare /models request (it 404s on zhipu)');
+});

@@ -120,6 +120,12 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
       ...(connection.protocol === 'anthropic' ? { 'anthropic-version': '2023-06-01', ...(connection.apiKey ? { 'x-api-key': connection.apiKey } : {}) } : connection.apiKey ? { authorization: `Bearer ${connection.apiKey}` } : {}),
     };
   }
+  /** The model-list path: an Anthropic-style base that does not end in /v1 serves its list under
+   * /v1/models (Zhipu's does - the chat Messages route takes the bare base, the list does not). */
+  function modelsListPath(connection) {
+    if (connection.protocol !== 'anthropic') return 'models';
+    return /\/v1\/?$/.test(connection.baseUrl) ? 'models?limit=100' : 'v1/models?limit=100';
+  }
   async function request(connection, path, { signal, ...options } = {}) {
     let res;
     try {
@@ -142,7 +148,8 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
     let data, rows = [], after = null;
     // Anthropic paginates /models. Most compatible APIs return the list in one page.
     for (let page = 0; page < 20; page++) {
-      const path = connection.protocol === 'anthropic' ? `models?limit=100${after ? `&after_id=${encodeURIComponent(after)}` : ''}` : 'models';
+      const base = modelsListPath(connection);
+      const path = connection.protocol === 'anthropic' ? `${base}${after ? `&after_id=${encodeURIComponent(after)}` : ''}` : base;
       const res = await request(connection, path, { signal: requestSignal });
       try { data = await res.json(); } catch { fail('The API did not return a model list. You can add a model ID manually.'); }
       if (!Array.isArray(data.data)) fail('The API did not return a model list. You can add a model ID manually.');
@@ -280,7 +287,8 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
       rows = [];
       let after = null;
       for (let page = 0; page < 10; page++) {
-        const path = connection.protocol === 'anthropic' ? `models?limit=100${after ? `&after_id=${encodeURIComponent(after)}` : ''}` : 'models';
+        const base = modelsListPath(connection);
+        const path = connection.protocol === 'anthropic' ? `${base}${after ? `&after_id=${encodeURIComponent(after)}` : ''}` : base;
         const res = await request(connection, path, {});
         let data;
         try { data = await res.json(); } catch { return null; }
