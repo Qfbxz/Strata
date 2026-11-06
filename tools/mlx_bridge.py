@@ -365,6 +365,11 @@ def make_handler(bridge: Bridge):
                 wanted = req.get("model")
                 if not wanted:
                     wanted = bridge.active
+                # a swap holds the lock up to READY_TIMEOUT_S: requests for the model being
+                # loaded queue for it (they want exactly that), every other model gets a fast
+                # 503 with the word instead of a silent multi-minute stall
+                if bridge.swapping and wanted != bridge.active:
+                    return self._send_json(503, {"error": f"a swap to {bridge.active} is in progress; retry shortly"})
                 try:
                     wanted = wanted if wanted else bridge.active
                     worker_path, worker_port = bridge.ensure_worker(wanted)

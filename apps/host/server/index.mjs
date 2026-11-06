@@ -995,6 +995,9 @@ const connector = createConnectorInstaller({ directory: join(store.HOME, 'engine
 const cloudflare = createCloudflare({ origin: tunnelOrigin, originUrl: `http://127.0.0.1:${tunnelPort}`, hasKey: () => !!store.get().serving?.apiKey, changed: serving.setTunnel, locate: connector.locate, prepareConnector: connector.ensure, connectorInfo: connector.connector, findRunning: findRunningConnector });
 await cloudflare.inspect();
 
+// The local API token, read once from the file (it is written at start; a rotation is a restart).
+const apiTokenCache = { value: null };
+
 /* --------------------------------------------------------------- routing --- */
 
 const server = http.createServer(async (req, res) => {
@@ -1020,14 +1023,22 @@ const server = http.createServer(async (req, res) => {
     // P0-9: with STRATA_REQUIRE_API_TOKEN=1, host controls need the local token (written 0600 to
     // STRATA_HOME/local-api-token at start, and given to the shell through STRATA_LOCAL_API_TOKEN).
     // Off by default until the desktop shell ships the delivery: the web UI cannot send it yet.
+    // The token arrives in the x-strata-token header only - never in the URL, where it would sit
+    // in logs and histories. The comparison is constant-time, and the token file is read once.
     if (path.startsWith('/api/') && process.env.STRATA_REQUIRE_API_TOKEN === '1') {
-      const supplied = req.headers['x-strata-token'] ?? url.searchParams.get('token');
+      const supplied = req.headers['x-strata-token'];
       const expected = process.env.STRATA_LOCAL_API_TOKEN ?? '';
-      const tokenFile = join(store.HOME, 'local-api-token');
-      const valid = expected
-        ? supplied === expected
-        : typeof supplied === 'string' && supplied.length >= 32
-          && supplied === readFileSync(tokenFile, 'utf8').trim();
+      let valid = false;
+      if (typeof supplied === 'string' && supplied.length >= 32) {
+        const tokenFile = join(store.HOME, 'local-api-token');
+        let onFile = apiTokenCache.value;
+        if (onFile === null) {
+          try { onFile = readFileSync(tokenFile, 'utf8').trim(); apiTokenCache.value = onFile; }
+          catch { onFile = ''; }
+        }
+        const a = Buffer.from(expected || onFile), b = Buffer.from(supplied);
+        valid = a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
+      }
       if (!valid) return error(res, 401, 'Host controls need the local API token (x-strata-token).');
     }
     if (path.startsWith('/api/')) {
