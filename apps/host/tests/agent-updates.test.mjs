@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { transform } from 'esbuild';
 
 const { code } = await transform(await readFile(new URL('../src/lib/agents.ts', import.meta.url),'utf8'), {loader:'ts',format:'esm'});
-const { updateAgent, runningAgents, settleAgents } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { updateAgent, runningAgents, settleAgents, liveAgents } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 
 test('partial agent updates retain identity and keep elapsed time moving',()=>{
   let agents=updateAgent([],{id:'a',name:'Review',status:'working',tokens:20,durationMs:1000},5000);
@@ -40,4 +40,16 @@ test('a saved helper row that says working is stopped after a reload, and a live
   assert.equal(saved[0].status,'working','the saved list is not changed');
   assert.equal(settleAgents(undefined),undefined);
   assert.equal(updateAgent(settled,{id:'a',status:'working',updatedAt:2000})[0].status,'working');
+});
+
+test('a cleared frame folds the row away: liveAgents drops it, the totals stay honest', () => {
+  const now = 1000;
+  let agents = updateAgent([], { id: 'a1', name: 'Helper', status: 'completed', updatedAt: 900 }, now);
+  agents = updateAgent(agents, { id: 'a1', cleared: true, updatedAt: 1200 }, 1200);
+  const kept = agents.find(a => a.id === 'a1');
+  assert.equal(kept.status, 'completed', 'the status survives (history honest)');
+  assert.equal(kept.clearedAt, 1200);
+  assert.equal(liveAgents(agents).length, 0, 'the auto-cleaned row folds out of the overview');
+  const fresh = updateAgent([], { id: 'a2', name: 'Helper', status: 'working', updatedAt: now }, now);
+  assert.equal(liveAgents(fresh).length, 1, 'a working row stays visible');
 });

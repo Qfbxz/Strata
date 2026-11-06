@@ -489,6 +489,19 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
      */
     turn.watchdog = setInterval(() => {
       if (turn.finished || turn.stopping) return;
+      // 子智能体自动清理（2026-11-06 owner rule）：已结束的行 5 分钟后从列表折叠；一条 working
+      // 超过 10 分钟毫无动静的 helper 被中断（continuable 结算即释放它的槽位——卡死的 helper
+      // 永远不会自己结算）。
+      for (const h of turn.children.values()) {
+        if (h.done && !h.clearedAt && h.endedAt && Date.now() - h.endedAt > 5 * 60_000) {
+          h.clearedAt = Date.now();
+          emit({ type: 'agent', agent: { id: h.id, cleared: true, updatedAt: Date.now() } });
+        }
+        if (!h.done && !h.interruptedForStall && turn.lastActivity && Date.now() - turn.lastActivity > 10 * 60_000) {
+          h.interruptedForStall = true;
+          void runtime.gw.rpc('subagents/interruptByParent', { childSessionId: h.id, parentSessionId: sessionId, mode: 'continuable' }).catch(() => {});
+        }
+      }
       const toolRunning = [...projector.tools.values()].some(x => x.card?.state === 'running' || x.card?.state === 'proposed') || pending.size > 0 && pendingFor(chatId).length > 0;
       const limit = toolRunning ? stallToolMs : stallMs;
       // A local engine reading a long prompt sends the Harness nothing for minutes (#3623). Its /metrics progress counts as activity,

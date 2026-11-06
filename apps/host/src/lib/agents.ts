@@ -10,6 +10,7 @@ export function updateAgent(agents: SessionAgent[], frame: unknown, now = Date.n
   if (typeof next.id !== 'string' || !next.id.trim()) return agents;
   const previous = agents.find(a => a.id === next.id);
   const at = metric(next.updatedAt, now);
+  if (next.cleared === true) return previous ? agents.map(a => a.id === next.id ? { ...a, clearedAt: at, updatedAt: at } : a) : agents;
   if (previous?.updatedAt && at < previous.updatedAt) return agents;
   const previousDuration = (previous?.durationMs ?? 0) + (previous?.status === 'working' && previous.updatedAt ? Math.max(0, at - previous.updatedAt) : 0);
   const agent: SessionAgent = {
@@ -25,6 +26,11 @@ export function updateAgent(agents: SessionAgent[], frame: unknown, now = Date.n
 }
 
 export const runningAgents = (agents: SessionAgent[]) => agents.filter(a => a.status === 'working').length;
+
+/** The rows the subagent overview shows: auto-cleaned helpers (finished/cancelled/interrupted rows
+ * older than the sweep's five minutes) have folded away - they free the list the same way their
+ * harness slot frees at settlement. */
+export const liveAgents = (agents: SessionAgent[] | undefined): SessionAgent[] => (agents ?? []).filter(a => !a.clearedAt);
 
 /** A page that was closed or reloaded holds no live helper: a saved row still "working" is shown as stopped until a newer frame says otherwise
  *  (updateAgent takes any frame newer than the row's own time, so a helper that really runs comes back by itself). #4218. */

@@ -439,6 +439,9 @@ export interface SessionAgent {
   tokens: number;
   /** Time the latest duration measurement was received. */
   updatedAt?: number;
+
+  /** Set when the row was auto-cleaned (finished/cancelled children fold away to free the slot list). */
+  clearedAt?: number;
 }
 
 export type ChatMode = 'auto' | 'manual' | 'accept-edits' | 'plan' | 'bypass';
