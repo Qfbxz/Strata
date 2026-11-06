@@ -19,6 +19,7 @@ import { tuningDir } from './platform-paths.mjs';
 import { createAgentBridge, plainTurnFailure } from './agent/agent-bridge.mjs';
 import { runAcpTurn } from './agent/acp/turns.mjs';
 import { availableBackends, backendOf } from './agent/acp/backends.mjs';
+import { advice, estimateTokens } from './context-tiers.mjs';
 import { mcpSkippedNotices } from './agent/profile.mjs';
 import { createAgentTools } from './agent/tools-settings.mjs';
 import { withPlainStatus } from './agent/status.mjs';
@@ -2182,6 +2183,24 @@ async function api(req, res, path, method, url) {
     // The goal bar's Resume has no words of its own: it is the same turn as "/goal resume".
     const message = body.goalAction === 'resume' ? '/goal resume' : String(body.message ?? '').trim();
     if (!message) return error(res, 400, 'message is required');
+    // The adjudicated context ladder (kimi verdict): a send that will not fit the loaded model
+    // is said loudly, with the tier to switch to - never a silent mid-drop. The turn still runs
+    // (fail-open): the reactive auto-compact stays the safety net, this is the honest warning.
+    const contextWord = (() => {
+      const est = estimateTokens(message) + (Array.isArray(body.history) ? body.history.reduce((n, m) => n + estimateTokens(m?.content), 0) : 0);
+      let have = 0;
+      try {
+        if (body.remoteModel) {
+          const own = modelProviders.withSecrets().find(c => c.id === String(body.remoteModel.connectionId));
+          have = Number(own?.models.find(m => m.id === String(body.remoteModel.modelId))?.contextMax ?? 0) || 0;
+        } else {
+          const st = native.state();
+          const inst = st.instances.find(i => i.id === (body.nativeModelId ?? st.defaultId));
+          have = Number(inst?.context ?? 0) || 0;
+        }
+      } catch { /* no word about a model we cannot see */ }
+      return advice(est, have);
+    })();
     /* Which workspace the caller is in, so a skill narrowed to one project
        does not fire in another. */
     const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId : null;
@@ -2194,6 +2213,7 @@ async function api(req, res, path, method, url) {
     keepStreamAlive(res);   // #4878: a quiet turn stays open; the timer ends with the response
     const controller = new AbortController();
     res.on('close', () => { if (!res.writableEnded) controller.abort(); });
+    if (contextWord.message) res.write(`${JSON.stringify({ type: 'notice', code: `context-${contextWord.state}`, message: contextWord.message })}\n`);
 
     /* Agent turn, when the component is there and this request can use it. A client that disappears
        detaches from the turn (it keeps running in the Harness); Stop is its own request. */
