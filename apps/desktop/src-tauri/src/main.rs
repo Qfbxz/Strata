@@ -992,6 +992,7 @@ fn open_window(app: &tauri::App, port: u16, shell_token: &str) -> Result<(), Box
         let token = shell_token.to_string();
         window.on_webview_event(move |event| {
             if let tauri::WebviewEvent::DragDrop(drag) = event {
+                eprintln!("[strata] DragDrop event reached the shell: {:?}", if let tauri::DragDropEvent::Enter { .. } = drag { "enter" } else if let tauri::DragDropEvent::Leave = drag { "leave" } else if matches!(drag, tauri::DragDropEvent::Drop { .. }) { "drop" } else { "other" });
                 match drag {
                     tauri::DragDropEvent::Enter { .. } => { let _ = target.eval(&drag_script("enter")); }
                     tauri::DragDropEvent::Leave => { let _ = target.eval(&drag_script("leave")); }
