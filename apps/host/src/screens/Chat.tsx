@@ -434,6 +434,9 @@ export function ChatScreen() {
         return () => window.removeEventListener('keydown', onKey);
     }, [focusMode]);
     const chatNative = useNative(), queuedPhotos = useChatPhotos(session?.id);
+    // DeepSeek-style pending attachments: a dropped folder waits as a chip (name + its collected text),
+    // the message is sent without it, and the X drops it before it ever reaches the model.
+    const [pendingFolders, setPendingFolders] = useState<{ id: string; name: string; text: string }[]>([]);
     const readyForChat = !!loaded || !!chatNative?.instances.some(i => i.status === 'ready');
     useEffect(() => {
         if (setupVisible || !readyForChat || messageCount)
@@ -442,9 +445,11 @@ export function ChatScreen() {
             textarea.current?.focus({ preventScroll: true });
     }, [setupVisible, readyForChat, session?.id, messageCount]);
     function submit() {
-        const text = draft.trim();
+        const folderText = pendingFolders.map(f => `Attached ${f.name}\n\n${f.text}`).join('\n\n');
+        const text = `${folderText}${folderText && draft.trim() ? '\n\n' : ''}${draft.trim()}`.trim();
         if (!text && !queuedPhotos.length)
             return;
+        setPendingFolders([]);
         if (streaming) {
             // Typed while a goal runs: it waits in the queue, shown under the conversation. With no goal running there is nothing to queue behind.
             if (!text || !session)
@@ -490,7 +495,7 @@ export function ChatScreen() {
               <UsageDashboard loaded={!!loaded}/>
             </div>
           </div>
-          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea}/>
+          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])}/>
          </DropZone>
         <ArtifactPanel items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => setSelectedPreview(null)} inline={inlinePreview}/>
         {workspaceOpen ? <WorkspacePanel chatId={(session as { id?: string } | null)?.id ?? null} onClose={() => setWorkspaceOpen(false)}/> : null}
@@ -536,7 +541,7 @@ export function ChatScreen() {
           </div>
           <div className="jumplatest-row">{tr(awayFromBottom ? (<button type="button" className="jumplatest" data-finished={justFinished || undefined} aria-label={tr("Scroll to the latest message")} title={tr("Scroll to the latest message")} onClick={() => scrollToLatest()}>
                 <Icon name="chevron" size={18}/></button>) : null)}</div>
-          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea}/>
+          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])}/>
         </DropZone>
         {tr(!setupVisible && selectedRun && session ? <TimeSkipPanel key={selectedRun.id} run={selectedRun} sessionId={session.id} inline={inlinePreview} expanded={expanded} onCompare={setExpanded} onPreview={openPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }}/> : null)}
         {tr(!setupVisible && planShown ? <PlanPanel chatId={session?.id}/> : null)}
@@ -600,7 +605,7 @@ const NO_QUOTES: Quote[] = [];
 function quotedMessage(quotes: readonly Quote[], text: string): string {
     return quotes.length && !text.startsWith('/') ? composeQuoted(quotes.map(q => q.text), text) : text;
 }
-function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session, onPreview, textareaRef, }: {
+function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session, onPreview, textareaRef, pendingFolders, onRemoveFolder, onPendingFolder, }: {
     draft: string;
     setDraft: (v: string) => void;
     loaded: boolean;
@@ -610,6 +615,9 @@ function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session
     session: Session | null;
     onPreview: (a: PreviewArtifact) => void;
     textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+    pendingFolders: { id: string; name: string; text: string }[];
+    onRemoveFolder: (id: string) => void;
+    onPendingFolder: (name: string, text: string) => void;
 }) {
     const clearDraft = useCallback(() => setDraft(''), [setDraft]);
     const photos = useChatPhotos(session?.id), native = useNative();
@@ -651,7 +659,7 @@ function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session
           {tr(quoteList.length ? <div className="quotes">{tr(quoteList.map(q => <div className="quote" key={q.id}><button type="button" className="quote__body" title={tr("Go to the quoted message")} onClick={() => document.querySelector(`[data-message-id="${CSS.escape(q.messageId)}"]`)?.scrollIntoView({ block: 'center', behavior: scrollBehavior() })}><span className="xs muted">{tr(q.role === 'user' ? "Quoting you" : "Quoting the assistant")}</span><span className="quote__text">{q.text}</span></button><IconBtn name="x" size={14} title={tr("Remove this quote")} onClick={() => removeQuote(session!.id, q.id)}/></div>))}</div> : null)}
           {tr(parkedList.length ? <div className="parked" role="status">{tr(parkedList.map((text, i) => <div className="parked__item" key={`${i}-${text}`}><span className="xs muted">{tr("Waiting to send")}</span><span className="parked__text" title={text}>{text}</span><IconBtn name="x" size={14} title={tr("Take back")} onClick={() => { const back = takeParked(session!.id, i); if (back !== undefined && !draft.trim()) setDraft(back); }}/></div>))}</div> : null)}
           <div className="st-composer" style={{ boxShadow: 'var(--st-sh-bar)' }}>
-          {tr(photos.length ? <ChatPhotos photos={photos} onRemove={id => removeChatPhoto(id, session?.id)}/> : null)}
+          {tr(photos.length || pendingFolders.length ? <div className="chat-attachments">{tr(photos.length ? <ChatPhotos photos={photos} onRemove={id => removeChatPhoto(id, session?.id)}/> : null)}{tr(pendingFolders.map(f => <span className="attach-chip attach-chip--folder" key={f.id} title={tr('Dropped folder - sent with the next message')}><Icon name="folder" size={14}/>{f.name}<IconBtn name="x" title={tr('Remove')} onClick={() => onRemoveFolder(f.id)}/></span>))}</div> : null)}
           <textarea ref={textareaRef} rows={1} value={draft} aria-label={tr("Message Strata")} placeholder={tr(canChat ? 'Message Strata…' : 'Try /time-skip, or load a model to chat…')} onFocus={() => setSlashDismissed(false)} onBlur={() => ime.current.reset()} onCompositionStart={() => ime.current.compositionStart()} onCompositionEnd={(e) => ime.current.compositionEnd(e.timeStamp)} onPaste={(e) => {
             // A picture on the clipboard (a screenshot, a copied image) is attached like a dropped file; text pastes as usual.
             const files = pastedFiles(e.clipboardData);
@@ -697,7 +705,7 @@ function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session
             }
         }}/>
           <div className="st-composer__bar">
-            <ComposerControls draft={draft} onDraft={setDraft} session={session} onPreview={onPreview} streaming={streaming} onSlash={() => { setSlashDismissed(false); setSlashOpen(true); requestAnimationFrame(() => textareaRef.current?.focus()); }} onError={setFileError} onAttach={(name, text) => { setDraft(`${draft}${draft ? '\n\n' : ''}Attached ${name}\n\n${text}`); requestAnimationFrame(() => textareaRef.current?.focus()); }}/>
+            <ComposerControls draft={draft} onDraft={setDraft} session={session} onPreview={onPreview} streaming={streaming} onSlash={() => { setSlashDismissed(false); setSlashOpen(true); requestAnimationFrame(() => textareaRef.current?.focus()); }} onError={setFileError} onAttach={onPendingFolder}/>
             {tr(streaming ? (<Btn variant="secondary" size="sm" icon="stop" onClick={stopStreaming}>{tr("Stop")}</Btn>) : (<Btn variant="primary" size="sm" icon="send" disabled={(!draft.trim() && !photos.length) || draft.trim() === '/' || (!canChat && timeSkipPrompt(draft) === null)} onClick={onSubmit}>{tr("Send")}</Btn>))}
           </div>
         </div>

@@ -7629,3 +7629,17 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 .wspanel__view { flex: 1; overflow: auto; padding: 8px 12px; }
 .wspanel__filehead { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .wspanel__code { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--st-font-mono); font-size: var(--st-fs-xs); line-height: 1.6; }
+
+/* The draft-attachment rail (the DeepSeek look): thumbnail cards at the composer's top,
+ * hover reveals the remove control, single click opens the full image. */
+.chat-photos { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.chat-photos::-webkit-scrollbar { display: none; }
+.chat-photo-card { position: relative; flex: 0 0 auto; width: 72px; }
+.chat-photo-card__img { display: block; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--st-line, rgba(128,128,128,.25)); }
+.chat-photo-card__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.chat-photo-card__name { display: block; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--st-ink-muted); margin-top: 3px; }
+.chat-photo-card__x { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: rgba(0,0,0,.62); color: #fff; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; opacity: 0; transition: opacity .12s ease-in-out; padding: 0; }
+.chat-photo-card:hover .chat-photo-card__x, .chat-photo-card__x:focus-visible { opacity: 1; }
+.attach-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--st-line, rgba(128,128,128,.25)); background: var(--st-surface-raised, rgba(128,128,128,.08)); font-size: var(--st-fs-xs); }
+.attach-chip button { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; padding: 0 0 0 4px; }
+.chat-attachments { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
