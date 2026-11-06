@@ -247,14 +247,34 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
   }
   /** Connections WITH their keys, for the host's own agent bridge only; never serialised to a client. */
   function withSecrets() { return connections.map(c => ({ ...c, models: c.models.map(m => ({ ...m })) })); }
+  /** The per-connection freshness of the model-info refresh: the first turn fills the real windows
+   * (and the answer carries them), the next turns run on what is saved — a model switch must be
+   * instant, not two serial round-trips to the provider before every message. */
+  const refreshedAt = new Map();
+  const REFRESH_TTL_MS = 10 * 60 * 1000;
+  function refreshStale(connectionId) {
+    const at = refreshedAt.get(connectionId) ?? 0;
+    return Date.now() - at > REFRESH_TTL_MS;
+  }
   /** The real window of a connection's models, fetched from the server now. A model switch must not run on a
    * guessed context: with a saved blank the app assumed the 128K default and a smaller model refused to run; a
    * CATALOG preset can be plainly wrong (a 128K row on a 1M model). Both OpenAI-style and Anthropic-style
    * servers answer a model list. On a `provider` connection (the catalog's preset rows) the real value
-   * overwrites; on a `custom` connection only the blanks are filled - what the person typed stays theirs. */
-  async function refreshModelInfo(connectionId) {
+   * overwrites; on a `custom` connection only the blanks are filled - what the person typed stays theirs.
+   * The in-flight promise is shared: turns arriving while a refresh runs await the same one, not a second fetch. */
+  let refreshInFlight = new Map();
+  async function refreshModelInfo(connectionId, { force = false } = {}) {
+    if (!force && !refreshStale(connectionId)) return connections.find(c => c.id === connectionId) ?? null;
+    const running = refreshInFlight.get(connectionId);
+    if (running) return running;
+    const job = doRefreshModelInfo(connectionId).finally(() => refreshInFlight.delete(connectionId));
+    refreshInFlight.set(connectionId, job);
+    return job;
+  }
+  async function doRefreshModelInfo(connectionId) {
     const connection = connections.find(c => c.id === connectionId);
     if (!connection || !['openai-chat', 'anthropic'].includes(connection.protocol)) return null;
+    refreshedAt.set(connectionId, Date.now());
     let rows;
     try {
       rows = [];

@@ -183,3 +183,17 @@ test('glm-5.3-flash really gets its 1M window: a server that reports no context 
   const later = createModelProviders({ directory }).list().connections[0];
   assert.equal(later.models.find(m => m.id === 'glm-5.3-flash').contextMax, 1000000, 'persisted');
 });
+
+test('the refresh runs once per connection within its TTL: the next message is instant (no second fetch)', async t => {
+  const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  const service = createModelProviders({ directory });
+  const saved = service.save({ kind: 'custom', name: 'Local', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat' }] }).connections[0];
+  await service.refreshModelInfo(saved.id);
+  const afterFirst = mock.requests.length;
+  await service.refreshModelInfo(saved.id);
+  await service.refreshModelInfo(saved.id);
+  assert.equal(mock.requests.length, afterFirst, 'within the TTL the refresh answers from cache, no network round-trip');
+  const row = service.list().connections[0].models.find(m => m.id === 'mock-chat');
+  assert.equal(row.contextMax, 32768, 'the filled value still stands');
+});
