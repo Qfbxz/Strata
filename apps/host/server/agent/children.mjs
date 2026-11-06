@@ -33,6 +33,25 @@ export function activityOf(name, args = {}) {
   return 'Using a tool';
 }
 
+/** The child's transcript as plain chat rows for the subagent overview's log dialog
+ * (read-only, UX-7): assistant text is kept (capped, so one huge message cannot flood the
+ * dialog), tool calls are named not dumped, everything else is dropped. Accepts both the
+ * follow stream's snapshot rows ({type, data}) and raw event records ({type:'event', event}). */
+export function foldChildRecords(records) {
+  const rows = [];
+  for (const r of records ?? []) {
+    const e = r?.type === 'event' ? r.event : r;
+    if (!e?.type) continue;
+    if (e.type === 'assistant/message') {
+      const text = (e.data?.message?.content ?? []).filter(pp => pp.type === 'text').map(pp => pp.text).join('').trim();
+      if (text) rows.push({ role: 'assistant', text: text.slice(0, 4000) });
+    } else if (e.type === 'tool/call') {
+      rows.push({ role: 'tool', text: String(e.data?.name ?? 'tool') });
+    }
+  }
+  return rows;
+}
+
 export class ChildProjector {
   /**
    * @param {{id:string, name?:string, task?:string, now?:()=>number}} options

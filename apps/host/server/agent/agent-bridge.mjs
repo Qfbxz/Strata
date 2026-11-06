@@ -24,7 +24,7 @@ import { HarnessProcess, resolveHarness, redact, stopStaleAgent } from './harnes
 import { StatusReporter } from './status.mjs';
 import { buildProfile, routeFor, MODE_PRESETS, modeOf, effortOf, localOutputBudget, compactionHeadroom } from './profile.mjs';
 import { TurnProjector, parseArguments as parseArgs } from './events.mjs';
-import { ChildProjector } from './children.mjs';
+import { ChildProjector, foldChildRecords } from './children.mjs';
 import { nearestBudget } from './llm-shape.mjs';
 import { DeliverableTracker, ActivityGroups, FolderClaims } from './deliverables.mjs';
 import { SkillsUsed, skillInfoFrom } from './skills-used.mjs';
@@ -1486,7 +1486,30 @@ ${note.text}
   /** Let go of a chat's Harness session mapping (a task starts every run in a session of its own). */
   function forget(chatId) { if (chats.get(chatId)?.turn) return; delete sessionMap[chatId]; chats.delete(chatId); persist(); }
 
-  return { compactCommand, messageHelper, answerQuestion, goalState, goalControl, harnessDir, status, turnOf, runningTurns, attach, runTurn, goalCommand, planCommand, researchCommand, llmTarget, setPlanBriefing, resetSession, reopenPlan, skipStep, planGoal, planControl, planState, queueMessage, cancelQueued, takeQueue, forget, approve, setMode, stop, pendingFor, pendingAll, close, sessionOf: chatId => sessionMap[chatId]?.sessionId ?? null, workingFolder: chatId => sessionMap[chatId]?.cwd ?? null, isRunning: chatId => !!chats.get(chatId)?.turn, _debug: () => ({ rt, sessionMap }) };
+  /** The child's transcript as plain rows for the subagent overview's log dialog (read-only). */
+  async function childTranscript(parentSessionId, childSessionId) {
+    const rt = rtOf(parentSessionId);
+    if (!rt?.gw) throw new Error('The harness is not running.');
+    const rows = [];
+    await new Promise(resolve => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; follow.close(); resolve(); } };
+      const follow = rt.gw.openStream('session/follow', {
+        request: { address: { kind: 'subagent', parentSessionId, childSessionId }, assistantStream: false },
+      }, {
+        onItem: item => {
+          if (item.type !== 'snapshot' || settled) return;
+          rows.push(...foldChildRecords(item.records ?? []));
+          done();
+        },
+        onError: () => done(),
+        onClose: () => done(),
+      });
+      setTimeout(done, 5000);
+    });
+    return rows;
+  }
+  return { compactCommand, messageHelper, childTranscript, answerQuestion, goalState, goalControl, harnessDir, status, turnOf, runningTurns, attach, runTurn, goalCommand, planCommand, researchCommand, llmTarget, setPlanBriefing, resetSession, reopenPlan, skipStep, planGoal, planControl, planState, queueMessage, cancelQueued, takeQueue, forget, approve, setMode, stop, pendingFor, pendingAll, close, sessionOf: chatId => sessionMap[chatId]?.sessionId ?? null, workingFolder: chatId => sessionMap[chatId]?.cwd ?? null, isRunning: chatId => !!chats.get(chatId)?.turn, _debug: () => ({ rt, sessionMap }) };
 }
 
 /** A goal that stopped by itself, in words. */

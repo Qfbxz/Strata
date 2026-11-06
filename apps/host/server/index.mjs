@@ -2058,6 +2058,12 @@ async function api(req, res, path, method, url) {
     catch (e) { return error(res, e.code === 'question-gone' ? 409 : 400, e.message); }
   }
   // A message for one helper (#4749).
+  if (path === '/api/chat/helper-transcript' && method === 'GET') {
+    const parent = url.searchParams.get('session');
+    const child = url.searchParams.get('child');
+    try { return json(res, 200, { rows: await agent.childTranscript(String(parent), String(child)) }); }
+    catch (e) { return error(res, 400, e.message); }
+  }
   if (path === '/api/chat/helper' && method === 'POST') {
     const body = await readBody(req);
     try { return json(res, 200, await agent.messageHelper({ chatId: String(body.sessionId ?? ''), helperId: body.helperId, text: body.message, delivery: body.delivery })); }
