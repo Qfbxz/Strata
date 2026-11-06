@@ -115,6 +115,8 @@ export interface AppState {
   runtime: RuntimeModels | null;
   providers: ModelProviders | null;
   remoteModel: RemoteModelSelection | null;
+  /** The open chat's external agent CLI (an ACP backend), or null. Wins over remoteModel. */
+  acpBackend: string | null;
   engine: EngineConfig | null;
   serving: ServingState | null;
   monitor: MonitorState | null;
@@ -321,6 +323,7 @@ let state: AppState = {
   providers: null,
   /** The open chat's API model, or null for the local model (the default for every chat). */
   remoteModel: null,
+  acpBackend: null,
   engine: null,
   serving: null,
   monitor: null,
@@ -359,8 +362,10 @@ function set(patch: Partial<AppState> | ((s: AppState) => Partial<AppState>)) {
   state = { ...state, ...next };
   // Opening another chat shows that chat's model choice and whether that chat is mid-turn.
   if (state.activeSession !== before) {
-    const chosen = state.sessions.find(s => s.id === state.activeSession)?.preferences?.remoteModel ?? null;
-    state = { ...state, remoteModel: 'remoteModel' in next ? state.remoteModel : chosen, streaming: !!state.activeSession && liveTurns.has(state.activeSession) };
+    const session = state.sessions.find(s => s.id === state.activeSession);
+    const chosen = session?.preferences?.remoteModel ?? null;
+    const acp = session?.preferences?.acpBackend ?? null;
+    state = { ...state, remoteModel: 'remoteModel' in next ? state.remoteModel : chosen, acpBackend: 'acpBackend' in next ? state.acpBackend : acp, streaming: !!state.activeSession && liveTurns.has(state.activeSession) };
   }
   for (const l of listeners) l();
 }
@@ -389,10 +394,18 @@ export function setSettingsSection(settingsSection: AppState['settingsSection'])
 export function selectRemoteModel(remoteModel: RemoteModelSelection | null) {
   if (state.streaming) return;
   if (remoteModel && !state.providers?.connections.some(c => c.id === remoteModel.connectionId && c.models.some(m => m.id === remoteModel.modelId))) return;
-  set({ remoteModel });
+  set({ remoteModel, ...(remoteModel ? { acpBackend: null } : {}) });
   const id = state.activeSession;
-  if (id) patchSession(id, s => ({ ...s, preferences: { ...s.preferences, remoteModel } }));
+  if (id) patchSession(id, s => ({ ...s, preferences: { ...s.preferences, remoteModel, acpBackend: null } }));
   try { localStorage.removeItem('strata.remote-model.v1'); } catch { /* The old global choice is retired. */ }
+}
+
+/** Choose the open chat's external agent CLI (an ACP backend), or null for the usual model. One choice per chat. */
+export function selectAcpBackend(acpBackend: string | null) {
+  if (state.streaming) return;
+  set({ acpBackend, ...(acpBackend ? { remoteModel: null } : {}) });
+  const id = state.activeSession;
+  if (id) patchSession(id, s => ({ ...s, preferences: { ...s.preferences, acpBackend, ...(acpBackend ? { remoteModel: null } : {}) } }));
 }
 function applyProviders(providers: ModelProviders) {
   // A chat whose API model was removed keeps its choice: the next send says the model is gone, rather
@@ -1960,11 +1973,13 @@ export async function sendMessage(text: string, options: { fromLoop?: boolean; g
   // Whatever sent this (the box, a loop, a plan): with no model to answer, say so in plain words and start nothing.
   if (state.connection === 'live' && !reattach) {
     // The first read of the engine's state has not come back yet: do not say "no model" about something not known yet, and do not send.
-    if (!nativeState() && !state.remoteModel && !state.library?.loaded) { pushToast('info', 'Still starting up', 'Strata is still checking your models. Try again in a moment.'); return; }
-    const why = noModelNotice(nativeState(), { remote: !!state.remoteModel, libraryLoaded: !!state.library?.loaded });
+    if (!nativeState() && !state.remoteModel && !state.acpBackend && !state.library?.loaded) { pushToast('info', 'Still starting up', 'Strata is still checking your models. Try again in a moment.'); return; }
+    const why = state.acpBackend ? null : noModelNotice(nativeState(), { remote: !!state.remoteModel, libraryLoaded: !!state.library?.loaded });
     if (why) { pushToast('info', why.title, why.message); return; }
   }
-  const pictureCheck=pictureStatus(nativeState(),state.remoteModel,state.providers);
+  // An agent CLI takes the task as text: dropped pictures cannot reach it (v1), so say so instead of quietly dropping them.
+  if (state.acpBackend && !reattach && pendingChatPhotos(state.activeSession).length) { pushToast('error', 'This agent does not read pictures yet', 'Drop the files into the chat folder and mention their names in the task.'); return; }
+  const pictureCheck=state.acpBackend?{ok:true,message:''}:pictureStatus(nativeState(),state.remoteModel,state.providers);
   if(!reattach&&pendingChatPhotos(state.activeSession).length&&!pictureCheck.ok){pushToast('error','This model cannot read pictures',tr(pictureCheck.message));return;}
   const pictures=reattach?[]:takeChatPhotos(state.activeSession);
   const body=text.trim()||(pictures.length?'Describe this picture.':'');
@@ -2059,7 +2074,8 @@ export async function sendMessage(text: string, options: { fromLoop?: boolean; g
         ...(resume ? { goalAction: 'resume' } : planStart ? {} : { message: options.shown ? body : body }),
         history:await Promise.all(prior.map(async(m,index)=>{const included=pictureCheck.ok?(m.photos??[]).filter((_,p)=>imageSlots.has(`${index}:${p}`)):[];const omitted=(m.photos??[]).filter(p=>!included.includes(p));const text=m.content+(omitted.length?`\n[Earlier pictures: ${omitted.map(p=>p.name).join(', ')}. Their pixels are outside this model's image context; ask to reattach them if needed.]`:'');return {role:m.role,content:included.length?[{type:'text',text},...await Promise.all(included.map(async photo=>({type:'image_url',image_url:{url:(await photoData(photo)).url}})))]:text};})),
         model: state.library?.loaded ?? state.library?.current ?? null,
-        remoteModel: state.remoteModel,
+        remoteModel: state.acpBackend ? undefined : state.remoteModel,
+        acpBackend: state.acpBackend ?? undefined,
         nativeModelId:nativeState()?.instances.length?nativeState()?.defaultId:undefined,
         ...(pictures.length ? { imageIds: await uploadChatPhotos(pictures, sessionId) } : {}),
         useTools:state.sessions.find(s=>s.id===sessionId)?.preferences?.useTools===true,

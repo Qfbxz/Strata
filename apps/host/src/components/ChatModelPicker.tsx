@@ -1,9 +1,10 @@
 import { tr } from '../lib/i18n';
 import { modelFamilyIcon } from '../lib/model-icons';
-import { useId, useRef, useState } from 'react';
+import { useId, useEffect, useRef, useState } from 'react';
 import { FloatingMenu } from './FloatingMenu';
 import { Bar, Btn, Dialog, ErrorNotice, Icon } from './ui';
-import { go, useLifecycle, loadVariant, selectRemoteModel, setSettingsSection, useStore } from '../lib/store';
+import { go, selectAcpBackend, useLifecycle, loadVariant, selectRemoteModel, setSettingsSection, useStore } from '../lib/store';
+import { api } from '../lib/client';
 import { pickerGroups, pickerNativeModels, pickerVersionState } from '../lib/model-picker';
 import { versionFit } from '../lib/model-versions';
 import type { ModelVariant } from '../lib/types';
@@ -16,11 +17,17 @@ export function ChatModelPicker() {
     return native?.instances.length && !remote ? <NativeChatModelPicker /> : <LegacyChatModelPicker />;
 }
 function NativeChatModelPicker() {
-    const native = useNative(), providers = useStore(s => s.providers), streaming = useStore(s => s.streaming);
+    const native = useNative(), providers = useStore(s => s.providers), streaming = useStore(s => s.streaming), acp = useStore(s => s.acpBackend);
     const [open, setOpen] = useState(false), [error, setError] = useState('');
+    const [agents, setAgents] = useState<{ kind: string; label: string; available: boolean }[]>([]);
     const ref = useRef<HTMLButtonElement>(null);
     const current = native?.instances.find(i => i.id === native.defaultId);
-    return <><button className="chat-model-badge chat-model-picker" ref={ref} aria-label={tr("Choose model: {0}", [current?.label ?? 'Native model'])} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(v => !v)}><Icon name="models" size={16}/><span>{tr(current?.label ?? 'Native model')}</span><Icon name="chevron" size={12}/></button>{tr(open ? <FloatingMenu anchor={ref.current} title={tr("Chat model")} width={340} onClose={() => setOpen(false)}>{tr(native?.instances.filter(i => i.status !== 'error').map(i => <button className="menu__item" role="menuitemradio" aria-checked={current?.id === i.id} disabled={streaming || i.status !== 'ready'} key={i.id} onClick={() => void nativeAction(`instances/${i.id}/default`).then(() => setOpen(false)).catch(e => setError(e.message))}><Icon name="models"/><span><strong>{tr(i.label)}</strong><small>{tr(i.gpus.map(g => `GPU ${g + 1}`).join(" + ") || "Automatic GPU")}</small></span>{tr(current?.id === i.id ? <Icon name="check" size={16} className="menu__check"/> : null)}</button>))}{tr(pickerNativeModels(native?.installed?.models, native?.instances).filter(m => m.ready !== false).slice(0, 4).map(m => <button className="menu__item" role="menuitem" key={m.model} onClick={() => { setOpen(false); go('models'); }}><Icon name="models"/><span><strong>{tr(m.model_name ?? m.model)}</strong><small>{tr("Downloaded, not loaded - open Models to load it")}</small></span></button>))}{tr(providers?.connections.flatMap(c => c.models.map(m => <button className="menu__item" role="menuitem" disabled={streaming} key={`${c.id}-${m.id}`} onClick={() => { selectRemoteModel({ connectionId: c.id, modelId: m.id }); setOpen(false); }}><Icon name="link"/>{m.name} · {c.name}</button>)))}<button className="menu__item" role="menuitem" onClick={() => { setOpen(false); go('models'); }}>{tr("Manage models")}</button>{tr(error ? <p className="small inline-error">{tr(error)}</p> : null)}</FloatingMenu> : null)}</>;
+    useEffect(() => {
+        if (!open) return;
+        api.get<{ backends: { kind: string; label: string; available: boolean }[] }>('/api/acp/backends').then(d => setAgents(d.backends ?? [])).catch(() => setAgents([]));
+    }, [open]);
+    const activeAgent = agents.find(a => a.kind === acp);
+    return <><button className="chat-model-badge chat-model-picker" ref={ref} aria-label={tr("Choose model: {0}", [activeAgent?.label ?? current?.label ?? 'Native model'])} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(v => !v)}><Icon name={activeAgent ? 'bolt' : 'models'} size={16}/><span>{tr(activeAgent?.label ?? current?.label ?? 'Native model')}</span><Icon name="chevron" size={12}/></button>{tr(open ? <FloatingMenu anchor={ref.current} title={tr("Chat model")} width={340} onClose={() => setOpen(false)}>{tr(native?.instances.filter(i => i.status !== 'error').map(i => <button className="menu__item" role="menuitemradio" aria-checked={!acp && current?.id === i.id} disabled={streaming || i.status !== 'ready'} key={i.id} onClick={() => { selectAcpBackend(null); void nativeAction(`instances/${i.id}/default`).then(() => setOpen(false)).catch(e => setError(e.message)); }}><Icon name="models"/><span><strong>{tr(i.label)}</strong><small>{tr(i.gpus.map(g => `GPU ${g + 1}`).join(" + ") || "Automatic GPU")}</small></span>{tr(!acp && current?.id === i.id ? <Icon name="check" size={16} className="menu__check"/> : null)}</button>))}{tr(agents.some(a => a.available) ? <><p className="model-picker-heading">{tr("Agents on this Mac")}</p>{tr(agents.filter(a => a.available).map(a => <button className="menu__item" role="menuitemradio" aria-checked={acp === a.kind} disabled={streaming} key={a.kind} onClick={() => { selectAcpBackend(a.kind); setOpen(false); }}><Icon name="bolt"/><span><strong>{tr(a.label)}</strong><small>{tr("The CLI runs its own agent loop; the task goes as one message")}</small></span>{tr(acp === a.kind ? <Icon name="check" size={16} className="menu__check"/> : null)}</button>))}</> : null)}{tr(pickerNativeModels(native?.installed?.models, native?.instances).filter(m => m.ready !== false).slice(0, 4).map(m => <button className="menu__item" role="menuitem" key={m.model} onClick={() => { setOpen(false); go('models'); }}><Icon name="models"/><span><strong>{tr(m.model_name ?? m.model)}</strong><small>{tr("Downloaded, not loaded - open Models to load it")}</small></span></button>))}{tr(providers?.connections.flatMap(c => c.models.map(m => <button className="menu__item" role="menuitem" disabled={streaming} key={`${c.id}-${m.id}`} onClick={() => { selectAcpBackend(null); selectRemoteModel({ connectionId: c.id, modelId: m.id }); setOpen(false); }}><Icon name="link"/>{m.name} · {c.name}</button>)))}<button className="menu__item" role="menuitem" onClick={() => { setOpen(false); go('models'); }}>{tr("Manage models")}</button>{tr(error ? <p className="small inline-error">{tr(error)}</p> : null)}</FloatingMenu> : null)}</>;
 }
 function LegacyChatModelPicker() {
     const native = useNative();

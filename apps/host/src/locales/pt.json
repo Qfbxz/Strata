@@ -3553,5 +3553,7 @@
  "s9061": "Escolha um arquivo para vê-lo.",
  "s9062": "Ficheiro binário - {0}, não mostrado aqui.",
  "s9063": "· truncado em 512 KB",
- "s9064": "Pasta largada - será enviada com a próxima mensagem"
+ "s9064": "Pasta largada - será enviada com a próxima mensagem",
+ "s9065": "Agentes neste Mac",
+ "s9066": "A CLI roda o seu próprio loop de agente; a tarefa vai como uma mensagem"
 }

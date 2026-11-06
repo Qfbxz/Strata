@@ -3553,5 +3553,7 @@
  "s9061": "Choose a file to view it.",
  "s9062": "Binary file - {0}, not shown here.",
  "s9063": "· truncated at 512 KB",
- "s9064": "Dropped folder - sent with the next message"
+ "s9064": "Dropped folder - sent with the next message",
+ "s9065": "Agents on this Mac",
+ "s9066": "The CLI runs its own agent loop; the task goes as one message"
 }

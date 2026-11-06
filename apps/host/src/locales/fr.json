@@ -3553,5 +3553,7 @@
  "s9061": "Choisissez un fichier pour l'afficher.",
  "s9062": "Fichier binaire - {0}, non affiché ici.",
  "s9063": "· tronqué à 512 Ko",
- "s9064": "Dossier déposé - envoyé avec le prochain message"
+ "s9064": "Dossier déposé - envoyé avec le prochain message",
+ "s9065": "Agents sur ce Mac",
+ "s9066": "La CLI exécute sa propre boucle d'agent ; la tâche part en un message"
 }

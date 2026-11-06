@@ -17,6 +17,8 @@ import { materializeSkills, parseSkillFile, skillSlug, writeCreatedSkill } from 
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
 import { createAgentBridge, plainTurnFailure } from './agent/agent-bridge.mjs';
+import { runAcpTurn } from './agent/acp/turns.mjs';
+import { availableBackends, backendOf } from './agent/acp/backends.mjs';
 import { mcpSkippedNotices } from './agent/profile.mjs';
 import { createAgentTools } from './agent/tools-settings.mjs';
 import { withPlainStatus } from './agent/status.mjs';
@@ -621,6 +623,21 @@ async function runRemoteTurn({ selection, message, history, images = [], thinkin
 async function runAgentTurn({ res, controller, chatId, body, message, workspaceId, images = [] }) {
   const write = frame => { if (!res.writableEnded && !res.destroyed) res.write(`${JSON.stringify(frame)}\n`); };
   const cwd = chatFolders.get(chatId) ?? (workspaceId ? workspaces.find(w => w.id === workspaceId)?.path : null) ?? WORKSPACE;
+  // An external agent CLI (ACP backends, §八): the turn runs the CLI's own agent loop over the Agent Client
+  // Protocol and streams the frames the chat already renders. Everything else about this chat (files, history,
+  // the harness's goal commands) stays with the harness - an ACP turn is one task in, its output out.
+  if (body.acpBackend) {
+    const wanted = String(body.acpBackend);
+    const found = (await availableBackends()).find(b => b.kind === wanted && b.available);
+    if (!found) { write({ type: 'error', message: `${wanted} is not on this Mac (no ${backendOf(wanted)?.command ?? wanted} on the PATH).`, code: 'acp-turn' }); return; }
+    const turn = new AbortController();
+    const entry = serving.open({ client: 'Strata chat', endpoint: '/acp', model: found.label, cancel: () => turn.abort(new DOMException('Cancelled by the user', 'AbortError')) });
+    controller.signal.addEventListener('abort', () => turn.abort(new DOMException('Cancelled by the user', 'AbortError')), { once: true });
+    serving.mark(entry.id, { state: 'generating' });
+    const result = await runAcpTurn({ backend: { ...found, command: found.path }, message, cwd, onFrame: f => write({ ...f, requestId: entry.id }), signal: turn.signal });
+    serving.finish(entry.id, { durationMs: result.durationMs, ...(result.error ? { error: result.error } : {}) });
+    return;
+  }
   let choice, instance = null;
   if (body.remoteModel) {
     choice = { connectionId: String(body.remoteModel.connectionId), modelId: String(body.remoteModel.modelId) };
@@ -2058,6 +2075,8 @@ async function api(req, res, path, method, url) {
     catch (e) { return error(res, e.code === 'question-gone' ? 409 : 400, e.message); }
   }
   // A message for one helper (#4749).
+  // The ACP agent backends this Mac can drive (the chat picker's "Agents on this Mac" list).
+  if (path === '/api/acp/backends' && method === 'GET') return json(res, 200, { backends: await availableBackends() });
   if (path === '/api/chat/helper-transcript' && method === 'GET') {
     const parent = url.searchParams.get('session');
     const child = url.searchParams.get('child');
@@ -2182,7 +2201,7 @@ async function api(req, res, path, method, url) {
     const agentSkip = process.env.STRATA_AGENT === 'off' ? 'The agent is turned off (STRATA_AGENT=off).'
       : body.agent === false || body.tools === false ? 'This chat runs without the agent.'
       : !chatId ? 'This request did not name a chat.'
-      : !(body.remoteModel || native.hasLive()) ? 'The agent needs a loaded Strata model or an API model.'
+      : !(body.remoteModel || body.acpBackend || native.hasLive()) ? 'The agent needs a loaded Strata model, an API model, or an agent CLI on this Mac.'
       : null;
     if (chatId && !agentSkip) {
       const capability = agent.status();
