@@ -70,6 +70,7 @@ import { prepareOversized } from './oversize.mjs';
 import { createChatFolders, chatRootOf, openFile, resolveChatFile, previewFile, rawFile, createAttachments, withAttachments } from './chat-files.mjs';
 import { createLlmProxy, samplingFromExpert } from './agent/llm-shape.mjs';
 import { checkUpdates, checkComponentUpdates, engineFirstRun } from './updates.mjs';
+import { createEngineUpdateWatcher } from './engine-update-watcher.mjs';
 import { plainNoModel } from './no-model-text.mjs';
 import { createAppUi } from './app-ui.mjs';
 import { appVersionFrom, appVersionToShow } from './app-version.mjs';
@@ -1078,6 +1079,10 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+const engineWatcher = createEngineUpdateWatcher({
+  check: () => checkComponentUpdates({ control: typeof control !== 'undefined' ? control : null, appUpdater, appVersion: process.env.STRATA_APP_VERSION || null }),
+});
+
 async function api(req, res, path, method, url) {
   if(path==='/api/fonts'&&method==='GET')return json(res,200,await systemFonts());
   // --- chats: one file each in the data folder -----------------------------
@@ -1508,7 +1513,9 @@ async function api(req, res, path, method, url) {
     await pipeline(req, createWriteStream(target, { mode: 0o600 }));
     return json(res, 202, native.operation('install-engine-file', { path: target }));
   }
-  if (path === '/api/updates/check' && method === 'GET' && control?.updateCheck) return json(res, 200, await checkComponentUpdates({ control, appUpdater, appVersion: process.env.STRATA_APP_VERSION || null }));
+  if (path === '/api/updates/check' && method === 'GET' && control?.updateCheck) { const report = await checkComponentUpdates({ control, appUpdater, appVersion: process.env.STRATA_APP_VERSION || null }); engineWatcher.poke(); return json(res, 200, report); }
+  // The engine's own update view, checked on the host's schedule (apart from the app): the badge without a pressed button.
+  if (path === '/api/updates/engine' && method === 'GET') return json(res, 200, engineWatcher.state());
   if (path === '/api/updates/check' && method === 'GET') return json(res, 200, await checkUpdates({ appVersion:appVersionToShow(setupState().app.version,native.state().version), engineVersion:native.state().available?(native.state().installed?.engine?.version??null):(await engine.config()).engine.version }));
 
   if (path === '/api/setup/step' && method === 'POST') {
