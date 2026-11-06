@@ -59,6 +59,17 @@ export const GATE_PLUGIN = fileURLToPath(new URL('./plugins/strata-gate.mjs', im
  * dsh fleet: zero dependencies, one ESM entry, and its prompt files read relative to import.meta.url,
  * so the absolute-path entry carries the whole plugin. Registered always-on below, next to the gate. */
 export const INFINITE_GEN_PLUGIN = fileURLToPath(new URL('./plugins/dsh-infinite-gen-4/index.js', import.meta.url));
+/** The SSH plugin (@linxin666/dsh-ssh v0.4.15), vendored with its five dependencies beside it and
+ * its dsh.engines declaration relaxed to this harness: the host half is complete (a host store
+ * seeded from ~/.ssh/config, an ssh2 pool with jump hosts and tunnels, the /api/dsh-ssh routes, a
+ * WebSocket terminal over webServer.registerUpgrade, and six ssh_* tools), the browser terminal UI
+ * is the profile-bundles half, later. Registered always-on next to the gate. */
+export const SSH_PLUGIN = '@linxin666/dsh-ssh';
+/** The auto-continue plugin (dsh-client-auto-continue v0.17.3, the owner's 自动回复): zero hard
+ * dependencies, apply injects settings + agents + webServer itself. Its agent/inbox trigger event
+ * is renamed to this harness's word (spliced) in the vendored copy; the main session/event bus
+ * drives it regardless. */
+export const AUTO_CONTINUE_PLUGIN = 'dsh-client-auto-continue';   // lives in the harness bundle's node_modules (installed beside @deepseek-ai/*), so its imports of dsh-tools and friends resolve from the harness itself
 /** The app's web search (DuckDuckGo, or the person's own Exa / Perplexity key), registered with the Harness's web seam. */
 /** Compaction that measures the real prompt and summarises in pieces that fit the window (plugins/strata-context.mjs). */
 export const CONTEXT_PLUGIN = fileURLToPath(new URL('./plugins/strata-context.mjs', import.meta.url));
@@ -331,6 +342,8 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     // the owner's auto-continue plugin: every agent session gains it (zero deps; tools + systemPrompt
     // sections + the armor session projection; the input-box badge is the browser half, later)
     { insert: [{ id: 'dsh-infinite-gen-4', name: INFINITE_GEN_PLUGIN }] },
+    { insert: [{ id: 'ssh', name: SSH_PLUGIN }] },
+    { insert: [{ id: 'auto-continue', name: AUTO_CONTINUE_PLUGIN }] },
     // Compaction decides from what the model server measured, and its summary requests always fit the window (plugins/strata-context.mjs).
     { insert: [{ id: 'strata-context', name: CONTEXT_PLUGIN, config: {} }] },
     // Helper agents on a model the person names: every model the app can reach is allowed, and the plugin makes the choice forgiving (plugins/strata-models.mjs).
