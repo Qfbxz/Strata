@@ -76,6 +76,8 @@ test('a folder without usable instructions is not an agent, and the catalog and 
     const catalog = agentCatalogSection(found);
     assert.match(catalog, /Agents on this machine/);
     assert.match(catalog, /- real: does things/);
+    assert.match(catalog, /instructions: /, 'each row names its instructions file, so the model can read it and pass it as a helper persona');
+    assert.match(catalog, /pass those instructions to it as its persona/);
     assert.equal(agentCatalogSection([]), '');
     const persona = agentPersonaSection(found[0]);
     assert.match(persona, /You are working as the agent "Real"/);

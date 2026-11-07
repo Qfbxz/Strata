@@ -97,12 +97,14 @@ export function scanAgentDirs(dirs, { io = { existsSync, readdirSync, readFileSy
   return order;
 }
 
-/** The system-prompt block that tells the model who it can call on, or '' when nobody is defined. */
+/** The system-prompt block that tells the model who it can call on, or '' when nobody is defined.
+ * Each row carries the agent's instructions file: the model reads it (its file tools) and follows
+ * it directly, or passes the contents as a helper's persona when it delegates. */
 export function agentCatalogSection(agents) {
   const rows = (agents || []).filter(a => a.id && a.description);
   if (!rows.length) return '';
-  const list = rows.map(a => `- ${a.id}: ${a.description}`).join('\n');
-  return `Agents on this machine (personas with their own instructions). When the person asks for one by name — or a task clearly matches one — adopt it: follow its instructions for that work and say you are working as it.\n${list}`;
+  const list = rows.map(a => `- ${a.id}: ${a.description}${a.path ? ` (instructions: ${a.path})` : ''}`).join('\n');
+  return `Agents on this machine (personas with their own instructions). When the person asks for one by name — or a task clearly matches one — adopt it: read its instructions file first, follow it for that work, and say you are working as it. When you send a helper instead, pass those instructions to it as its persona.\n${list}`;
 }
 
 /** The system-prompt block for the one agent a chat is talking to, or '' for none. */
