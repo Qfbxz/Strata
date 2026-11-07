@@ -14,6 +14,8 @@ import { createAgentTaskRunner } from './agent/task-run.mjs';
 import { migrateSetup } from './setup.mjs';
 import { skillEdit } from './skill-edits.mjs';
 import { materializeSkills, parseSkillFile, skillSlug, writeCreatedSkill } from './skill-files.mjs';
+import { scanAgentDirs, agentCatalogSection, agentPersonaSection } from './agent-files.mjs';
+import { scanHookDirs, runEventHooks } from './turn-hooks.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
@@ -315,6 +317,25 @@ function setupState() {
 
 /** Skills written in the Skills page live here (one folder each, SKILL.md inside). */
 const CREATED_SKILLS = join(store.DATA_DIR, 'skills');
+// Claude-Code-style directories, the same two places skills live: agents the person writes as
+// `<slug>.md` or `<slug>/AGENT.md`, and hook scripts under `<event>/`. Empty folders cost nothing,
+// so the default path is unchanged until something is dropped in.
+const AGENT_DIRS = () => [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')];
+const HOOK_DIRS = () => [join(store.DATA_DIR, 'hooks'), join(WORKSPACE, 'hooks')];
+function agentsOnDisk() { return scanAgentDirs(AGENT_DIRS()); }
+function hooksOnDisk() { return scanHookDirs(HOOK_DIRS()); }
+/** The system-prompt block for the agent catalog plus the one agent the chat picked, '' when none. */
+function agentPromptPart(agentId) {
+  const list = agentsOnDisk();
+  const chosen = agentId ? list.find(a => a.id === agentId) : null;
+  return [agentCatalogSection(list), agentPersonaSection(chosen)].filter(Boolean).join('\n\n');
+}
+/** Run one lifecycle event's scripts; null when the folder has none. A pre-turn nonzero exit vetoes. */
+async function turnHookEvent(event, payload, veto = false) {
+  const hooks = hooksOnDisk();
+  if (!hooks.events[event]?.length) return null;
+  return runEventHooks(hooks, event, payload, { vetoOn: veto ? ['pre-turn'] : [] });
+}
 /** What the agent scans: the whole current list, written out by syncAgentSkills (the Harness watches it, so no restart). */
 const AGENT_SKILLS = join(store.DATA_DIR, 'agent', 'skills-live');
 
@@ -585,7 +606,7 @@ function clientName(req) {
   return 'Local client';
 }
 
-async function runRemoteTurn({ selection, message, history, images = [], thinking, onFrame, signal, workspaceId }) {
+async function runRemoteTurn({ selection, message, history, images = [], thinking, onFrame, signal, workspaceId, agentId = null }) {
   const controller = new AbortController();
   const requestSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
   let entry;
@@ -605,7 +626,7 @@ async function runRemoteTurn({ selection, message, history, images = [], thinkin
     const appliedSkills = selectSkills(skillState, message, workspaceId);
     entry = serving.open({ client: 'Strata chat', endpoint: connection.protocol === 'anthropic' ? '/messages' : connection.protocol === 'openai-responses' ? '/responses' : '/chat/completions', model: `${connection.name} · ${model.name}`, cancel: () => controller.abort(new DOMException('Cancelled by the user', 'AbortError')) });
     serving.mark(entry.id, { state: 'generating' });
-    const result = await modelProviders.stream({ selection, message, history, images, thinking, signal: requestSignal, systemPrompt: ['You are Strata, a helpful assistant. Answer clearly. Do not claim to have read files or performed actions unless their results are included in the conversation.', skillInstructions(appliedSkills)].filter(Boolean).join('\n\n'), onFrame: frame => {
+    const result = await modelProviders.stream({ selection, message, history, images, thinking, signal: requestSignal, systemPrompt: ['You are Strata, a helpful assistant. Answer clearly. Do not claim to have read files or performed actions unless their results are included in the conversation.', skillInstructions(appliedSkills), agentPromptPart(agentId)].filter(Boolean).join('\n\n'), onFrame: frame => {
       if (frame.type === 'start') noteSkillUse(appliedSkills);
       if (frame.type === 'done') serving.mark(entry.id, { tokensIn: frame.tokensIn, tokensOut: frame.tokensOut, usageSource: frame.usageSource });
       onFrame({ ...frame, requestId: entry.id, model: model.name, contextMax: model.contextMax, remoteModel: true, ...(frame.type === 'start' ? { skills: appliedSkills.map(s => s.name) } : {}) });
@@ -625,6 +646,11 @@ async function runRemoteTurn({ selection, message, history, images = [], thinkin
 /** One agent turn for a chat, streamed to the caller as the NDJSON frames the chat already renders. */
 async function runAgentTurn({ res, controller, chatId, body, message, workspaceId, images = [] }) {
   const write = frame => { if (!res.writableEnded && !res.destroyed) res.write(`${JSON.stringify(frame)}\n`); };
+  // A pre-turn hook (hooks/<event>/ scripts) can stop the turn before anything runs; its stderr is the reason.
+  try {
+    const veto = await turnHookEvent('pre-turn', { chatId, message, workspaceId, agentId: typeof body.agentId === 'string' ? body.agentId : null }, true);
+    if (veto?.vetoed) { write({ type: 'error', message: `A pre-turn hook stopped this turn: ${veto.reason}`, code: 'pre-turn-hook' }); return; }
+  } catch { /* a hook runner that itself fails must not take the turn down */ }
   const cwd = chatFolders.get(chatId) ?? (workspaceId ? workspaces.find(w => w.id === workspaceId)?.path : null) ?? WORKSPACE;
   // An external agent CLI (ACP backends, §八): the turn runs the CLI's own agent loop over the Agent Client
   // Protocol and streams the frames the chat already renders. Everything else about this chat (files, history,
@@ -690,6 +716,7 @@ async function runAgentTurn({ res, controller, chatId, body, message, workspaceI
       : goalLine ? await agent.goalCommand({ ...turnOptions, line: goalLine[1] ?? '' }) : await agent.runTurn(turnOptions);
     if (result?.detached) void result.ended.then(r => settle(r?.tokensOut ?? null), () => settle(null));
     else settle(result?.tokensOut ?? null, result?.error ? 'The agent turn failed.' : undefined);
+    void turnHookEvent('post-turn', { chatId, message, workspaceId, agentId: typeof body.agentId === 'string' ? body.agentId : null }).catch(() => {});
   } catch (err) {
     const plain = plainTurnFailure(err);
     write({ type: 'error', message: plain.message, ...(plain.details ? { details: plain.details } : {}), code: plain.code });
@@ -697,8 +724,8 @@ async function runAgentTurn({ res, controller, chatId, body, message, workspaceI
   }
 }
 
-async function runTurn({ message, history = [], onFrame, signal, client, workspaceId = null, sessionId = null, remoteModel = null, runtimeModelId = undefined, nativeModelId, images=[], useTools=false, thinking='medium', thinkingBudget=0 }) {
-  if (remoteModel) return runRemoteTurn({ selection: remoteModel, message, history, images, thinking, onFrame, signal, workspaceId });
+async function runTurn({ message, history = [], onFrame, signal, client, workspaceId = null, sessionId = null, remoteModel = null, runtimeModelId = undefined, nativeModelId, images=[], useTools=false, thinking='medium', thinkingBudget=0, agentId = null }) {
+  if (remoteModel) return runRemoteTurn({ selection: remoteModel, message, history, images, thinking, onFrame, signal, workspaceId, agentId });
   if(native.hasLive()||nativeModelId){
     let instance;try{instance=native.resolveInstance(nativeModelId??native.state().defaultId);}catch(e){const message=plainNoModel(e.message);onFrame({type:'error',message});return {error:message};}const started=Date.now(),cancel=new AbortController();
     const entry=serving.open({client:client??'Strata chat',endpoint:'/chat/completions',model:instance.apiModelId,instanceId:instance.id,gpuIds:instance.gpus.map(String),cancel:()=>cancel.abort()});
@@ -732,7 +759,7 @@ async function runTurn({ message, history = [], onFrame, signal, client, workspa
       // Scope is resolved again at dispatch: a disabled skill never stays active
       // merely because the request waited in the queue.
       const appliedSkills = selectSkills(skillState, message, workspaceId);
-      const systemPrompt = [SYSTEM_PROMPT, skillInstructions(appliedSkills)].filter(Boolean).join('\n\n');
+      const systemPrompt = [SYSTEM_PROMPT, skillInstructions(appliedSkills), agentPromptPart(agentId)].filter(Boolean).join('\n\n');
       serving.mark(entry.id, { state: 'generating' });
       const contextMax = instance.memory.context;
       const modelMonitor=models.REAL?monitor:{
@@ -1346,6 +1373,11 @@ async function api(req, res, path, method, url) {
     // nothing to say, and a caller that hears no byte for five minutes gives up (that was "The assistant could not be reached").
     res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-cache, no-transform' });
     const write = frame => { if (!res.writableEnded && !res.destroyed) res.write(`${JSON.stringify(frame)}\n`); };
+  // A pre-turn hook (hooks/<event>/ scripts) can stop the turn before anything runs; its stderr is the reason.
+  try {
+    const veto = await turnHookEvent('pre-turn', { chatId, message, workspaceId, agentId: typeof body.agentId === 'string' ? body.agentId : null }, true);
+    if (veto?.vetoed) { write({ type: 'error', message: `A pre-turn hook stopped this turn: ${veto.reason}`, code: 'pre-turn-hook' }); return; }
+  } catch { /* a hook runner that itself fails must not take the turn down */ }
     write({ type: 'beat' });
     const beat = setInterval(() => write({ type: 'beat' }), 15_000);
     const controller = new AbortController();
@@ -2132,6 +2164,8 @@ async function api(req, res, path, method, url) {
     try { return json(res, 200, { rows: await agent.childTranscript(String(parent), String(child)) }); }
     catch (e) { return error(res, 400, e.message); }
   }
+  if (path === '/api/agents' && method === 'GET') return json(res, 200, agentsOnDisk());
+  if (path === '/api/hooks' && method === 'GET') return json(res, 200, hooksOnDisk());
   if (path === '/api/chat/helper' && method === 'POST') {
     const body = await readBody(req);
     try { return json(res, 200, await agent.messageHelper({ chatId: String(body.sessionId ?? ''), helperId: body.helperId, text: body.message, delivery: body.delivery })); }
@@ -2298,6 +2332,7 @@ async function api(req, res, path, method, url) {
       workspaceId,
       sessionId: typeof body.sessionId === 'string' ? body.sessionId : null,
       remoteModel: body.remoteModel ?? null,
+      agentId: typeof body.agentId === 'string' && body.agentId ? body.agentId : null,
       nativeModelId:body.nativeModelId,
       images,useTools:body.useTools===true,thinking:body.thinking??'high',thinkingBudget:Number.isInteger(body.thinkingBudget)&&body.thinkingBudget>0?Math.min(body.thinkingBudget,262144):0,
     });
