@@ -122,6 +122,14 @@ const deferred = () => { let resolve; const promise = new Promise(r => { resolve
  * @param {string} [options.nodePath]                   the Node runtime that runs the Harness
  * @param {(line:string)=>void} [options.log]
  */
+/** The auto-continue plugin splices its continue prompt as a plain user message: an exact "Continue",
+ * or one of the localized interruption texts (the reply stalled silent, or the host restarted mid-turn).
+ * An exact-value match on the serialized payload keeps a longer user sentence ("Continue with the plan")
+ * from lighting the badge. */
+export function isAutoContinueSplice(payloadText) {
+  const t = String(payloadText ?? '');
+  return t.includes('"Continue"') || t.includes('继续。你上一轮') || t.includes('宿主在你上一轮运行期间重启');
+}
 export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = null, gate = true, localInstances, connections, tools = () => undefined, defaultLocalId = () => null, skillsDir = () => null, onGoal = () => {}, onPlan = () => {}, onQueue = () => {}, proxyBase = null, searchMock = null, expertSampling = () => null, engineProgress = () => null, engineGraceMs = 30 * 60_000, stallMs = 4 * 60_000, stallToolMs = 20 * 60_000, env = process.env, nodePath = process.execPath, log = () => {}, startTimeoutMs = 120_000, sessionReadyMs = 60_000, sessionRetryMs = 1_500 }) {
   const root = join(dataDir, 'agent');
   const home = join(root, 'home');
@@ -698,8 +706,12 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
         // falls through
         case 'agent/inbox/spliced': {
           const hit = JSON.stringify(d);
-          if (!/Background subagent/.test(hit)) break;
-          for (const child of turn.children.values()) if (hit.includes(child.id)) child.noticed = true;
+          if (/Background subagent/.test(hit)) {
+            for (const child of turn.children.values()) if (hit.includes(child.id)) child.noticed = true;
+            break;
+          }
+          // The auto-continue plugin spliced its continue prompt: the chat sees one quiet notice, not a silent jump.
+          if (isAutoContinueSplice(hit)) emit({ type: 'notice', code: 'auto-continued', message: 'The reply was interrupted; the assistant continued on its own (auto-continue).' });
           break;
         }
         default:
