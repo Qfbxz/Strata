@@ -12,10 +12,11 @@ import { NativeOperations } from '../components/NativeOperations';
 import { FontChoice } from '../components/FontChoice';
 import { ElectricityPrice } from '../components/ElectricityPrice';
 import { ApprovalNotifySetting, DoneSoundSetting, PortSetting, TraySetting, useShellState } from '../components/ShellSettings';
+import { FeatureFlagsSetting } from '../components/FeatureFlags';
 import { LANGUAGES } from '../lib/i18n';
 import { setLanguage, setWhileBusy } from '../lib/store';
 import { CONTENT_FONT_RANGE, setContentFontSize, setDensity, setFocus, setMotion, setShortcuts, setTheme, setTransparency, setUiScale, UI_SCALES, useStore, setSettingsSection } from '../lib/store';
-const PANELS = [{ name: 'Appearance', icon: 'sun', sections: ['General', 'Reading & focus'] }, { name: 'Models', icon: 'models', sections: [] }, { name: 'Tools', icon: 'tool', sections: [] }, { name: 'Storage', icon: 'disk', sections: ['Storage'] }, { name: 'Engine', icon: 'engine', sections: [] }, { name: 'About', icon: 'info', sections: ['About', 'Update', 'Privacy'] }] as const;
+const PANELS = [{ name: 'Appearance', icon: 'sun', sections: ['General', 'Reading & focus'] }, { name: 'Assistant', icon: 'skills', sections: ['Assistant files'] }, { name: 'Models', icon: 'models', sections: [] }, { name: 'Tools', icon: 'tool', sections: [] }, { name: 'Storage', icon: 'disk', sections: ['Storage'] }, { name: 'Engine', icon: 'engine', sections: [] }, { name: 'About', icon: 'info', sections: ['About', 'Update', 'Privacy'] }] as const;
 export function SettingsScreen() {
     const prefs = useStore(s => s);
     const [shell, saveShell] = useShellState();
@@ -28,6 +29,7 @@ export function SettingsScreen() {
         aliases?: string;
         control: ReactNode;
     }[] = [
+        { section: 'Assistant files', label: 'What the assistant reads and runs', hint: 'Choose which file surfaces the assistant uses. Dropping files in the folders turns a feature on; these switches turn it off.', aliases: 'agents hooks memory claude agents md skills import features', control: <FeatureFlagsSetting/> },
         { section: 'General', label: 'Language', hint: 'Choose the language used throughout Strata.', control: <Select translateLabels={false} ariaLabel={tr("Language")} value={prefs.language} options={[...LANGUAGES]} onChange={value => setLanguage(value as typeof prefs.language)}/> },
         { section: 'General', label: 'While an answer is being written', hint: 'What Enter does when you send a message while the assistant is still answering.', aliases: 'interrupt wait queue interject busy send after stop enter', control: <Select value={prefs.whileBusy} ariaLabel={tr("While an answer is being written")} options={[{ value: 'wait', label: 'Wait for the answer' }, { value: 'queue', label: 'Send after the answer' }, { value: 'interject', label: 'Interrupt the answer' }]} onChange={value => setWhileBusy(value as typeof prefs.whileBusy)}/> },
         { section: 'General', label: 'Sound when work finishes', hint: 'Plays a short sound when an answer or task that took a while is finished, or when Strata is in the background.', aliases: 'audio chime done complete notification', control: <DoneSoundSetting /> },

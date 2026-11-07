@@ -11,16 +11,18 @@ export function BranchChip({ chatId, onOpenWorkspace }: {
     onOpenWorkspace: () => void;
 }) {
     const [branch, setBranch] = useState('');
+    const [enabled, setEnabled] = useState(true);
     useEffect(() => {
         setBranch('');
         if (!chatId) return;
         let alive = true;
+        fetch('/api/features').then(r => r.json()).then(d => { if (alive) setEnabled(d.branchChip !== false); }).catch(() => {});
         fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=status`).then(r => r.json()).then(d => {
             if (alive) setBranch((String(d.out ?? '').match(/^## ([^\s.]+)/) || [])[1] ?? '');
         }).catch(() => { /* not a repository: no chip */ });
         return () => { alive = false; };
     }, [chatId]);
-    if (!branch) return null;
+    if (!branch || !enabled) return null;
     return <button type="button" className="branchchip" title={tr("Open the workspace")} onClick={onOpenWorkspace}>
         <span aria-hidden={true}>⑂</span>{branch}
         <IconBtn name="expand" size={13} title={tr("Open the workspace")} onClick={onOpenWorkspace}/>

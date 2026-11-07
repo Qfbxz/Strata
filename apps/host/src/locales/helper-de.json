@@ -11,5 +11,15 @@
  "hlp10": "Läuft…",
  "hlp11": "Speicherdateien",
  "hlp12": "Noch keine Speicherdateien. Der Assistant baut sie bei der Arbeit auf.",
- "hlp13": "Wähle eine Speicherdatei zum Lesen."
+ "hlp13": "Wähle eine Speicherdatei zum Lesen.",
+ "hlp14": "Was der Assistant liest und ausführt",
+ "hlp15": "Wähle, welche Dateiflächen der Assistant nutzt. Dateien in den Ordnern schalten eine Funktion ein; diese Schalter schalten sie aus.",
+ "hlp16": "Agent-Personas (agents-Ordner)",
+ "hlp17": "Hook-Skripte (hooks-Ordner; pre-turn kann ablehnen)",
+ "hlp18": "Speicherindex in direkten Chats",
+ "hlp19": "Projektanweisungen (CLAUDE.md / AGENTS.md)",
+ "hlp20": "Native Skill-Pakete (Ordner anderer Agents, schreibgeschützt)",
+ "hlp21": "Branch-Chip neben dem Eingabefeld",
+ "hlp22": "Assistant",
+ "hlp23": "Assistant-Dateien"
 }

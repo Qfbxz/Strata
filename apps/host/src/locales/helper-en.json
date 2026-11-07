@@ -11,5 +11,15 @@
  "hlp10": "Reading…",
  "hlp11": "Memory files",
  "hlp12": "No memory files yet. The assistant builds them as it works.",
- "hlp13": "Pick a memory file to read it."
+ "hlp13": "Pick a memory file to read it.",
+ "hlp14": "What the assistant reads and runs",
+ "hlp15": "Choose which file surfaces the assistant uses. Dropping files in the folders turns a feature on; these switches turn it off.",
+ "hlp16": "Agent personas (agents folders)",
+ "hlp17": "Hook scripts (hooks folders; pre-turn can veto)",
+ "hlp18": "Memory index in direct chats",
+ "hlp19": "Project instructions (CLAUDE.md / AGENTS.md)",
+ "hlp20": "Native skill packs (other agents' folders, read-only)",
+ "hlp21": "Branch chip in the composer",
+ "hlp22": "Assistant",
+ "hlp23": "Assistant files"
 }

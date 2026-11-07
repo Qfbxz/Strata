@@ -11,5 +11,15 @@
  "hlp10": "Lecture…",
  "hlp11": "Fichiers de mémoire",
  "hlp12": "Pas encore de fichiers de mémoire. L'assistant les construit en travaillant.",
- "hlp13": "Choisis un fichier de mémoire à lire."
+ "hlp13": "Choisis un fichier de mémoire à lire.",
+ "hlp14": "Ce que l'assistant lit et exécute",
+ "hlp15": "Choisis les surfaces de fichiers que l'assistant utilise. Déposer des fichiers dans les dossiers active une fonction ; ces interrupteurs la désactivent.",
+ "hlp16": "Personas d'agents (dossiers agents)",
+ "hlp17": "Scripts de hooks (dossiers hooks ; pre-turn peut refuser)",
+ "hlp18": "Index de mémoire dans les chats directs",
+ "hlp19": "Instructions de projet (CLAUDE.md / AGENTS.md)",
+ "hlp20": "Packs de skills natifs (dossiers d'autres agents, lecture seule)",
+ "hlp21": "Puce de branche près du champ de saisie",
+ "hlp22": "Assistant",
+ "hlp23": "Fichiers de l'assistant"
 }

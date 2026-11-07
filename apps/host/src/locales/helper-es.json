@@ -11,5 +11,15 @@
  "hlp10": "Leyendo…",
  "hlp11": "Archivos de memoria",
  "hlp12": "Aún no hay archivos de memoria. El assistant los crea mientras trabaja.",
- "hlp13": "Elige un archivo de memoria para leer."
+ "hlp13": "Elige un archivo de memoria para leer.",
+ "hlp14": "Lo que el assistant lee y ejecuta",
+ "hlp15": "Elige qué superficies de archivos usa el assistant. Soltar archivos en las carpetas activa una función; estos interruptores la desactivan.",
+ "hlp16": "Personas de agentes (carpetas agents)",
+ "hlp17": "Scripts de hooks (carpetas hooks; pre-turn puede vetar)",
+ "hlp18": "Índice de memoria en chats directos",
+ "hlp19": "Instrucciones de proyecto (CLAUDE.md / AGENTS.md)",
+ "hlp20": "Packs de skills nativos (carpetas de otros agentes, solo lectura)",
+ "hlp21": "Chip de rama junto al campo de escritura",
+ "hlp22": "Assistant",
+ "hlp23": "Archivos del assistant"
 }

@@ -19,6 +19,7 @@ import { scanHookDirs, runEventHooks } from './turn-hooks.mjs';
 import { listMemoryFiles, memoryRoot, readMemoryFile } from './memory-files.mjs';
 import { memoryContextSection } from './memory-context.mjs';
 import { projectInstructions, projectInstructionsSection } from './project-instructions.mjs';
+import { featuresView, sanitizeFeatures } from './feature-flags.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
@@ -325,8 +326,9 @@ const CREATED_SKILLS = join(store.DATA_DIR, 'skills');
 // so the default path is unchanged until something is dropped in.
 const AGENT_DIRS = () => [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')];
 const HOOK_DIRS = () => [join(store.DATA_DIR, 'hooks'), join(WORKSPACE, 'hooks')];
-function agentsOnDisk() { return scanAgentDirs(AGENT_DIRS()); }
-function hooksOnDisk() { return scanHookDirs(HOOK_DIRS()); }
+function features() { return featuresView(store.get().features); }
+function agentsOnDisk() { if (!features().agents) return []; return scanAgentDirs(AGENT_DIRS()); }
+function hooksOnDisk() { if (!features().hooks) return { events: {}, known: [] }; return scanHookDirs(HOOK_DIRS()); }
 /** The system-prompt block for the agent catalog plus the one agent the chat picked, '' when none. */
 function agentPromptPart(agentId) {
   const list = agentsOnDisk();
@@ -335,6 +337,7 @@ function agentPromptPart(agentId) {
 }
 /** The CLAUDE.md / AGENTS.md block for a working folder, '' when there are none. */
 function projectPromptPart(cwd) {
+  if (!features().projectInstructions) return '';
   return projectInstructionsSection(projectInstructions(cwd));
 }
 /** Run one lifecycle event's scripts; null when the folder has none. A pre-turn nonzero exit vetoes. */
@@ -423,10 +426,12 @@ for the choice being made.`,
   // with "Add skill"). Both are plain `<name>/SKILL.md` folders; the frontmatter (name, description) is optional.
   const extra = [];
   // The person's native skill-pack folders, read-only: whatever they already keep for other agents shows up here too (symlinks included - statSync follows them).
+  const feat = features();
   const nativeSkillDirs = [['created', CREATED_SKILLS, 'my-'], ['workspace', join(WORKSPACE, 'skills'), 'ws-'],
+    ...(feat.skillsNative ? [] : []),
     ['native', join(homedir(), '.kimi-code', 'skills'), 'ns-'],
     ['native', join(homedir(), '.agents', 'skills'), 'na-'],
-    ['native', join(homedir(), '.cc-switch', 'skills'), 'nc-']].filter(([, d]) => existsSync(d));
+    ...(feat.skillsNative ? [['native', join(homedir(), '.kimi-code', 'skills'), 'ns-'], ['native', join(homedir(), '.agents', 'skills'), 'na-'], ['native', join(homedir(), '.cc-switch', 'skills'), 'nc-']] : [])].filter(([, d]) => existsSync(d));
   const seenNative = new Set();
   for (const [source, dir, prefix] of nativeSkillDirs) {
     if (!existsSync(dir) || !statSync(dir).isDirectory()) continue;
@@ -642,7 +647,7 @@ async function runRemoteTurn({ selection, message, history, images = [], thinkin
     const appliedSkills = selectSkills(skillState, message, workspaceId);
     entry = serving.open({ client: 'Strata chat', endpoint: connection.protocol === 'anthropic' ? '/messages' : connection.protocol === 'openai-responses' ? '/responses' : '/chat/completions', model: `${connection.name} · ${model.name}`, cancel: () => controller.abort(new DOMException('Cancelled by the user', 'AbortError')) });
     serving.mark(entry.id, { state: 'generating' });
-    const result = await modelProviders.stream({ selection, message, history, images, thinking, signal: requestSignal, systemPrompt: ['You are Strata, a helpful assistant. Answer clearly. Do not claim to have read files or performed actions unless their results are included in the conversation.', skillInstructions(appliedSkills), agentPromptPart(agentId), memoryContextSection(), projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'), onFrame: frame => {
+    const result = await modelProviders.stream({ selection, message, history, images, thinking, signal: requestSignal, systemPrompt: ['You are Strata, a helpful assistant. Answer clearly. Do not claim to have read files or performed actions unless their results are included in the conversation.', skillInstructions(appliedSkills), agentPromptPart(agentId), features().memory ? memoryContextSection() : null, projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'), onFrame: frame => {
       if (frame.type === 'start') noteSkillUse(appliedSkills);
       if (frame.type === 'done') serving.mark(entry.id, { tokensIn: frame.tokensIn, tokensOut: frame.tokensOut, usageSource: frame.usageSource });
       onFrame({ ...frame, requestId: entry.id, model: model.name, contextMax: model.contextMax, remoteModel: true, ...(frame.type === 'start' ? { skills: appliedSkills.map(s => s.name) } : {}) });
@@ -745,7 +750,7 @@ async function runTurn({ message, history = [], onFrame, signal, client, workspa
   if(native.hasLive()||nativeModelId){
     let instance;try{instance=native.resolveInstance(nativeModelId??native.state().defaultId);}catch(e){const message=plainNoModel(e.message);onFrame({type:'error',message});return {error:message};}const started=Date.now(),cancel=new AbortController();
     const entry=serving.open({client:client??'Strata chat',endpoint:'/chat/completions',model:instance.apiModelId,instanceId:instance.id,gpuIds:instance.gpus.map(String),cancel:()=>cancel.abort()});
-    try{serving.mark(entry.id,{state:'generating'});const applied=selectSkills(skillState,message,workspaceId);const result=await proxyCompletion({baseUrl:`http://127.0.0.1:${instance.port}/v1`,modelId:instance.apiModelId,authorization:instance.key,message,history,images,extra:{strata_mcp:useTools===true,...(thinkingBudget>0&&String(thinking).toLowerCase()!=='off'?{reasoning_budget_tokens:thinkingBudget}:{}),reasoning_effort:({off:'none',max:'high'}[String(thinking).toLowerCase()]??String(thinking).toLowerCase())},systemPrompt:[SYSTEM_PROMPT,skillInstructions(applied),memoryContextSection(), projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'),signal:signal?AbortSignal.any([signal,cancel.signal]):cancel.signal,onFrame:frame=>onFrame({...frame,requestId:entry.id,model:instance.label,contextMax:instance.metrics?.engine?.max_context??instance.context,skills:applied.map(s=>s.name)})});serving.mark(entry.id,{...result,usageSource:result.usageSource});serving.finish(entry.id,{tokensOut:result.tokensOut,durationMs:Date.now()-started});return result;}catch(e){serving.finish(entry.id,{durationMs:Date.now()-started,error:e.message});onFrame({type:'error',message:e.message,requestId:entry.id});return {error:e.message};}
+    try{serving.mark(entry.id,{state:'generating'});const applied=selectSkills(skillState,message,workspaceId);const result=await proxyCompletion({baseUrl:`http://127.0.0.1:${instance.port}/v1`,modelId:instance.apiModelId,authorization:instance.key,message,history,images,extra:{strata_mcp:useTools===true,...(thinkingBudget>0&&String(thinking).toLowerCase()!=='off'?{reasoning_budget_tokens:thinkingBudget}:{}),reasoning_effort:({off:'none',max:'high'}[String(thinking).toLowerCase()]??String(thinking).toLowerCase())},systemPrompt:[SYSTEM_PROMPT,skillInstructions(applied),features().memory ? memoryContextSection() : null, projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'),signal:signal?AbortSignal.any([signal,cancel.signal]):cancel.signal,onFrame:frame=>onFrame({...frame,requestId:entry.id,model:instance.label,contextMax:instance.metrics?.engine?.max_context??instance.context,skills:applied.map(s=>s.name)})});serving.mark(entry.id,{...result,usageSource:result.usageSource});serving.finish(entry.id,{tokensOut:result.tokensOut,durationMs:Date.now()-started});return result;}catch(e){serving.finish(entry.id,{durationMs:Date.now()-started,error:e.message});onFrame({type:'error',message:e.message,requestId:entry.id});return {error:e.message};}
   }
   runtimeState();
   let instance;
@@ -775,7 +780,7 @@ async function runTurn({ message, history = [], onFrame, signal, client, workspa
       // Scope is resolved again at dispatch: a disabled skill never stays active
       // merely because the request waited in the queue.
       const appliedSkills = selectSkills(skillState, message, workspaceId);
-      const systemPrompt = [SYSTEM_PROMPT, skillInstructions(appliedSkills), agentPromptPart(agentId), memoryContextSection()].filter(Boolean).join('\n\n');
+      const systemPrompt = [SYSTEM_PROMPT, skillInstructions(appliedSkills), agentPromptPart(agentId), features().memory ? memoryContextSection() : null].filter(Boolean).join('\n\n');
       serving.mark(entry.id, { state: 'generating' });
       const contextMax = instance.memory.context;
       const modelMonitor=models.REAL?monitor:{
@@ -2188,6 +2193,11 @@ async function api(req, res, path, method, url) {
     catch (e) { return error(res, e.message.includes('outside') ? 403 : 400, e.message); }
   }
   if (path === '/api/hooks' && method === 'GET') return json(res, 200, hooksOnDisk());
+  if (path === '/api/features' && method === 'GET') return json(res, 200, featuresView(store.get().features));
+  if (path === '/api/features' && method === 'PUT') {
+    try { const saved = sanitizeFeatures(await readBody(req)); store.update({ features: saved }); return json(res, 200, featuresView(saved)); }
+    catch (e) { return error(res, 400, e.message); }
+  }
   if (path === '/api/chat/helper' && method === 'POST') {
     const body = await readBody(req);
     try { return json(res, 200, await agent.messageHelper({ chatId: String(body.sessionId ?? ''), helperId: body.helperId, text: body.message, delivery: body.delivery })); }
