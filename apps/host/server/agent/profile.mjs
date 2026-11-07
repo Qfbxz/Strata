@@ -75,6 +75,11 @@ export const AUTO_CONTINUE_PLUGIN = 'dsh-client-auto-continue';   // lives in th
  * dependencies beyond the harness (@deepseek-ai/schemastery, yaml) are already in the bundle,
  * so it installs beside auto-continue with nothing else to ship. */
 export const AUTO_MEMORY_PLUGIN = 'dsh-auto-memory';
+/** The persona resolver (agents/ folders, Claude-Code style): a helper spawned with
+ * `persona: "<agents id>"` gets that agent's instructions injected instead of the bare name.
+ * The id must match an `<id>.md` file or `<id>/AGENT.md` folder in the agents folders the
+ * profile is given; anything else passes through untouched. */
+export const PERSONA_PLUGIN = 'strata-persona';   // lives beside the host plugins, loaded by absolute path
 /** The app's web search (DuckDuckGo, or the person's own Exa / Perplexity key), registered with the Harness's web seam. */
 /** Compaction that measures the real prompt and summarises in pieces that fit the window (plugins/strata-context.mjs). */
 export const CONTEXT_PLUGIN = fileURLToPath(new URL('./plugins/strata-context.mjs', import.meta.url));
@@ -213,7 +218,7 @@ export function outputBudget(context, maxOutput = null) {
 /** What a local model, or an OpenAI-style server on this network, takes for the thinking level (see the comment where a local route is built). */
 const THINKING_COMPAT = { supportsStore: false, thinkingFormat: 'chat-template', chatTemplateKwargs: { enable_thinking: { $var: 'thinking.enabled' }, reasoning_effort: { $var: 'thinking.effort', omitWhenOff: true } } };
 
-export function buildProfile({ local = [], connections = [], gate = true, tools = NO_TOOLS_SETTINGS, skillsDir = null, proxyBase = null, searchMock = null, defaultLocalId = null }) {
+export function buildProfile({ local = [], connections = [], gate = true, tools = NO_TOOLS_SETTINGS, skillsDir = null, proxyBase = null, searchMock = null, defaultLocalId = null, agentsDirs = () => [] }) {
   const providers = {};
   const env = {};
   const routes = [];
@@ -351,6 +356,8 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { insert: [{ id: 'auto-continue', name: AUTO_CONTINUE_PLUGIN }] },
     // the owner's auto-memory plugin: typed memory files + the MEMORY.md index injected into the system prompt
     { insert: [{ id: 'auto-memory', name: AUTO_MEMORY_PLUGIN }] },
+    // the persona resolver: `persona: "<agents id>"` at spawn becomes that agent's instructions
+    { insert: [{ id: 'strata-persona', name: PERSONA_PLUGIN, config: { agentsDirs: agentsDirs() } }] },
     // Compaction decides from what the model server measured, and its summary requests always fit the window (plugins/strata-context.mjs).
     { insert: [{ id: 'strata-context', name: CONTEXT_PLUGIN, config: {} }] },
     // Helper agents on a model the person names: every model the app can reach is allowed, and the plugin makes the choice forgiving (plugins/strata-models.mjs).

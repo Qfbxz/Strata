@@ -211,6 +211,7 @@ async function pictureRefusal(connection, model) {
 const agent = createAgentBridge({
   tools: () => agentTools.profileView(),
   skillsDir: () => AGENT_SKILLS,
+  agentsDirs: () => [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')],
   onGoal: (chatId, goal) => hub.send('goal', { chatId, goal }),
   // The person's Response settings (thinking budget, Expert sampling) reach the agent's model through this host's own forwarding endpoint.
   proxyBase: `http://127.0.0.1:${PORT}/api/internal/agent-llm`,
@@ -457,6 +458,22 @@ for the choice being made.`,
       });
     }
   }
+  // Agents double as skills: the persona's instructions become a loadable body, so both the
+  // direct chats (selectSkills) and the Harness agent (materializeSkills) can use them.
+  try {
+    for (const a of scanAgentDirs(AGENT_DIRS())) {
+      extra.push({
+        id: `ag-${a.id}`,
+        name: a.name,
+        description: a.description ?? `Agent persona loaded from ${a.id}.`,
+        source: 'agent',
+        enabled: true,
+        triggers: [a.id, a.name.toLowerCase()],
+        body: `You are working as the agent "${a.name}". Follow these instructions for this conversation.\n\n${a.instructions}`,
+        sizeKb: Number((a.instructions.length / 1024 + 0.1).toFixed(1)),
+      });
+    }
+  } catch { /* the agents folders being unreadable must not break the skill list */ }
   return [...bundled, ...extra].map(s => ({ ...s, ...store.get().skillEdits?.[s.id] }));
 }
 
