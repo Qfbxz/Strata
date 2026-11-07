@@ -81,6 +81,29 @@ def mem_available_gb() -> float:
     return float("inf")
 
 
+def resolve_exe(exe: str) -> str:
+    """A run config the app wrote names its engine as 'component:strata-engine': an abstract
+    reference the host resolves to the installed engine component. Resolve it the same way
+    here, so an app-era config works from the Terminal too (the F16 study was blocked on this)."""
+    if not str(exe).startswith("component:"):
+        return exe
+    import glob, os
+    roots = [os.path.expanduser("~/.local/share/strata/components/engine")]
+    env_dir = os.environ.get("STRATA_COMPONENTS_DIR")
+    if env_dir:
+        roots.insert(0, env_dir)
+    cands = sorted(glob.glob(os.path.join(r, "*", "strata")) for r in roots if os.path.isdir(r))
+    best = None
+    for group in cands:
+        for path in group:
+            if os.access(path, os.X_OK) and (best is None or path > best):
+                best = path
+    if best is None:
+        raise SystemExit(f"the config's engine {exe!r} could not be resolved: no engine component "
+                         "in ~/.local/share/strata/components/engine; put a plain path in the config's exe")
+    return best
+
+
 def engine_args(cfg: dict, gpu_experts, seg_tokens: int) -> list[str]:
     base, out, i = list(cfg["args"]), [], 0
     while i < len(base):
@@ -96,7 +119,7 @@ def engine_args(cfg: dict, gpu_experts, seg_tokens: int) -> list[str]:
     fixed = list(FIXED)
     if gpu_experts:
         fixed[1] = gpu_experts if isinstance(gpu_experts, str) else "1500"
-    return [cfg["exe"], "--serve", *out, *fixed, "--max-context", str(seg_tokens + 512),
+    return [resolve_exe(cfg["exe"]), "--serve", *out, *fixed, "--max-context", str(seg_tokens + 512),
             "--short-read", str(seg_tokens + 64), "--prefill", "512"]
 
 
