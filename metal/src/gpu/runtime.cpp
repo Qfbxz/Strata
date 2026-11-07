@@ -20,6 +20,8 @@
 #include "strata/gpu/runtime.hpp"
 
 #include <sys/sysctl.h>
+#include <mach/mach.h>
+#include <mach/mach_host.h>
 
 #include <atomic>
 #include <chrono>
@@ -490,6 +492,27 @@ Error mem_get_info(size_t* free_b, size_t* total_b) {
     const uint64_t used = d->currentAllocatedSize();
     *total_b = (size_t) budget;
     *free_b = (size_t) (used < budget ? budget - used : 0);
+    // The unified-memory truth the per-process figure cannot see: every other GPU process (a
+    // VM's GPU pass-through, the desktop, a browser) draws from the same physical memory, and
+    // Metal happily reports "free" right up until the driver pages and a command buffer never
+    // completes. The Linux UMA path already corrects for this with MemAvailable; this is the
+    // macOS equal (host available pages, a fixed headroom for the OS), capped by the Metal figure.
+    {
+        static const long headroom_gib = [] {
+            const char* h = std::getenv("STRATA_UMA_HEADROOM_GIB");
+            return (h == nullptr) ? 6L : std::strtol(h, nullptr, 10);
+        }();
+        mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+        vm_statistics64_data_t vm = {};
+        if (host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info64_t) &vm, &count) == KERN_SUCCESS) {
+            // free + speculative pages are reclaimable without writing anything out; purgeable
+            // memory (file caches, and the engine's own unpinned buffers) is the rest of the room
+            const uint64_t avail = ((uint64_t) vm.free_count + vm.speculative_count + vm.purgeable_count) << 14;  // pages are 16 KiB
+            const uint64_t head = (uint64_t) headroom_gib << 30;
+            const uint64_t sys_free = avail > head ? avail - head : 0;
+            if (sys_free < *free_b) *free_b = (size_t) sys_free;
+        }
+    }
     return kSuccess;
 }
 Error device_integrated(int* v, int) { *v = 1; return kSuccess; }
