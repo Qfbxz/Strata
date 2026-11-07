@@ -91,6 +91,9 @@ test('host forwards incoming composer choices using saved and probed support wit
   assert.equal(request.body.model,model.id);assert.equal(request.headers.authorization,'Bearer fixture-key');assert.deepEqual(request.body.messages.slice(-3),[...history,{role:'user',content:'Next question'}]);
   assert.equal(request.body.reasoning_effort,['plain','unknown'].includes(model.id)?undefined:effort);assert.equal(Object.hasOwn(request.body,'reasoning_budget_tokens'),false);
  }
- assert.equal(readFileSync(join(home,'data','model-providers.json'),'utf8'),before);
+ // The host may fill in what it owns (contextMax from the catalog); it must not persist anything
+ // the request claimed about a model (reasoning, thinks) or add or drop a model or connection.
+ const stripOwned = text => JSON.stringify(JSON.parse(text).map(c => ({ ...c, models: c.models.map(({ contextMax, ...m }) => m) })));
+ assert.equal(stripOwned(readFileSync(join(home,'data','model-providers.json'),'utf8')), stripOwned(before));
  assert.equal(readFileSync(join(home,'spy.log'),'utf8'),'','no external requests or software acquisition');
 });

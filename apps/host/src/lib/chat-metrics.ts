@@ -17,7 +17,7 @@ export function chatMetrics(session:Session|null, monitor:MonitorState|null, con
   // figure belongs to the request in flight (a small one between two tools read as 1%), and `finished` to an earlier reply.
   const turnUsed=replies.find(m=>m.streaming&&Number.isFinite(m.contextUsed)&&m.contextUsed!>0)?.contextUsed??null;
   const used=live?(turnUsed??liveUsed??finished):(finished??liveUsed);
-  const max=remote?(replies.at(-1)?.contextMax??configuredContext??null):configuredContext??(active?monitor!.context.maxTokens:latest?.contextMax??null);
+  const max=remote?(replies.at(-1)?.contextMax??null):configuredContext??(active?monitor!.context.maxTokens:latest?.contextMax??null);
   const streaming=replies.find(m=>m.streaming);
   // Answer speed: everything the model generated over its decode time. While a reply streams it is that reply's; after it, the LAST reply's own
   // (never an older reply's number under the words "last reply").

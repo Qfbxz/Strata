@@ -1,6 +1,6 @@
 /** Saved API connections. Secrets never leave the host's private credentials file. */
 import { modelReadsPictures, modelSupportsReasoning } from './vision-probe.mjs';
-import { isOpenRouter, OPENROUTER_EFFORTS } from './agent/profile.mjs';
+import { isOpenRouter } from './agent/profile.mjs';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -173,19 +173,18 @@ export function createModelProviders({ directory, changed = () => {}, fetchImpl 
       : protocol === 'openai-responses'
         ? { model: model.id, input: messages, instructions: systemPrompt, stream: true, store: false }
         : { model: model.id, messages: [...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []), ...messages], stream: true, ...(['openai', 'deepseek', 'openrouter', 'google', 'moonshotai'].includes(connection.provider) ? { stream_options: { include_usage: true } } : {}) };
-    // Match the native composer's effort names. Unknown support and other protocols keep provider defaults.
+    // Match the native composer's effort names: Off goes out explicitly as `none` so a reasoning model
+    // really stops thinking, and everything the composer never sends keeps the provider default. The
+    // effort goes only where support is positively known — a saved false, or an unknown model nobody
+    // has probed, keep the provider default no matter what the request claims.
+    const EFFORTS = { off: 'none', low: 'low', medium: 'medium', high: 'high', max: 'high' };
     const choice = typeof thinking === 'string' ? thinking.toLowerCase() : '';
-    if (protocol === 'openai-chat' && (model.reasoning ?? knownThinks(connection, model.id)) !== false && ['low', 'medium', 'high', 'max'].includes(choice)) {
-      if (isOpenRouter(connection)) payload.reasoning = { effort: OPENROUTER_EFFORTS[choice] };
-      else payload.reasoning_effort = ({ max: 'high' })[choice] ?? choice;
-    }
-    if (protocol === 'openai-responses' && (model.reasoning ?? true) !== false && ['low', 'medium', 'high', 'max'].includes(choice))
-      payload.reasoning = { effort: ({ max: 'high' })[choice] ?? choice };
-    if (protocol === 'anthropic' && (model.reasoning ?? true) !== false && ['low', 'medium', 'high', 'max'].includes(choice)) {
-      // the Messages API: thinking on with a budget per effort, and a max_tokens that has room for it
-      const budget = ({ low: 4096, medium: 8192, high: 16384, max: 32768 })[choice] ?? 8192;
-      payload.thinking = { type: 'enabled', budget_tokens: budget };
-      payload.max_tokens = Math.max(numeric(payload.max_tokens) ?? 0, budget + 1024);
+    // hasOwn, not a bare lookup: "__proto__" and friends must stay unknown efforts, not inherit Object.prototype.
+    const effort = Object.hasOwn(EFFORTS, choice) ? EFFORTS[choice] : undefined;
+    const thinks = protocol === 'openai-chat' && effort !== undefined && (model.reasoning ?? knownThinks(connection, model.id)) === true;
+    if (thinks) {
+      if (isOpenRouter(connection)) payload.reasoning = { effort: choice === 'max' ? 'xhigh' : effort };
+      else payload.reasoning_effort = effort;
     }
     const requestSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(10 * 60 * 1000)]) : AbortSignal.timeout(10 * 60 * 1000);
     const res = await request(connection, protocol === 'anthropic' ? 'messages' : protocol === 'openai-responses' ? 'responses' : 'chat/completions', { method: 'POST', body: JSON.stringify(payload), signal: requestSignal });
