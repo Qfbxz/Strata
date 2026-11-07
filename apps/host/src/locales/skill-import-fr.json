@@ -1,0 +1,15 @@
+{
+ "ski01": "Importer des skills",
+ "ski02": "L'import de skills ouvre une fenêtre de dossier sur l'ordinateur où tourne Strata. Ouvrez Strata sur cet ordinateur pour le faire.",
+ "ski03": "Importer des skills depuis un dossier",
+ "ski04": "Importer les {0} sélectionnés",
+ "ski05": "Importer la sélection",
+ "ski06": "Affichage des {0} premiers skills trouvés sous {1}.",
+ "ski07": "{0} skills trouvés sous {1}.",
+ "ski08": "Aucun skill trouvé sous ce dossier. Un skill est un dossier contenant un fichier SKILL.md.",
+ "ski09": "Tout sélectionner",
+ "ski10": "Effacer la sélection",
+ "ski11": "Skills à importer",
+ "ski12": "{0} skills importés.",
+ "ski13": "{0} skills importés sur {1}. Les autres ont échoué : {2}"
+}

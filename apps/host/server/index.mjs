@@ -14,6 +14,7 @@ import { createAgentTaskRunner } from './agent/task-run.mjs';
 import { migrateSetup } from './setup.mjs';
 import { skillEdit } from './skill-edits.mjs';
 import { materializeSkills, parseSkillFile, skillSlug, writeCreatedSkill } from './skill-files.mjs';
+import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
 import { createAgentBridge, plainTurnFailure } from './agent/agent-bridge.mjs';
@@ -2031,6 +2032,46 @@ async function api(req, res, path, method, url) {
       return json(res, 200, { added: base });
     } catch (e) {
       // Dismissing the dialog is { cancelled: true } above; anything thrown here is a real problem.
+      return error(res, 400, e.message);
+    }
+  }
+
+  /* The batch import, in two steps: scan one outer folder for every skill under it, then copy the
+     chosen ones in one go. The single-folder "Add skill" above stays as it is for the one-skill case. */
+  if (path === '/api/skills/scan' && method === 'POST') {
+    try {
+      const typed = await typedFolder((await readBody(req)).path, { isAbsolute });
+      const picked = typed ? { path: typed } : await chooseFolder('Choose the folder that holds the skills (each skill is a folder with a SKILL.md)');
+      if (picked.unavailable) {const u=chooserUnavailable(picked);return error(res,501,u.message,{code:u.code});};
+      if (picked.cancelled) return json(res, 200, { cancelled: true });
+      if (!existsSync(picked.path)) return error(res, 400, 'That folder does not exist.');
+      return json(res, 200, scanSkillFolders(picked.path));
+    } catch (e) {
+      return error(res, 400, e.message);
+    }
+  }
+
+  if (path === '/api/skills/import' && method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const paths = Array.isArray(body.paths) ? body.paths.map(String) : [];
+      if (!paths.length) return error(res, 400, 'Pick at least one skill to import.');
+      if (paths.length > 500) return error(res, 400, 'At most 500 skills in one import.');
+      const root = join(WORKSPACE, 'skills');
+      mkdirSync(root, { recursive: true });
+      const imported = [], failed = [];
+      for (const from of paths) {
+        if (!isAbsolute(from) || !existsSync(from)) { failed.push({ from, error: 'That folder does not exist.' }); continue; }
+        if (!existsSync(join(from, 'SKILL.md'))) { failed.push({ from, error: 'That folder has no SKILL.md, so there is nothing for the model to read.' }); continue; }
+        const base = basename(from);
+        if (!base || base === '/' || base.startsWith('.')) { failed.push({ from, error: 'That folder has no usable name.' }); continue; }
+        // A name already in the workspace takes a -2/-3 suffix instead of failing the whole batch.
+        const destName = uniqueDest(base, candidate => existsSync(join(root, candidate)));
+        try { cpSync(from, join(root, destName), { recursive: true }); imported.push({ from, added: destName }); }
+        catch (e) { failed.push({ from, error: e.message }); }
+      }
+      return json(res, 200, { imported, failed });
+    } catch (e) {
       return error(res, 400, e.message);
     }
   }

@@ -5628,6 +5628,13 @@ textarea.config-editor.st-input {
 .skill-copy h3, .skill-copy p { margin: 0; }
 .skill-row-actions { display: flex; gap: 20px; align-items: center; }
 .skill-instructions { min-height: 200px; resize: vertical; line-height: 1.6; font-family: var(--st-font); }
+.skill-import-notice { margin: 0; color: var(--st-accent); }
+.skill-import-tools { gap: 12px; align-items: center; }
+.skill-import-list { max-height: 46vh; overflow: auto; padding-right: 4px; }
+.skill-import-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--st-line); }
+.skill-import-row:last-child { border-bottom: none; }
+.skill-import-copy { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.skill-import-copy strong { font-weight: 600; }
 @media (max-width: 767px) {
   .setup-choice-panel { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .setup-choice-panel .tuning-dials { grid-row: 1; }

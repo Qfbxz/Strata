@@ -1,0 +1,15 @@
+{
+ "ski01": "Skills importieren",
+ "ski02": "Beim Importieren öffnet sich ein Ordnerfenster auf dem Computer, auf dem Strata läuft. Öffne Strata auf jenem Computer, um es auszuführen.",
+ "ski03": "Skills aus Ordner importieren",
+ "ski04": "{0} ausgewählte importieren",
+ "ski05": "Auswahl importieren",
+ "ski06": "Zeigt die ersten {0} unter {1} gefundenen Skills.",
+ "ski07": "{0} Skills unter {1} gefunden.",
+ "ski08": "Kein Skill unter diesem Ordner gefunden. Ein Skill ist ein Ordner mit einer SKILL.md-Datei.",
+ "ski09": "Alle auswählen",
+ "ski10": "Auswahl aufheben",
+ "ski11": "Zu importierende Skills",
+ "ski12": "{0} Skills importiert.",
+ "ski13": "{0} von {1} Skills importiert. Die übrigen schlugen fehl: {2}"
+}
