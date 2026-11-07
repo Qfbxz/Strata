@@ -17,6 +17,8 @@
  * returned separately in `env` for the host to hand to the agent process; they are never written to
  * the profile file, a prompt, or a log.
  */
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { standardPreset } from './preset.mjs';
@@ -85,6 +87,12 @@ export const PERSONA_PLUGIN = 'strata-persona';   // lives beside the host plugi
 export const CONTEXT_PLUGIN = fileURLToPath(new URL('./plugins/strata-context.mjs', import.meta.url));
 export const MODELS_PLUGIN = fileURLToPath(new URL('./plugins/strata-models.mjs', import.meta.url));
 export const SEARCH_PLUGIN = fileURLToPath(new URL('./plugins/strata-search.mjs', import.meta.url));
+/** Tool results over ~8k chars spill to disk and the inline result keeps head+tail+path (plugins/strata-spill.mjs). */
+export const SPILL_PLUGIN = fileURLToPath(new URL('./plugins/strata-spill.mjs', import.meta.url));
+/** A session repeating one identical call three times inside a 12-call window warns into the host log (plugins/strata-loop-guard.mjs). */
+export const LOOP_GUARD_PLUGIN = fileURLToPath(new URL('./plugins/strata-loop-guard.mjs', import.meta.url));
+/** The structured ask-user tool (plugins/strata-ask-user.mjs): v1 answers with guidance to ask in the next reply; no UI card. */
+export const ASK_USER_PLUGIN = fileURLToPath(new URL('./plugins/strata-ask-user.mjs', import.meta.url));
 /** The app's own tool server for the tools a person writes (instructions, commands). */
 export const CUSTOM_TOOLS_SCRIPT = fileURLToPath(new URL('./custom-tools-mcp.mjs', import.meta.url));
 
@@ -358,6 +366,12 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { insert: [{ id: 'auto-memory', name: AUTO_MEMORY_PLUGIN }] },
     // the persona resolver: `persona: "<agents id>"` at spawn becomes that agent's instructions
     { insert: [{ id: 'strata-persona', name: PERSONA_PLUGIN, config: { agentsDirs: agentsDirs() } }] },
+    // Big tool results spill to a private file; the model keeps head, tail and the path (plugins/strata-spill.mjs).
+    { insert: [{ id: 'strata-spill', name: SPILL_PLUGIN, config: { spillDir: join(tmpdir(), 'strata-spill') } }] },
+    // A model stuck on one identical call warns into the host log (plugins/strata-loop-guard.mjs).
+    { insert: [{ id: 'strata-loop-guard', name: LOOP_GUARD_PLUGIN, config: {} }] },
+    // the structured ask-user tool (v1: the model asks in its next reply and waits; the question is recorded on the session)
+    { insert: [{ id: 'strata-ask-user', name: ASK_USER_PLUGIN, config: { maxQuestions: 8 } }] },
     // Compaction decides from what the model server measured, and its summary requests always fit the window (plugins/strata-context.mjs).
     { insert: [{ id: 'strata-context', name: CONTEXT_PLUGIN, config: {} }] },
     // Helper agents on a model the person names: every model the app can reach is allowed, and the plugin makes the choice forgiving (plugins/strata-models.mjs).

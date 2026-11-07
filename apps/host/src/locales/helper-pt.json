@@ -21,5 +21,15 @@
  "hlp20": "Pacotes de skills nativos (pastas de outros agentes, somente leitura)",
  "hlp21": "Chip de branch junto ao campo de escrita",
  "hlp22": "Assistant",
- "hlp23": "Arquivos do assistant"
+ "hlp23": "Arquivos do assistant",
+ "hlp24": "Branches deste espaço de trabalho",
+ "hlp25": "Branch atual",
+ "hlp26": "Branches",
+ "hlp27": "Mudar para {0}",
+ "hlp28": "remota",
+ "hlp29": "Abrir o grafo git",
+ "hlp30": "Atualizar",
+ "hlp31": "Lendo as branches…",
+ "hlp32": "{0} branches no total.",
+ "hlp33": "Fechar"
 }

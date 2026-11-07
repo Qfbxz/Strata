@@ -19,6 +19,7 @@ import { scanHookDirs, runEventHooks } from './turn-hooks.mjs';
 import { listMemoryFiles, memoryRoot, readMemoryFile } from './memory-files.mjs';
 import { memoryContextSection } from './memory-context.mjs';
 import { projectInstructions, projectInstructionsSection } from './project-instructions.mjs';
+import { officeSkills } from './agent/plugins/office-skills.mjs';
 import { featuresView, sanitizeFeatures } from './feature-flags.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
@@ -421,6 +422,13 @@ for the choice being made.`,
       triggers: ['can this run', 'my hardware', 'how fast'],
       sizeKb: 2.1,
     },
+    ...officeSkills().map(s => ({
+      ...s,
+      source: 'bundled',
+      enabled: true,
+      triggers: ['word document', 'docx', 'powerpoint', 'pptx', 'slide deck', 'excel', 'spreadsheet', 'xlsx'],
+      sizeKb: Number((s.body.length / 1024).toFixed(1)),
+    })),
   ];
 
   // Two places hold skills a person brought or wrote: the app's own folder (written in the Skills page) and the workspace's skills folder (added
@@ -1912,7 +1920,10 @@ async function api(req, res, path, method, url) {
     const root = chatRoot(chat ?? '');
     const ws = createWorkspaceFs({ root });
     try {
-      if (wsGitMatch) return json(res, 200, { out: ws.git(String(url.searchParams.get('op') || 'status')), git: ws.isGit() });
+      if (wsGitMatch) {
+      const op = String(url.searchParams.get('op') || 'status');
+      return json(res, 200, { out: ws.git(op, url.searchParams.get('name') ?? undefined), git: ws.isGit() });
+    }
       const rel = String(url.searchParams.get('path') ?? '');
       const body = String(url.searchParams.get('mode') || 'list') === 'read' ? ws.read(rel) : { entries: ws.list(rel) };
       return json(res, 200, { root, ...body });

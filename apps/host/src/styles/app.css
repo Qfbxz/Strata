@@ -7682,3 +7682,10 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 .mempanel__row { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--st-line); border-radius: var(--st-r-md); background: none; cursor: pointer; text-align: left; font: inherit; }
 .mempanel__row[data-active] { border-color: var(--st-accent); }
 .mempanel__view { margin: 0; padding: 12px; border: 1px solid var(--st-line); border-radius: var(--st-r-md); overflow: auto; max-height: 60vh; font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--st-font); }
+
+
+/* Branch manager rows in the chip dialog and the workspace panel's switch strip. */
+.branchchip__count { font-size: 10px; color: var(--st-muted, var(--st-line)); border: 1px solid var(--st-line); border-radius: 999px; padding: 0 5px; }
+.branchmgr__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.branchmgr__row[data-current] { border-color: var(--st-accent); }
+.wspanel__branchswitch { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 0; }

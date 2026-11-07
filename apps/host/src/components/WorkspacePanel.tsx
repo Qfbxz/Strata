@@ -17,12 +17,35 @@ export function WorkspacePanel({ chatId, onClose }: {
     const [gitOut, setGitOut] = useState('');
     const [error, setError] = useState('');
     const [branch, setBranch] = useState('');
+    const [switchable, setSwitchable] = useState<string[]>([]);
+    const [switching, setSwitching] = useState('');
     useEffect(() => {
         if (chatId === null) return;
+        let alive = true;
         fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=status`).then(r => r.json()).then(d => {
             setBranch((String(d.out ?? '').match(/^## ([^\s.]+)/) || [])[1] ?? '');
         }).catch(() => {});
-    }, [chatId, path]);
+        fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=branches`).then(r => r.json()).then(d => {
+            const locals = String(d.out ?? '').split('\n')
+                .filter(l => /^  [^\s]/.test(l) && !l.includes('remotes/'))
+                .map(l => l.replace(/^\s+/, '').split(/\s+/)[0]).filter(Boolean);
+            if (alive) setSwitchable(locals);
+        }).catch(() => {});
+    }, [chatId, path, gitOp]);
+
+    async function doSwitch(name: string) {
+        if (!chatId) return;
+        setSwitching(name);
+        try {
+            await fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=checkout&name=${encodeURIComponent(name)}`, { method: 'POST' });
+            setBranch(name);
+            // the graph and status reflect the new branch after the switch
+            fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=status`).then(r => r.json()).then(d => {
+                setGitOut(String(d.out ?? ''));
+            }).catch(() => {});
+        } catch (e) { setError(String(e)); }
+        setSwitching('');
+    }
 
     useEffect(() => {
         if (tab !== 'files' || chatId === null) return;
@@ -76,6 +99,7 @@ export function WorkspacePanel({ chatId, onClose }: {
             {error ? <p className="xs inline-error">{tr(error)}</p> : null}
         </div> : <div className="wspanel__body">
             <div className="wspanel__crumb">{['status', 'log', 'diff', 'branches'].map(op => <button key={op} aria-pressed={gitOp === op} onClick={() => setGitOp(op)}>{op}</button>)}</div>
+            {gitOp === 'branches' && switchable.length ? <div className="wspanel__branchswitch">{tr(switchable.map(name => <button key={name} className="text-action" disabled={name === branch || switching === name} onClick={() => void doSwitch(name)}>{tr(name === branch ? "⌃ current" : "Switch to {0}", [name])}</button>))}</div> : null}
             <pre className="wspanel__code">{gitOut || '…'}</pre>
         </div>)}
     </aside>;

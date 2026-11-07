@@ -21,5 +21,15 @@
  "hlp20": "Native Skill-Pakete (Ordner anderer Agents, schreibgeschützt)",
  "hlp21": "Branch-Chip neben dem Eingabefeld",
  "hlp22": "Assistant",
- "hlp23": "Assistant-Dateien"
+ "hlp23": "Assistant-Dateien",
+ "hlp24": "Branches in diesem Workspace",
+ "hlp25": "Aktueller Branch",
+ "hlp26": "Branches",
+ "hlp27": "Zu {0} wechseln",
+ "hlp28": "Remote",
+ "hlp29": "Git-Graph öffnen",
+ "hlp30": "Aktualisieren",
+ "hlp31": "Branches werden gelesen…",
+ "hlp32": "{0} Branches insgesamt.",
+ "hlp33": "Schließen"
 }

@@ -21,5 +21,15 @@
  "hlp20": "Native skill packs (other agents' folders, read-only)",
  "hlp21": "Branch chip in the composer",
  "hlp22": "Assistant",
- "hlp23": "Assistant files"
+ "hlp23": "Assistant files",
+ "hlp24": "Branches in this workspace",
+ "hlp25": "Current branch",
+ "hlp26": "Branches",
+ "hlp27": "Switch to {0}",
+ "hlp28": "remote",
+ "hlp29": "Open the git graph",
+ "hlp30": "Refresh",
+ "hlp31": "Reading branches…",
+ "hlp32": "{0} branches total.",
+ "hlp33": "Close"
 }

@@ -27,6 +27,12 @@ export function parseSkillFile(text) {
   const m = /^---\n([\s\S]*?)\n---\n?/.exec(raw);
   if (!m) return { name: null, title: null, description: null, body: raw.trim() };
   const field = key => {
+    // block scalar first (`key: |` or `key: >` with indented lines below), then the single-line form
+    const block = new RegExp(`^${key}:\\s*[|>]\\s*\\n((?:[ \\t]+[^\\n]*\\n?)+)`, 'mi').exec(m[1]);
+    if (block) {
+      const lines = block[1].split('\n').map(l => l.replace(/^[ \t]+/, '')).filter(Boolean);
+      return lines.join(' ').trim();
+    }
     const line = new RegExp(`^${key}:\\s*(.*)$`, 'mi').exec(m[1])?.[1]?.trim();
     if (line === undefined) return null;
     try { if (/^["']/.test(line)) return typeof JSON.parse(line.replace(/^'(.*)'$/, '"$1"')) === 'string' ? JSON.parse(line.replace(/^'(.*)'$/, '"$1"')) : line; } catch { /* plain scalar */ }

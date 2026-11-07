@@ -21,5 +21,15 @@
  "hlp20": "Packs de skills nativos (carpetas de otros agentes, solo lectura)",
  "hlp21": "Chip de rama junto al campo de escritura",
  "hlp22": "Assistant",
- "hlp23": "Archivos del assistant"
+ "hlp23": "Archivos del assistant",
+ "hlp24": "Ramas de este espacio de trabajo",
+ "hlp25": "Rama actual",
+ "hlp26": "Ramas",
+ "hlp27": "Cambiar a {0}",
+ "hlp28": "remota",
+ "hlp29": "Abrir el grafo git",
+ "hlp30": "Actualizar",
+ "hlp31": "Leyendo las ramas…",
+ "hlp32": "{0} ramas en total.",
+ "hlp33": "Cerrar"
 }

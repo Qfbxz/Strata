@@ -49,9 +49,21 @@ export function createWorkspaceFs({ root, maxBytes = 512 * 1024, gitTimeoutMs = 
       const content = readFileSync(file).subarray(0, cap).toString('utf8');
       return { binary: false, size, truncated: size > cap, content };
     },
-    git(op) {
+    git(op, arg) {
+      // checkout is the panel's one write op: switch to a plain branch name (strict refname guard).
+      if (op === 'checkout') {
+        const name = String(arg ?? '').trim();
+        if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(name) || name.includes('..') || name.endsWith('.lock') || name.endsWith('/'))
+          throw new Error(`That is not a branch name this panel can switch to: ${JSON.stringify(name)}`);
+        try {
+          execFileSync('git', ['checkout', name], { cwd: root, timeout: gitTimeoutMs, maxBuffer: 1024 * 1024 });
+          return `Switched to ${name}`;
+        } catch (e) {
+          throw new Error(`git checkout ${name} failed: ${String(e.stderr ?? e.message).slice(0, 200)}`);
+        }
+      }
       const argv = GIT_MENU[op];
-      if (!argv) throw new Error(`git op ${op} is not on the menu (status, log, diff, diffStaged, branches)`);
+      if (!argv) throw new Error(`git op ${op} is not on the menu (status, log, diff, diffStaged, branches, checkout)`);
       try {
         return execFileSync('git', argv, { cwd: root, timeout: gitTimeoutMs, maxBuffer: 2 * 1024 * 1024 }).toString();
       } catch (e) {

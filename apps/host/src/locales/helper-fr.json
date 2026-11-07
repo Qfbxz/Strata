@@ -21,5 +21,15 @@
  "hlp20": "Packs de skills natifs (dossiers d'autres agents, lecture seule)",
  "hlp21": "Puce de branche près du champ de saisie",
  "hlp22": "Assistant",
- "hlp23": "Fichiers de l'assistant"
+ "hlp23": "Fichiers de l'assistant",
+ "hlp24": "Branches de cet espace de travail",
+ "hlp25": "Branche actuelle",
+ "hlp26": "Branches",
+ "hlp27": "Passer à {0}",
+ "hlp28": "distant",
+ "hlp29": "Ouvrir le graphe git",
+ "hlp30": "Actualiser",
+ "hlp31": "Lecture des branches…",
+ "hlp32": "{0} branches au total.",
+ "hlp33": "Fermer"
 }
