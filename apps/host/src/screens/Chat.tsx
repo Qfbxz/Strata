@@ -29,10 +29,13 @@ import { StatusLine } from '../components/StatusLine';
 import { GoalBar } from '../components/GoalBar';
 import { PlanCard, PlanPanel, QueuedMessages } from '../components/PlanCard';
 import { FolderChip } from '../components/FolderChip';
+import { BranchChip } from '../components/BranchChip';
+import { SubagentDock } from '../components/SubagentDock';
 import { DropZone, DROP_EVENT, pastedFiles } from '../components/DropZone';
 import { ActivityLine, DraftLines, EditedFiles, FileCard, FilesSummary, SkillsUsed } from '../components/Deliverables';
 import { queueMessage, usePlan, usePlanQuiet } from '../lib/plan';
 import { plainFailureText } from '../lib/plain-errors';
+import { api } from '../lib/client';
 import { contextRecovery } from '../lib/context-recovery';
 import { useLiveStatus } from '../lib/live-status';
 import { ApprovalDock, SCOPE } from '../components/ApprovalCard';
@@ -168,6 +171,12 @@ export function ChatScreen() {
     const inlinePreview = splitWidth >= (selectedRun || planShown ? 760 : 1120);
     const paneWidth = previewWidth(splitWidth, previewFraction);
     const [workspaceOpen, setWorkspaceOpen] = useState(false);
+    const [helperTarget, setHelperTarget] = useState<string | null>(null);
+    // A helper that folded away (finished and cleaned, or a chat switch) stops being the composer's target.
+    const helperAlive = !!helperTarget && !!session?.agents?.some(a => a.id === helperTarget);
+    useEffect(() => {
+        if (helperTarget && !helperAlive) setHelperTarget(null);
+    }, [helperTarget, helperAlive]);
     const splitStyle = inlinePreview && selectedPreview && !expanded ? { gridTemplateColumns: `minmax(0,1fr) ${paneWidth}px` } : undefined;
     const resizeHandle = !setupVisible && inlinePreview && selectedPreview && !expanded ? <PreviewResizeHandle container={splitRef} total={splitWidth} fraction={previewFraction} onChange={setPreviewFraction} controls={selectedRun ? 'time-skip-content' : planShown ? 'plan-content' : 'artifact-content'}/> : null;
     const runCount = timeSkipRuns.length;
@@ -454,6 +463,17 @@ export function ChatScreen() {
             // Typed while a goal runs: it waits in the queue, shown under the conversation. With no goal running there is nothing to queue behind.
             if (!text || !session)
                 return;
+            // A helper is aimed: what was typed goes to it (steering while it works, its next turn when it has finished), not to the chat.
+            if (helperTarget) {
+                const helper = session.agents?.find(a => a.id === helperTarget);
+                if (!helper) { setHelperTarget(null); return; }
+                const delivery = helper.status === 'working' ? 'steer' : 'queue';
+                updateDraft('');
+                void api.post('/api/chat/helper', { sessionId: session.id, helperId: helper.id, message: text, delivery }).then(() => {
+                    pushToast('info', tr('Sent to {0}.', [helper.name]), tr(delivery === 'steer' ? 'It gets the message at its next step.' : 'It runs as the helper\'s next turn.'));
+                }).catch(e => { updateDraft(text); pushToast('error', tr('The message was not delivered'), plainFailureText(e instanceof Error ? e.message : String(e)).message); });
+                return;
+            }
             const plan = busyPlan(whileBusy);
             const out = quotedMessage(quotes, text);
             // Interrupt: the answer stops where it is (what is written stays) and the message goes as soon as it has stopped (the effect below sends it).
@@ -495,7 +515,7 @@ export function ChatScreen() {
               <UsageDashboard loaded={!!loaded}/>
             </div>
           </div>
-          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])}/>
+          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])} helperTarget={helperTarget} onClearHelperTarget={() => setHelperTarget(null)} onOpenWorkspace={() => setWorkspaceOpen(true)}/>
          </DropZone>
         <ArtifactPanel items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => setSelectedPreview(null)} inline={inlinePreview}/>
         {workspaceOpen ? <WorkspacePanel chatId={(session as { id?: string } | null)?.id ?? null} onClose={() => setWorkspaceOpen(false)}/> : null}
@@ -534,6 +554,7 @@ export function ChatScreen() {
         }}>
 
             <div className="chat__inner">
+              {tr(session.agents?.length ? <SubagentDock agents={session.agents} target={helperTarget} onTarget={setHelperTarget} onOpenWorkspace={() => setWorkspaceOpen(true)}/> : null)}
               {tr(session.messages.length === 0 ? (session.statsAvailable === false ? <p className="small muted">{tr("Editing from an earlier message. Update the prompt below.")}</p> :
             <UsageDashboard loaded={!!loaded}/>) : (session.messages.map((m, i) => (<Message key={m.id} message={m} isLast={i === session.messages.length - 1} onEditPrompt={messageHandlers.onEditPrompt} onPreview={messageHandlers.onPreview} onClosePreview={messageHandlers.onClosePreview} onOpenTimeSkip={messageHandlers.onOpenTimeSkip} timeSkipDone={!!allTimeSkipRuns.find(r => r.id === m.timeSkipId)?.completedAt} timeSkipReal={!!allTimeSkipRuns.find(r => r.id === m.timeSkipId)?.job} timeSkipRun={allTimeSkipRuns.find(r => r.id === m.timeSkipId)} onOpenLink={messageHandlers.onOpenLink}/>))))}
               <QueuedMessages chatId={session.id}/>
@@ -541,7 +562,7 @@ export function ChatScreen() {
           </div>
           <div className="jumplatest-row">{tr(awayFromBottom ? (<button type="button" className="jumplatest" data-finished={justFinished || undefined} aria-label={tr("Scroll to the latest message")} title={tr("Scroll to the latest message")} onClick={() => scrollToLatest()}>
                 <Icon name="chevron" size={18}/></button>) : null)}</div>
-          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])}/>
+          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])} helperTarget={helperTarget} onClearHelperTarget={() => setHelperTarget(null)} onOpenWorkspace={() => setWorkspaceOpen(true)}/>
         </DropZone>
         {tr(!setupVisible && selectedRun && session ? <TimeSkipPanel key={selectedRun.id} run={selectedRun} sessionId={session.id} inline={inlinePreview} expanded={expanded} onCompare={setExpanded} onPreview={openPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }}/> : null)}
         {tr(!setupVisible && planShown ? <PlanPanel chatId={session?.id}/> : null)}
@@ -605,7 +626,7 @@ const NO_QUOTES: Quote[] = [];
 function quotedMessage(quotes: readonly Quote[], text: string): string {
     return quotes.length && !text.startsWith('/') ? composeQuoted(quotes.map(q => q.text), text) : text;
 }
-function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session, onPreview, textareaRef, pendingFolders, onRemoveFolder, onPendingFolder, }: {
+function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session, onPreview, textareaRef, pendingFolders, onRemoveFolder, onPendingFolder, helperTarget = null, onClearHelperTarget = () => {}, onOpenWorkspace = () => {}, }: {
     draft: string;
     setDraft: (v: string) => void;
     loaded: boolean;
@@ -618,6 +639,9 @@ function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session
     pendingFolders: { id: string; name: string; text: string }[];
     onRemoveFolder: (id: string) => void;
     onPendingFolder: (name: string, text: string) => void;
+    helperTarget?: string | null;
+    onClearHelperTarget?: () => void;
+    onOpenWorkspace?: () => void;
 }) {
     const clearDraft = useCallback(() => setDraft(''), [setDraft]);
     const photos = useChatPhotos(session?.id), native = useNative();
@@ -649,18 +673,21 @@ function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session
     useEffect(() => {
         setCursor(0);
     }, [slashQuery]);
+    const targetedHelper = helperTarget ? session?.agents?.find(a => a.id === helperTarget) ?? null : null;
     return (<div className="composerwrap">
       <div className="composer">
         <div className="composer__inner">
           <ApprovalDock sessionId={session?.id}/>
           {tr(fileError ? <ErrorNotice message={fileError} action={tr("Dismiss")} onRetry={() => setFileError('')}/> : null)}
           <FolderChip chatId={session?.id} disabled={streaming}/>
+          <BranchChip chatId={session?.id} onOpenWorkspace={onOpenWorkspace}/>
           <GoalBar chatId={session?.id}/>
           {tr(quoteList.length ? <div className="quotes">{tr(quoteList.map(q => <div className="quote" key={q.id}><button type="button" className="quote__body" title={tr("Go to the quoted message")} onClick={() => document.querySelector(`[data-message-id="${CSS.escape(q.messageId)}"]`)?.scrollIntoView({ block: 'center', behavior: scrollBehavior() })}><span className="xs muted">{tr(q.role === 'user' ? "Quoting you" : "Quoting the assistant")}</span><span className="quote__text">{q.text}</span></button><IconBtn name="x" size={14} title={tr("Remove this quote")} onClick={() => removeQuote(session!.id, q.id)}/></div>))}</div> : null)}
           {tr(parkedList.length ? <div className="parked" role="status">{tr(parkedList.map((text, i) => <div className="parked__item" key={`${i}-${text}`}><span className="xs muted">{tr("Waiting to send")}</span><span className="parked__text" title={text}>{text}</span><IconBtn name="x" size={14} title={tr("Take back")} onClick={() => { const back = takeParked(session!.id, i); if (back !== undefined && !draft.trim()) setDraft(back); }}/></div>))}</div> : null)}
           <div className="st-composer" style={{ boxShadow: 'var(--st-sh-bar)' }}>
           {tr(photos.length || pendingFolders.length ? <div className="chat-attachments">{tr(photos.length ? <ChatPhotos photos={photos} onRemove={id => removeChatPhoto(id, session?.id)}/> : null)}{tr(pendingFolders.map(f => <span className="attach-chip attach-chip--folder" key={f.id} title={tr('Dropped folder - sent with the next message')}><Icon name="folder" size={14}/>{f.name}<IconBtn name="x" title={tr('Remove')} onClick={() => onRemoveFolder(f.id)}/></span>))}</div> : null)}
-          <textarea ref={textareaRef} rows={1} value={draft} aria-label={tr("Message Strata")} placeholder={tr(canChat ? 'Message Strata…' : 'Try /time-skip, or load a model to chat…')} onFocus={() => setSlashDismissed(false)} onBlur={() => ime.current.reset()} onCompositionStart={() => ime.current.compositionStart()} onCompositionEnd={(e) => ime.current.compositionEnd(e.timeStamp)} onPaste={(e) => {
+          {tr(targetedHelper ? <div className="helper-target" role="status"><span className="sdot" aria-hidden={true}/><span>{tr("Talking to {0}: messages go to this helper, not the chat.", [targetedHelper.name])}</span><button type="button" className="text-action" onClick={onClearHelperTarget}>{tr("Back to chat")}</button></div> : null)}
+          <textarea ref={textareaRef} rows={1} value={draft} aria-label={tr("Message Strata")} placeholder={tr(targetedHelper ? "Message {0}…" : canChat ? 'Message Strata…' : 'Try /time-skip, or load a model to chat…', targetedHelper ? [targetedHelper.name] : undefined)} onFocus={() => setSlashDismissed(false)} onBlur={() => ime.current.reset()} onCompositionStart={() => ime.current.compositionStart()} onCompositionEnd={(e) => ime.current.compositionEnd(e.timeStamp)} onPaste={(e) => {
             // A picture on the clipboard (a screenshot, a copied image) is attached like a dropped file; text pastes as usual.
             const files = pastedFiles(e.clipboardData);
             if (!files.length)

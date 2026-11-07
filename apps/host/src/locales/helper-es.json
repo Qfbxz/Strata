@@ -1,0 +1,9 @@
+{
+ "hlp01": "Abrir el espacio de trabajo",
+ "hlp02": "Abrir el espacio de trabajo",
+ "hlp03": "El mensaje no se entregó.",
+ "hlp04": "Recibe el mensaje en su siguiente paso.",
+ "hlp05": "Se ejecuta como el siguiente turno del helper.",
+ "hlp06": "Hablando con {0}: los mensajes van a este helper, no al chat.",
+ "hlp07": "Mensaje a {0}…"
+}
