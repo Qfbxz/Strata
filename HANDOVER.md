@@ -204,8 +204,8 @@ a46aa9c0 契约测试  f0e9754f v0.2.11 合并（3 冲突谁完善谁上）
 ## 四、未完成与下一步（按优先级，2026-11-07 晚刷新）
 
 1. **夜间纯净窗口七相**（脚本就绪 `~/strata-setup/night/final-debts.sh`，cron 23:37 点火）：CONTIG A/B + batch 1v2 + F16 复测 + **DS lane 六旋钮臂（本夜最高价值：asis96/noenv/lane_cal/stream_force/cpu_lane0/vram100，任一臂让 CPU-lane 专家数下降+tok/s 上升即为 Mac 修复旋钮）** + 20b MLX 重下 + dspark Q8_0 重下验 SHA + 2.25bpw 安装冒烟（引擎本地 0.1.57）。跑完按 results-YYYYMMDD.jsonl 入账本
-2. **DS 大杯上游报告投递**——`ds4-mac-lane-issue-report.md` 成稿待投；若夜间六臂找到可用旋钮，报告加"旋钮可绕过"一节后同投
-3. **yarn4× 报告投递**——`engine-issue-yarn4x-gpu-freeze.md` 已按 M3 Max 勘误+交叉定因加固，成稿待投
+2. ~~DS 大杯上游报告投递~~ **✅ 已投 [#5488](https://github.com/Niko1221/Strata/issues/5488)**
+3. ~~yarn4× 报告投递~~ **✅ 已投 [#5487](https://github.com/Niko1221/Strata/issues/5487)**（同批：夜间旋钮臂若找到可用旋钮，以评论补充）
 4. **UD-Q8_K_XL（506GB）**——仅 shard1 完，本机无运行目标；是否续传（SSD 流式实验？）等用户裁决
 5. **用户验证项**——真实拖放一次（埋点在岗）、UX-8 分支徽章、1M 档日常使用反馈、**技能批量导入与 auto-memory 记忆注入各试一次**（App 重启后生效）
 6. **harness 整包升级 0.2.2-rc.1**——npm 已发 latest；非必需（auto-memory 已在 0.2.1-alpha.3 落地），升级需 pnpm deploy 重建 234MB bundle+重打 pi-ai patch，另立夜建窗口
