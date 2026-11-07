@@ -30,6 +30,7 @@ import { GoalBar } from '../components/GoalBar';
 import { PlanCard, PlanPanel, QueuedMessages } from '../components/PlanCard';
 import { FolderChip } from '../components/FolderChip';
 import { BranchChip } from '../components/BranchChip';
+import { CheckpointsChip } from '../components/CheckpointsChip';
 import { SubagentDock } from '../components/SubagentDock';
 import { DropZone, DROP_EVENT, pastedFiles } from '../components/DropZone';
 import { ActivityLine, DraftLines, EditedFiles, FileCard, FilesSummary, SkillsUsed } from '../components/Deliverables';
@@ -515,7 +516,7 @@ export function ChatScreen() {
               <UsageDashboard loaded={!!loaded}/>
             </div>
           </div>
-          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])} helperTarget={helperTarget} onClearHelperTarget={() => setHelperTarget(null)} onOpenWorkspace={() => setWorkspaceOpen(true)}/>
+          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])} helperTarget={helperTarget} onClearHelperTarget={() => setHelperTarget(null)} onOpenWorkspace={() => setWorkspaceOpen(true)} onEditPrompt={editPrompt}/>
          </DropZone>
         <ArtifactPanel items={previews} onCloseTab={closeTab} selected={setupVisible ? null : selectedPreview} onSelect={selectPreview} onClose={() => setSelectedPreview(null)} inline={inlinePreview}/>
         {workspaceOpen ? <WorkspacePanel chatId={(session as { id?: string } | null)?.id ?? null} onClose={() => setWorkspaceOpen(false)}/> : null}
@@ -562,7 +563,7 @@ export function ChatScreen() {
           </div>
           <div className="jumplatest-row">{tr(awayFromBottom ? (<button type="button" className="jumplatest" data-finished={justFinished || undefined} aria-label={tr("Scroll to the latest message")} title={tr("Scroll to the latest message")} onClick={() => scrollToLatest()}>
                 <Icon name="chevron" size={18}/></button>) : null)}</div>
-          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])} helperTarget={helperTarget} onClearHelperTarget={() => setHelperTarget(null)} onOpenWorkspace={() => setWorkspaceOpen(true)}/>
+          <Composer draft={draft} setDraft={updateDraft} loaded={!!loaded} streaming={streaming} onSubmit={submit} onKey={onComposerKey} session={session} onPreview={openPreview} textareaRef={textarea} pendingFolders={pendingFolders} onRemoveFolder={id => setPendingFolders(fs => fs.filter(x => x.id !== id))} onPendingFolder={(name, text) => setPendingFolders(fs => [...fs, { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, text }])} helperTarget={helperTarget} onClearHelperTarget={() => setHelperTarget(null)} onOpenWorkspace={() => setWorkspaceOpen(true)} onEditPrompt={editPrompt}/>
         </DropZone>
         {tr(!setupVisible && selectedRun && session ? <TimeSkipPanel key={selectedRun.id} run={selectedRun} sessionId={session.id} inline={inlinePreview} expanded={expanded} onCompare={setExpanded} onPreview={openPreview} onClose={() => { setSelectedPreview(null); setExpanded(false); }}/> : null)}
         {tr(!setupVisible && planShown ? <PlanPanel chatId={session?.id}/> : null)}
@@ -626,7 +627,7 @@ const NO_QUOTES: Quote[] = [];
 function quotedMessage(quotes: readonly Quote[], text: string): string {
     return quotes.length && !text.startsWith('/') ? composeQuoted(quotes.map(q => q.text), text) : text;
 }
-function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session, onPreview, textareaRef, pendingFolders, onRemoveFolder, onPendingFolder, helperTarget = null, onClearHelperTarget = () => {}, onOpenWorkspace = () => {}, }: {
+function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session, onPreview, textareaRef, pendingFolders, onRemoveFolder, onPendingFolder, helperTarget = null, onClearHelperTarget = () => {}, onOpenWorkspace = () => {}, onEditPrompt = () => {}, }: {
     draft: string;
     setDraft: (v: string) => void;
     loaded: boolean;
@@ -642,6 +643,7 @@ function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session
     helperTarget?: string | null;
     onClearHelperTarget?: () => void;
     onOpenWorkspace?: () => void;
+    onEditPrompt?: (text: string) => void;
 }) {
     const clearDraft = useCallback(() => setDraft(''), [setDraft]);
     const photos = useChatPhotos(session?.id), native = useNative();
@@ -682,6 +684,7 @@ function Composer({ draft, setDraft, loaded, streaming, onSubmit, onKey, session
           <FolderChip chatId={session?.id} disabled={streaming}/>
           <BranchChip chatId={session?.id} onOpenWorkspace={onOpenWorkspace}/>
           <GoalBar chatId={session?.id}/>
+          <CheckpointsChip messages={session?.messages} streaming={streaming} onEditPrompt={onEditPrompt}/>
           {tr(quoteList.length ? <div className="quotes">{tr(quoteList.map(q => <div className="quote" key={q.id}><button type="button" className="quote__body" title={tr("Go to the quoted message")} onClick={() => document.querySelector(`[data-message-id="${CSS.escape(q.messageId)}"]`)?.scrollIntoView({ block: 'center', behavior: scrollBehavior() })}><span className="xs muted">{tr(q.role === 'user' ? "Quoting you" : "Quoting the assistant")}</span><span className="quote__text">{q.text}</span></button><IconBtn name="x" size={14} title={tr("Remove this quote")} onClick={() => removeQuote(session!.id, q.id)}/></div>))}</div> : null)}
           {tr(parkedList.length ? <div className="parked" role="status">{tr(parkedList.map((text, i) => <div className="parked__item" key={`${i}-${text}`}><span className="xs muted">{tr("Waiting to send")}</span><span className="parked__text" title={text}>{text}</span><IconBtn name="x" size={14} title={tr("Take back")} onClick={() => { const back = takeParked(session!.id, i); if (back !== undefined && !draft.trim()) setDraft(back); }}/></div>))}</div> : null)}
           <div className="st-composer" style={{ boxShadow: 'var(--st-sh-bar)' }}>

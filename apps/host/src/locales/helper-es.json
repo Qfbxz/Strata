@@ -31,5 +31,9 @@
  "hlp30": "Actualizar",
  "hlp31": "Leyendo las ramas…",
  "hlp32": "{0} ramas en total.",
- "hlp33": "Cerrar"
+ "hlp33": "Cerrar",
+ "hlp34": "Puntos de restauración",
+ "hlp35": "Volver aquí",
+ "hlp36": "La conversación se bifurca en el mensaje que elijas; tus palabras vuelven al campo de texto.",
+ "hlp37": "Selector de puntos de restauración junto a la entrada"
 }

@@ -10,6 +10,7 @@ const DEFAULTS = Object.freeze({
   projectInstructions: true, // CLAUDE.md / AGENTS.md from the working folder
   skillsNative: true,        // the native skill-pack folders list as read-only skills
   branchChip: true,          // the ⑂ branch chip beside the project chip
+  checkpoints: true,         // the restore-point picker beside the branch chip
 });
 
 const KEYS = Object.keys(DEFAULTS);

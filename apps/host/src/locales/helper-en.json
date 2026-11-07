@@ -31,5 +31,9 @@
  "hlp30": "Refresh",
  "hlp31": "Reading branches…",
  "hlp32": "{0} branches total.",
- "hlp33": "Close"
+ "hlp33": "Close",
+ "hlp34": "Restore points",
+ "hlp35": "Rewind here",
+ "hlp36": "The chat forks at the message you pick; your words come back to the composer.",
+ "hlp37": "Restore-point picker in the composer"
 }

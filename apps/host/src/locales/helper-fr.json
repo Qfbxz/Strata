@@ -31,5 +31,9 @@
  "hlp30": "Actualiser",
  "hlp31": "Lecture des branches…",
  "hlp32": "{0} branches au total.",
- "hlp33": "Fermer"
+ "hlp33": "Fermer",
+ "hlp34": "Points de restauration",
+ "hlp35": "Revenir ici",
+ "hlp36": "La conversation bifurque au message choisi ; vos mots reviennent dans le champ de saisie.",
+ "hlp37": "Sélecteur de points de restauration près de la saisie"
 }

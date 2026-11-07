@@ -11,6 +11,7 @@ const SWITCHES: { key: string; label: string }[] = [
     { key: 'projectInstructions', label: "Project instructions (CLAUDE.md / AGENTS.md)" },
     { key: 'skillsNative', label: "Native skill packs (other agents' folders, read-only)" },
     { key: 'branchChip', label: "Branch chip in the composer" },
+    { key: 'checkpoints', label: "Restore-point picker in the composer" },
 ];
 
 interface Features { [key: string]: boolean }

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { featuresView, sanitizeFeatures } from '../server/feature-flags.mjs';
 
 test('saved booleans override the all-on defaults; everything else keeps them', () => {
-  assert.deepEqual(featuresView(undefined), { agents: true, hooks: true, memory: true, projectInstructions: true, skillsNative: true, branchChip: true });
+  assert.deepEqual(featuresView(undefined), { agents: true, hooks: true, memory: true, projectInstructions: true, skillsNative: true, branchChip: true, checkpoints: true });
   assert.equal(featuresView({ hooks: false }).hooks, false);
   assert.equal(featuresView({ hooks: false }).agents, true, 'the other switches stay at their defaults');
   assert.equal(featuresView({ memory: 'false' }).memory, true, 'a string is not a switch');
@@ -19,7 +19,9 @@ test('the sanitizer keeps only known boolean keys, in both directions', () => {
   assert.deepEqual(sanitizeFeatures({ hooks: false, extra: true, agents: 'yes' }), { hooks: false });
   assert.deepEqual(sanitizeFeatures(undefined), {});
   assert.deepEqual(sanitizeFeatures({ agents: true, branchChip: false }), { agents: true, branchChip: false });
+  assert.deepEqual(sanitizeFeatures({ checkpoints: false }), { checkpoints: false }, 'the newest switch sanitizes like the rest');
   const view = featuresView(sanitizeFeatures({ agents: true, branchChip: false }));
   assert.equal(view.agents, true);
   assert.equal(view.branchChip, false);
+  assert.equal(view.checkpoints, true, 'an unset switch keeps its default');
 });
