@@ -16,6 +16,7 @@ import { skillEdit } from './skill-edits.mjs';
 import { materializeSkills, parseSkillFile, skillSlug, writeCreatedSkill } from './skill-files.mjs';
 import { scanAgentDirs, agentCatalogSection, agentPersonaSection } from './agent-files.mjs';
 import { scanHookDirs, runEventHooks } from './turn-hooks.mjs';
+import { listMemoryFiles, memoryRoot, readMemoryFile } from './memory-files.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
@@ -2165,6 +2166,12 @@ async function api(req, res, path, method, url) {
     catch (e) { return error(res, 400, e.message); }
   }
   if (path === '/api/agents' && method === 'GET') return json(res, 200, agentsOnDisk());
+  // The auto-memory plugin's files, read-only: the panel lists and shows them, the plugin stays the only writer.
+  if (path === '/api/memory' && method === 'GET') { try { return json(res, 200, listMemoryFiles(memoryRoot())); } catch (e) { return error(res, 400, e.message); } }
+  if (path === '/api/memory/file' && method === 'GET') {
+    try { const u = new URL(req.url, 'http://x'); return json(res, 200, readMemoryFile(memoryRoot(), u.searchParams.get('path'))); }
+    catch (e) { return error(res, e.message.includes('outside') ? 403 : 400, e.message); }
+  }
   if (path === '/api/hooks' && method === 'GET') return json(res, 200, hooksOnDisk());
   if (path === '/api/chat/helper' && method === 'POST') {
     const body = await readBody(req);
