@@ -5,7 +5,7 @@
  * script vetoes the turn and its stderr becomes the reason the person sees. Any event folder is
  * kept, so new lifecycle points can appear without this file learning them.
  */
-import { readdirSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 
@@ -17,7 +17,7 @@ const KNOWN_EVENTS = ['session-start', 'pre-turn', 'post-turn'];
  * @param {string[]} dirs
  * @returns {{events: Record<string, Array<{name: string, path: string}>>, known: string[]}}
  */
-export function scanHookDirs(dirs, { io = { readdirSync } } = {}) {
+export function scanHookDirs(dirs, { io = { readdirSync, statSync } } = {}) {
   const events = {};
   const seen = new Set();
   for (const dir of dirs || []) {
@@ -25,7 +25,9 @@ export function scanHookDirs(dirs, { io = { readdirSync } } = {}) {
     let entries;
     try { entries = io.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
     for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name.startsWith('.') || SKIP.has(entry.name)) continue;
+      // an event folder behind a symlink counts (the person's hook collections are symlink farms)
+      const isDir = entry.isDirectory() || (entry.isSymbolicLink() && (() => { try { return io.statSync(join(dir, entry.name)).isDirectory(); } catch { return false; } })());
+      if (!isDir || entry.name.startsWith('.') || SKIP.has(entry.name)) continue;
       const event = entry.name;
       let scripts;
       try { scripts = io.readdirSync(join(dir, event), { withFileTypes: true }); } catch { continue; }

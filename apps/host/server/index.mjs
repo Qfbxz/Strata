@@ -18,6 +18,7 @@ import { scanAgentDirs, agentCatalogSection, agentPersonaSection } from './agent
 import { scanHookDirs, runEventHooks } from './turn-hooks.mjs';
 import { listMemoryFiles, memoryRoot, readMemoryFile } from './memory-files.mjs';
 import { memoryContextSection } from './memory-context.mjs';
+import { projectInstructions, projectInstructionsSection } from './project-instructions.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
@@ -332,6 +333,10 @@ function agentPromptPart(agentId) {
   const chosen = agentId ? list.find(a => a.id === agentId) : null;
   return [agentCatalogSection(list), agentPersonaSection(chosen)].filter(Boolean).join('\n\n');
 }
+/** The CLAUDE.md / AGENTS.md block for a working folder, '' when there are none. */
+function projectPromptPart(cwd) {
+  return projectInstructionsSection(projectInstructions(cwd));
+}
 /** Run one lifecycle event's scripts; null when the folder has none. A pre-turn nonzero exit vetoes. */
 async function turnHookEvent(event, payload, veto = false) {
   const hooks = hooksOnDisk();
@@ -417,17 +422,26 @@ for the choice being made.`,
   // Two places hold skills a person brought or wrote: the app's own folder (written in the Skills page) and the workspace's skills folder (added
   // with "Add skill"). Both are plain `<name>/SKILL.md` folders; the frontmatter (name, description) is optional.
   const extra = [];
-  for (const [dir, source, prefix] of [[CREATED_SKILLS, 'created', 'my-'], [join(WORKSPACE, 'skills'), 'workspace', 'ws-']]) {
+  // The person's native skill-pack folders, read-only: whatever they already keep for other agents shows up here too (symlinks included - statSync follows them).
+  const nativeSkillDirs = [['created', CREATED_SKILLS, 'my-'], ['workspace', join(WORKSPACE, 'skills'), 'ws-'],
+    ['native', join(homedir(), '.kimi-code', 'skills'), 'ns-'],
+    ['native', join(homedir(), '.agents', 'skills'), 'na-'],
+    ['native', join(homedir(), '.cc-switch', 'skills'), 'nc-']].filter(([, d]) => existsSync(d));
+  const seenNative = new Set();
+  for (const [source, dir, prefix] of nativeSkillDirs) {
     if (!existsSync(dir) || !statSync(dir).isDirectory()) continue;
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
+      const id = `${prefix}${name}`;
+      if (seenNative.has(id)) continue;
+      seenNative.add(id);
       try { if (!statSync(full).isDirectory()) continue; } catch { continue; }
       let text = '', sizeKb = 1;
       const md = join(full, 'SKILL.md');
       try { text = readFileSync(md, 'utf8'); sizeKb = Math.max(0.1, statSync(md).size / 1024); } catch { /* a folder with no SKILL.md is listed but has nothing to show */ }
       const parsed = parseSkillFile(text);
       extra.push({
-        id: `${prefix}${name}`,
+        id,
         name: parsed.title ?? name.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase()),
         description: parsed.description ?? (source === 'created' ? 'A skill you wrote.' : `Workspace skill loaded from ${name}/SKILL.md`),
         source,
@@ -628,7 +642,7 @@ async function runRemoteTurn({ selection, message, history, images = [], thinkin
     const appliedSkills = selectSkills(skillState, message, workspaceId);
     entry = serving.open({ client: 'Strata chat', endpoint: connection.protocol === 'anthropic' ? '/messages' : connection.protocol === 'openai-responses' ? '/responses' : '/chat/completions', model: `${connection.name} · ${model.name}`, cancel: () => controller.abort(new DOMException('Cancelled by the user', 'AbortError')) });
     serving.mark(entry.id, { state: 'generating' });
-    const result = await modelProviders.stream({ selection, message, history, images, thinking, signal: requestSignal, systemPrompt: ['You are Strata, a helpful assistant. Answer clearly. Do not claim to have read files or performed actions unless their results are included in the conversation.', skillInstructions(appliedSkills), agentPromptPart(agentId), memoryContextSection()].filter(Boolean).join('\n\n'), onFrame: frame => {
+    const result = await modelProviders.stream({ selection, message, history, images, thinking, signal: requestSignal, systemPrompt: ['You are Strata, a helpful assistant. Answer clearly. Do not claim to have read files or performed actions unless their results are included in the conversation.', skillInstructions(appliedSkills), agentPromptPart(agentId), memoryContextSection(), projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'), onFrame: frame => {
       if (frame.type === 'start') noteSkillUse(appliedSkills);
       if (frame.type === 'done') serving.mark(entry.id, { tokensIn: frame.tokensIn, tokensOut: frame.tokensOut, usageSource: frame.usageSource });
       onFrame({ ...frame, requestId: entry.id, model: model.name, contextMax: model.contextMax, remoteModel: true, ...(frame.type === 'start' ? { skills: appliedSkills.map(s => s.name) } : {}) });
@@ -731,7 +745,7 @@ async function runTurn({ message, history = [], onFrame, signal, client, workspa
   if(native.hasLive()||nativeModelId){
     let instance;try{instance=native.resolveInstance(nativeModelId??native.state().defaultId);}catch(e){const message=plainNoModel(e.message);onFrame({type:'error',message});return {error:message};}const started=Date.now(),cancel=new AbortController();
     const entry=serving.open({client:client??'Strata chat',endpoint:'/chat/completions',model:instance.apiModelId,instanceId:instance.id,gpuIds:instance.gpus.map(String),cancel:()=>cancel.abort()});
-    try{serving.mark(entry.id,{state:'generating'});const applied=selectSkills(skillState,message,workspaceId);const result=await proxyCompletion({baseUrl:`http://127.0.0.1:${instance.port}/v1`,modelId:instance.apiModelId,authorization:instance.key,message,history,images,extra:{strata_mcp:useTools===true,...(thinkingBudget>0&&String(thinking).toLowerCase()!=='off'?{reasoning_budget_tokens:thinkingBudget}:{}),reasoning_effort:({off:'none',max:'high'}[String(thinking).toLowerCase()]??String(thinking).toLowerCase())},systemPrompt:[SYSTEM_PROMPT,skillInstructions(applied),memoryContextSection()].filter(Boolean).join('\n\n'),signal:signal?AbortSignal.any([signal,cancel.signal]):cancel.signal,onFrame:frame=>onFrame({...frame,requestId:entry.id,model:instance.label,contextMax:instance.metrics?.engine?.max_context??instance.context,skills:applied.map(s=>s.name)})});serving.mark(entry.id,{...result,usageSource:result.usageSource});serving.finish(entry.id,{tokensOut:result.tokensOut,durationMs:Date.now()-started});return result;}catch(e){serving.finish(entry.id,{durationMs:Date.now()-started,error:e.message});onFrame({type:'error',message:e.message,requestId:entry.id});return {error:e.message};}
+    try{serving.mark(entry.id,{state:'generating'});const applied=selectSkills(skillState,message,workspaceId);const result=await proxyCompletion({baseUrl:`http://127.0.0.1:${instance.port}/v1`,modelId:instance.apiModelId,authorization:instance.key,message,history,images,extra:{strata_mcp:useTools===true,...(thinkingBudget>0&&String(thinking).toLowerCase()!=='off'?{reasoning_budget_tokens:thinkingBudget}:{}),reasoning_effort:({off:'none',max:'high'}[String(thinking).toLowerCase()]??String(thinking).toLowerCase())},systemPrompt:[SYSTEM_PROMPT,skillInstructions(applied),memoryContextSection(), projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'),signal:signal?AbortSignal.any([signal,cancel.signal]):cancel.signal,onFrame:frame=>onFrame({...frame,requestId:entry.id,model:instance.label,contextMax:instance.metrics?.engine?.max_context??instance.context,skills:applied.map(s=>s.name)})});serving.mark(entry.id,{...result,usageSource:result.usageSource});serving.finish(entry.id,{tokensOut:result.tokensOut,durationMs:Date.now()-started});return result;}catch(e){serving.finish(entry.id,{durationMs:Date.now()-started,error:e.message});onFrame({type:'error',message:e.message,requestId:entry.id});return {error:e.message};}
   }
   runtimeState();
   let instance;

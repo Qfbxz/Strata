@@ -6,7 +6,7 @@
  * agent speaks with its instructions; the list of agents is also put in front of the model so it
  * knows who it can call on.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const slugify = value => String(value ?? '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
@@ -44,7 +44,7 @@ const SKIP = new Set(['node_modules', '.git', '.svn', 'dist', 'build', '__pycach
  * @param {string[]} dirs
  * @returns {Array<{id: string, name: string, description: string, tools: string[]|null, model: string|null, instructions: string, path: string}>}
  */
-export function scanAgentDirs(dirs, { io = { existsSync, readdirSync, readFileSync } } = {}) {
+export function scanAgentDirs(dirs, { io = { existsSync, readdirSync, readFileSync, statSync } } = {}) {
   const byId = new Map();
   const order = [];
   for (const dir of dirs || []) {
@@ -54,8 +54,10 @@ export function scanAgentDirs(dirs, { io = { existsSync, readdirSync, readFileSy
     for (const entry of entries) {
       if (entry.name.startsWith('.') || SKIP.has(entry.name)) continue;
       let path = null;
+      // a symlinked folder counts as a folder: the person's skill collections are symlink farms
+      const isDir = entry.isDirectory() || (entry.isSymbolicLink() && (() => { try { return io.statSync(join(dir, entry.name)).isDirectory(); } catch { return false; } })());
       if (entry.isFile() && /\.md$/i.test(entry.name)) path = join(dir, entry.name);
-      else if (entry.isDirectory()) {
+      else if (isDir) {
         for (const candidate of ['AGENT.md', 'agent.md']) {
           const p = join(dir, entry.name, candidate);
           if (io.existsSync(p)) { path = p; break; }
@@ -65,7 +67,8 @@ export function scanAgentDirs(dirs, { io = { existsSync, readdirSync, readFileSy
           let inner;
           try { inner = io.readdirSync(join(dir, entry.name), { withFileTypes: true }); } catch { continue; }
           for (const nested of inner) {
-            if (!nested.isDirectory() || nested.name.startsWith('.')) continue;
+            const nestedIsDir = nested.isDirectory() || (nested.isSymbolicLink() && (() => { try { return io.statSync(join(dir, entry.name, nested.name)).isDirectory(); } catch { return false; } })());
+            if (!nestedIsDir || nested.name.startsWith('.')) continue;
             const p = join(dir, entry.name, nested.name, 'AGENT.md');
             if (io.existsSync(p)) { path = p; break; }
           }
