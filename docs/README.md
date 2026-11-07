@@ -12,6 +12,7 @@
 | Start from the command line | [Terminal launch](TERMINAL_LAUNCH.md) |
 | Connect a coding tool | [Tool connections](TERMINAL_LAUNCH.md#connect-your-apps-strata-connect) |
 | Fix an install or startup problem | [Troubleshooting](TROUBLESHOOTING.md) |
+| Teach the assistant your agents, hooks, skills and project instructions | [Assistant files](ASSISTANT_FILES.md) |
 | Check privacy, downloads and network access | [Safety and privacy](SAFETY.md) |
 
 ## Hardware
