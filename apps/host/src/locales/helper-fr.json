@@ -5,5 +5,11 @@
  "hlp04": "Elle reçoit le message à sa prochaine étape.",
  "hlp05": "Elle s'exécute comme le prochain tour de l'assistant.",
  "hlp06": "Conversation avec {0} : les messages vont à cet assistant, pas au chat.",
- "hlp07": "Message à {0}…"
+ "hlp07": "Message à {0}…",
+ "hlp08": "Mémoire automatique",
+ "hlp09": "Actualiser",
+ "hlp10": "Lecture…",
+ "hlp11": "Fichiers de mémoire",
+ "hlp12": "Pas encore de fichiers de mémoire. L'assistant les construit en travaillant.",
+ "hlp13": "Choisis un fichier de mémoire à lire."
 }

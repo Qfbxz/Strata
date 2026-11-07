@@ -5,5 +5,11 @@
  "hlp04": "Recibe el mensaje en su siguiente paso.",
  "hlp05": "Se ejecuta como el siguiente turno del helper.",
  "hlp06": "Hablando con {0}: los mensajes van a este helper, no al chat.",
- "hlp07": "Mensaje a {0}…"
+ "hlp07": "Mensaje a {0}…",
+ "hlp08": "Memoria automática",
+ "hlp09": "Actualizar",
+ "hlp10": "Leyendo…",
+ "hlp11": "Archivos de memoria",
+ "hlp12": "Aún no hay archivos de memoria. El assistant los crea mientras trabaja.",
+ "hlp13": "Elige un archivo de memoria para leer."
 }

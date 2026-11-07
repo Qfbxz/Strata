@@ -7674,3 +7674,11 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 
 /* The composer's helper-target strip. */
 .helper-target { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--st-accent); border-radius: var(--st-r-md); background: var(--st-surface); font-size: 13px; }
+
+/* The auto-memory panel: list beside the file's content. */
+.mempanel { display: grid; grid-template-columns: minmax(180px, 40%) minmax(0, 1fr); gap: 14px; max-height: 60vh; }
+.mempanel__root { margin: 0 0 8px; overflow-wrap: anywhere; }
+.mempanel__list { display: grid; gap: 4px; align-content: start; max-height: 60vh; overflow: auto; }
+.mempanel__row { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--st-line); border-radius: var(--st-r-md); background: none; cursor: pointer; text-align: left; font: inherit; }
+.mempanel__row[data-active] { border-color: var(--st-accent); }
+.mempanel__view { margin: 0; padding: 12px; border: 1px solid var(--st-line); border-radius: var(--st-r-md); overflow: auto; max-height: 60vh; font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--st-font); }

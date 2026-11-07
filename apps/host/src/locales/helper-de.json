@@ -5,5 +5,11 @@
  "hlp04": "Sie erhält die Nachricht im nächsten Schritt.",
  "hlp05": "Sie läuft als nächste Runde des Helfers.",
  "hlp06": "Gespräch mit {0}: Nachrichten gehen an diesen Helfer, nicht an den Chat.",
- "hlp07": "Nachricht an {0}…"
+ "hlp07": "Nachricht an {0}…",
+ "hlp08": "Automatischer Speicher",
+ "hlp09": "Aktualisieren",
+ "hlp10": "Läuft…",
+ "hlp11": "Speicherdateien",
+ "hlp12": "Noch keine Speicherdateien. Der Assistant baut sie bei der Arbeit auf.",
+ "hlp13": "Wähle eine Speicherdatei zum Lesen."
 }
