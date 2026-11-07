@@ -81,6 +81,7 @@
 | 44 | 技能批量导入（用户当面需求） | TDD 全绿 bf83e05f | /api/skills/scan+import 端点+Skills 页勾选对话框+9 语言；单目录 Add 字节不动 |
 | 45 | auto-memory 移植收口 | 勘误+真加载 80bbde0a | 实为 dsh-auto-memory **1.3.0**；"双缺口"不成立（bundle 内依赖全在，**无需 harness 升级**）；双端放置+profile 注册+真加载测试通过；已装 App 无需重建即得插件本体 |
 | 46 | 遗留套件九连败全修复 | worktree 基线裁决+f276ceac | 9 个失败在合并基线分毫不差复现=官方合并债；**真实产品 bug 修复：思考菜单 Off 现在显式送达 `reasoning_effort:'none'`**（此前推理模型照样思考）+守卫收紧正向已知+macOS /var/folders 误拒+remote 上下文不继承引擎读数+三处过期测试跟进；账本 §三十四 |
+| 47 | Claude 式 agents/+hooks/ 目录 + Codex/harness 式 UI 三件 | 用户当面需求 bf83e05f 后续 | **agents/ 目录**：`<slug>.md`/`<slug>/AGENT.md`（frontmatter name/description/tools/model+正文指令），App 与工作区双源；`agentId` 贯通直聊三路 systemPrompt（目录+人设）；**hooks/ 目录**：`<event>/` 脚本 stdin 收 JSON、pre-turn 非零即否决（stderr 为理由）、post-turn 观测；/api/agents、/api/hooks；**UI**：composer 行 ⑂ 分支芯片（Codex 式）+顶部子智能体 Dock（点击定向 composer→steer/queue、⌂ 进工作区面板）；harness 子代理描述符原生 persona/toolFilter/model——agents 目录的 harness 侧人设留待 strata-persona 插件切片 |
 
 ### 贯穿性指令（全程有效）
 - 无人值守模式（driver 脚本+幂等+终验三门槛+账本落盘）
