@@ -80,6 +80,7 @@
 | 43 | 夜间欠账脚本重建 | /tmp 被重启清空的教训 | `~/strata-setup/night/{bench_night.py,final-debts.sh}`：预检四门槛+幂等+单相失败不断链+现场恢复；七相序列含 DS 六旋钮臂与 2.25 安装冒烟；cron 23:37 点火 |
 | 44 | 技能批量导入（用户当面需求） | TDD 全绿 bf83e05f | /api/skills/scan+import 端点+Skills 页勾选对话框+9 语言；单目录 Add 字节不动 |
 | 45 | auto-memory 移植收口 | 勘误+真加载 80bbde0a | 实为 dsh-auto-memory **1.3.0**；"双缺口"不成立（bundle 内依赖全在，**无需 harness 升级**）；双端放置+profile 注册+真加载测试通过；已装 App 无需重建即得插件本体 |
+| 46 | 遗留套件九连败全修复 | worktree 基线裁决+f276ceac | 9 个失败在合并基线分毫不差复现=官方合并债；**真实产品 bug 修复：思考菜单 Off 现在显式送达 `reasoning_effort:'none'`**（此前推理模型照样思考）+守卫收紧正向已知+macOS /var/folders 误拒+remote 上下文不继承引擎读数+三处过期测试跟进；账本 §三十四 |
 
 ### 贯穿性指令（全程有效）
 - 无人值守模式（driver 脚本+幂等+终验三门槛+账本落盘）
