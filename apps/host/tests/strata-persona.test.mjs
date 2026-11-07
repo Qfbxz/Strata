@@ -23,11 +23,11 @@ function harnessWith(dirs) {
 test('a registered id resolves to the file instructions; folder and file shapes both work', () => {
   const dir = mkdtempSync(join(tmpdir(), 'strata-persona-'));
   try {
-    writeFileSync(join(dir, 'reviewer.md'), 'Check every report.');
+    writeFileSync(join(dir, 'reviewer.md'), '---\nname: reviewer\ntools: read, grep, shell\n---\n\nCheck every report.');
     mkdirSync(join(dir, 'planner'));
     writeFileSync(join(dir, 'planner', 'AGENT.md'), 'Plan before acting.');
-    assert.equal(personaInstructions(dir, 'reviewer'), 'Check every report.');
-    assert.equal(personaInstructions(dir, 'planner'), 'Plan before acting.');
+    assert.deepEqual(personaInstructions(dir, 'reviewer'), { instructions: 'Check every report.', tools: ['read', 'grep', 'shell'] });
+    assert.deepEqual(personaInstructions(dir, 'planner'), { instructions: 'Plan before acting.', tools: null });
     assert.equal(personaInstructions(dir, 'nope'), null);
     assert.equal(personaInstructions(dir, '../reviewer'), null, 'a slash means a path, not an id — refused');
   } finally { cleanup(dir); }
@@ -36,7 +36,7 @@ test('a registered id resolves to the file instructions; folder and file shapes 
 test('the pre-execute hook rewrites a registered persona in place and passes unknown ones through', () => {
   const dir = mkdtempSync(join(tmpdir(), 'strata-persona2-'));
   try {
-    writeFileSync(join(dir, 'reviewer.md'), 'Check every report.');
+    writeFileSync(join(dir, 'reviewer.md'), '---\nname: reviewer\ntools: read, grep, shell\n---\n\nCheck every report.');
     const handler = harnessWith([dir]);
     const spawn = { name: 'subagent', arguments: { persona: 'reviewer', prompt: 'check this' } };
     let forwarded = null;
@@ -45,10 +45,11 @@ test('the pre-execute hook rewrites a registered persona in place and passes unk
       assert.match(spawn.arguments.persona, /Check every report\./);
       assert.match(spawn.arguments.persona, /You are working as the agent "reviewer"/);
       assert.equal(spawn.arguments.prompt, 'check this', 'the rest of the spawn is untouched');
+      assert.deepEqual(spawn.arguments.toolFilter, { allow: ['read', 'grep', 'shell'] });
       assert.equal(forwarded, spawn, 'the same exec object is forwarded');
       // an unregistered persona passes through unchanged
       const other = { name: 'subagent', arguments: { persona: 'someone-else' } };
-      return handler(other, e => { assert.equal(e.arguments.persona, 'someone-else'); return 'ran'; });
+      return handler(other, e => { assert.equal(e.arguments.persona, 'someone-else'); assert.equal(e.arguments.toolFilter, undefined); return 'ran'; });
     });
   } finally { cleanup(dir); }
 });
@@ -56,7 +57,7 @@ test('the pre-execute hook rewrites a registered persona in place and passes unk
 test('other tools never touch the spawn, and a folder-less config registers nothing', () => {
   const dir = mkdtempSync(join(tmpdir(), 'strata-persona3-'));
   try {
-    writeFileSync(join(dir, 'reviewer.md'), 'Check every report.');
+    writeFileSync(join(dir, 'reviewer.md'), '---\nname: reviewer\ntools: read, grep, shell\n---\n\nCheck every report.');
     const handler = harnessWith([dir]);
     const exec = { name: 'web_search', arguments: { query: 'x' } };
     let ran = false;
