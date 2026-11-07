@@ -70,6 +70,11 @@ export const SSH_PLUGIN = '@linxin666/dsh-ssh';
  * is renamed to this harness's word (spliced) in the vendored copy; the main session/event bus
  * drives it regardless. */
 export const AUTO_CONTINUE_PLUGIN = 'dsh-client-auto-continue';   // lives in the harness bundle's node_modules (installed beside @deepseek-ai/*), so its imports of dsh-tools and friends resolve from the harness itself
+/** The auto-memory plugin (dsh-auto-memory v1.3.0, the owner's 自动记忆): Claude Code style
+ * typed memory files with a MEMORY.md index injected into the system prompt. Its only
+ * dependencies beyond the harness (@deepseek-ai/schemastery, yaml) are already in the bundle,
+ * so it installs beside auto-continue with nothing else to ship. */
+export const AUTO_MEMORY_PLUGIN = 'dsh-auto-memory';
 /** The app's web search (DuckDuckGo, or the person's own Exa / Perplexity key), registered with the Harness's web seam. */
 /** Compaction that measures the real prompt and summarises in pieces that fit the window (plugins/strata-context.mjs). */
 export const CONTEXT_PLUGIN = fileURLToPath(new URL('./plugins/strata-context.mjs', import.meta.url));
@@ -344,6 +349,8 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { insert: [{ id: 'dsh-infinite-gen-4', name: INFINITE_GEN_PLUGIN }] },
     { insert: [{ id: 'ssh', name: SSH_PLUGIN }] },
     { insert: [{ id: 'auto-continue', name: AUTO_CONTINUE_PLUGIN }] },
+    // the owner's auto-memory plugin: typed memory files + the MEMORY.md index injected into the system prompt
+    { insert: [{ id: 'auto-memory', name: AUTO_MEMORY_PLUGIN }] },
     // Compaction decides from what the model server measured, and its summary requests always fit the window (plugins/strata-context.mjs).
     { insert: [{ id: 'strata-context', name: CONTEXT_PLUGIN, config: {} }] },
     // Helper agents on a model the person names: every model the app can reach is allowed, and the plugin makes the choice forgiving (plugins/strata-models.mjs).
