@@ -84,6 +84,7 @@
 | 47 | Claude 式 agents/+hooks/ 目录 + Codex/harness 式 UI 三件 | 用户当面需求 bf83e05f 后续 | **agents/ 目录**：`<slug>.md`/`<slug>/AGENT.md`（frontmatter name/description/tools/model+正文指令），App 与工作区双源；`agentId` 贯通直聊三路 systemPrompt（目录+人设）；**hooks/ 目录**：`<event>/` 脚本 stdin 收 JSON、pre-turn 非零即否决（stderr 为理由）、post-turn 观测；/api/agents、/api/hooks；**UI**：composer 行 ⑂ 分支芯片（Codex 式）+顶部子智能体 Dock（点击定向 composer→steer/queue、⌂ 进工作区面板）；harness 子代理描述符原生 persona/toolFilter/model——agents 目录的 harness 侧人设留待 strata-persona 插件切片 |
 | 48 | 追加批次：②续接徽章 ③自动记忆界面（①压缩裁决原生已有） | 用户当面需求 5c1ceb11+6ab925dd+d97e2ded | **②**：`isAutoContinueSplice` 精确匹配器+桥内 notice 帧（"Continue" 精确值/两条中文文本；长句不误触）；**①裁决**：harness 已原生自动压缩（~60% 启动+/compact），差可视化排后续；**③**：/api/memory 只读读层（限根/markdown-only/3 测试）+MemoryPanel（工具栏记忆钮→最新在先列表+查看器）；账本 §三十六 |
 | 49 | 设置页管理批次（用户当面需求"新功能要有设置页可视化+持久化"）+ Claude 约定四连 | 55199a03+50dfe315 | **feature-flags 六旗**（agents/hooks/memory/projectInstructions/skillsNative/branchChip，默认全开=文件面自身 opt-in）存 app-settings.json、PUT/GET /api/features、宿主全门控、Settings 新 Assistant 面板六开关；**软链**两扫描器 symlink-aware；**CLAUDE.md/AGENTS.md** 加载器（优先级/向上 6 层/双份/有界）；**原生技能三源**（kimi-code/agents/cc-switch，只读去重）；记忆适时使用+五技能包移植（§三十八）；账本 §三十九/四十 |
+| 50 | strata-persona 施工（设计契约兑现 758cc03e） | spawn 时 persona 按名解析：pre-execute 拦截 subagent/subagent_fork，命中 agents/ 注册 id 即注入完整指令（有界 64K/斜杠拒收/未注册直通/空配置不注册）；agentsDirs 经 bridge→buildProfile→config 双目录；agents 人设同时物化为技能（双通道可见）；3 测试；§四十一 |
 
 ### 贯穿性指令（全程有效）
 - 无人值守模式（driver 脚本+幂等+终验三门槛+账本落盘）
