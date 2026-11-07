@@ -85,6 +85,7 @@
 | 48 | 追加批次：②续接徽章 ③自动记忆界面（①压缩裁决原生已有） | 用户当面需求 5c1ceb11+6ab925dd+d97e2ded | **②**：`isAutoContinueSplice` 精确匹配器+桥内 notice 帧（"Continue" 精确值/两条中文文本；长句不误触）；**①裁决**：harness 已原生自动压缩（~60% 启动+/compact），差可视化排后续；**③**：/api/memory 只读读层（限根/markdown-only/3 测试）+MemoryPanel（工具栏记忆钮→最新在先列表+查看器）；账本 §三十六 |
 | 49 | 设置页管理批次（用户当面需求"新功能要有设置页可视化+持久化"）+ Claude 约定四连 | 55199a03+50dfe315 | **feature-flags 六旗**（agents/hooks/memory/projectInstructions/skillsNative/branchChip，默认全开=文件面自身 opt-in）存 app-settings.json、PUT/GET /api/features、宿主全门控、Settings 新 Assistant 面板六开关；**软链**两扫描器 symlink-aware；**CLAUDE.md/AGENTS.md** 加载器（优先级/向上 6 层/双份/有界）；**原生技能三源**（kimi-code/agents/cc-switch，只读去重）；记忆适时使用+五技能包移植（§三十八）；账本 §三十九/四十 |
 | 50 | strata-persona 施工（设计契约兑现 758cc03e） | spawn 时 persona 按名解析：pre-execute 拦截 subagent/subagent_fork，命中 agents/ 注册 id 即注入完整指令（有界 64K/斜杠拒收/未注册直通/空配置不注册）；agentsDirs 经 bridge→buildProfile→config 双目录；agents 人设同时物化为技能（双通道可见）；3 测试；§四十一 |
+| 51 | UMA 内存修正 + B3 恢复点选择器 + 欠账收尾 | 4f220315+7f0139fe+c8727bf4：Metal mem_get_info 以 host available-6GiB 封顶（STRATA_UMA_HEADROOM_GIB 旋钮，#5488 根因面，编译验证未实测）；composer ⟲ 恢复点芯片（每条已发送消息=检查点，40 条新先旧后，fork+回填输入框，checkpoints 旗+九语言）；office 文档补提交。借鉴目录 A 级四项+B3 全落，B1/B2 裁决关闭。build-11=-75-g7f0139fe 已留档待 23:37 夜班装入；调度链 PID 复用死等教训在案（链式触发改用产物存在性）。§四十四/四十五 |
 
 ### 贯穿性指令（全程有效）
 - 无人值守模式（driver 脚本+幂等+终验三门槛+账本落盘）
