@@ -70,6 +70,17 @@
 | 37 | 多子智能体并行（所有模型，与本地/第三方无关） | --batch/--parallel 毒 flag 连环救火 | 五套 --batch 2；Q5/Q6 内存撤；教训入账 |
 | 38 | 交接文档（本文件） | 全程按序编写 | 即此 |
 
+### 第七阶段：夜班前场收口 + App 双特性（2026-11-07 晚，goal 会话）
+| 序 | 需求/发现 | 经过 | 结果 |
+|---|---|---|---|
+| 39 | 下载终局裁决 | 全量 SHA 终验 | Coder 5 分片全对 pin（**shard 6 不存在，of-00006 是作者笔误**，Coder 收口）；Engram=eb19f30d 双 pin 白名单之二不重下；dspark .part 哈希不符（预分配假完整）弃之夜间重下；UD-Q8_K_XL 506GB 暂停待裁决 |
+| 40 | 版本勘误 | 二进制指纹考古 | DS 引擎=**0.1.57-metal build 3e0210663 官方签名件**（HANDOVER 的 0.1.55 过时，feed-mirror 停更所致）；用户确认 0.1.57 即最新 |
+| 41 | 引擎包落位 | setup 原文支持仓库目录 | `engine-dsv41/` 放入 0.1.55+0.1.57 目录与官方 tar.gz，setup Step 4 本地自足，2.25 安装不再被墙 |
+| 42 | 上游报告两份 | log 实证+静态旋钮 | `ds4-mac-lane-issue-report.md`（官方 13-15 tok/s 自证对照+RAM-cap 误判+四点 ask）；yarn4x 报告勘误（**M3 Max**/macOS 27.2）+补 yarn4×@256K 交叉定因；`ds4-knobs-mac.md` 289+48 旋钮目录与夜间六臂矩阵 |
+| 43 | 夜间欠账脚本重建 | /tmp 被重启清空的教训 | `~/strata-setup/night/{bench_night.py,final-debts.sh}`：预检四门槛+幂等+单相失败不断链+现场恢复；七相序列含 DS 六旋钮臂与 2.25 安装冒烟；cron 23:37 点火 |
+| 44 | 技能批量导入（用户当面需求） | TDD 全绿 bf83e05f | /api/skills/scan+import 端点+Skills 页勾选对话框+9 语言；单目录 Add 字节不动 |
+| 45 | auto-memory 移植收口 | 勘误+真加载 80bbde0a | 实为 dsh-auto-memory **1.3.0**；"双缺口"不成立（bundle 内依赖全在，**无需 harness 升级**）；双端放置+profile 注册+真加载测试通过；已装 App 无需重建即得插件本体 |
+
 ### 贯穿性指令（全程有效）
 - 无人值守模式（driver 脚本+幂等+终验三门槛+账本落盘）
 - 白天睡觉晚上干活→后改白天跑晚上停
@@ -92,8 +103,8 @@
 | drafter 裁定（MTP vs DFlash2） | ✅ 双工况实测 | 中文 MTP 50.8(+8%) vs DF2 40.2(−14%)；代码 MTP 53.0(+6%) vs DF2 45.9(−8%) → **四套 config 均已切 mtp spec2**，DF2 包保留可手选 |
 | 多子智能体并行（所有模型） | ✅ | IQ3_XXS/Q3/IQ4_XS/Q4/iq3_s config 加 `--batch 2`（双请求槽）；Q5/Q6 因内存撤；API 8 并发；ACP 每 turn 独立进程。**batch=1 vs 2 对照冒烟未跑**（白天环境不可测，见未完成） |
 | F16 实验（P1-1） | ✅ 质量门通过 | top-1 96.16% ≥95%、KL 0.01602 ≤0.02（4995 位五段）；`STRATA_METAL_F16=1` 已写入 iq3_s config；速度收益（+9-12%）待夜间复测 |
-| DeepSeek 2.0bpw 下载+128K 试用 | ⚠️ 装好但引擎慢 | 用户自装成功（run config present）；实测 0.39-1.73 tok/s vs 官方 15-16——**dsv41 0.1.55 引擎把 10074 专家(86.6GB)布局到 CPU lane**（Mac 无 PCIe lane 概念，lane 启发式失效），kimi 审查确认为平台适配缺口非配置错误；建议报官方+等引擎更新 |
-| DeepSeek 2.25bpw 下载 | ✅ 分片全下完 | 4/4 SHA 验收（分片1 作者重传 +928 字节已按新 pin 4c6530 验证）；**pack 安装中断**（dsv41 引擎包被墙，`--dsv41-package ~/strata-setup/strata-dsv41-0.1.55-*.tar.gz` 可解） |
+| DeepSeek 2.0bpw 下载+128K 试用 | ⚠️ 装好但引擎慢 | 用户自装成功（run config present）；实测 0.39-1.73 tok/s vs 官方 15-16——**dsv41 0.1.57 引擎把 9335-9622 专家(80-83GB)布局到 CPU lane**（勘误：0.1.55 系 feed-mirror 停更误记，实装为官方 0.1.57 签名件）（Mac 无 PCIe lane 概念，lane 启发式失效），kimi 审查确认为平台适配缺口非配置错误；建议报官方+等引擎更新 |
+| DeepSeek 2.25bpw 下载 | ✅ 分片全下完 | 4/4 SHA 验收（分片1 作者重传 +928 字节已按新 pin 4c6530 验证）；**pack 已打好（18:41）**，引擎已落仓库 `engine-dsv41/0.1.57`（setup Step 4 本地自足），安装冒烟排夜间脚本 |
 | das-coder 下载 | 🔄 5/6 分片完 | Engram 110.6GB 在 xet 重建阶段 403（HF CDN 对代理 CAS 请求拒），分片 1-5 完成在 `~/gguf/deepseek/coder/IQ2_XXS/`；下载脚本模式见下"未完成" |
 | Q6_K_XL 运行 | ❌ 本机不可跑（终审） | 114.8GB 自身分配吃满 ~96GB Metal 预算的结构性超限；四次 OOM+partialpin 95/85 双败+干净复审 exit 5；config 留档可复活（未来引擎/换机） |
 | 官方更新检查 | ✅ 无需合并 | 3 commits 全非代码（README 赞助×2+Docker 修） |
@@ -130,7 +141,7 @@
 - ✅ dsh-infinite-gen-4 v0.4.0（da64f60b）
 - ✅ dsh-client-auto-continue v0.17.3（自动回复，a893b013）
 - ✅ dsh-ssh v0.4.15（harness node_modules 放置+真加载验证）
-- ⏸ auto-memory 3.3.17（被 harness 0.2.1-alpha.3 双缺口卡：dsh-client-runtime 缺+remote.session 服务缺）→ 随 harness 升 0.2.2-rc.x 整体移
+- ✅ auto-memory 移植收口（dsh-auto-memory **1.3.0**，非 3.3.17；'双缺口'对 1.3.0 不成立，bundle 依赖全在）：双端 node_modules 放置+profile.mjs 注册+~/.dsh/cordis.patch.yml 用户层，真加载测试通过（80bbde0a）；App 重启即生效
 
 ### E. MLX 一等公民（完成）
 
@@ -182,19 +193,18 @@ a46aa9c0 契约测试  f0e9754f v0.2.11 合并（3 冲突谁完善谁上）
 | `~/gguf/models/` | 七套 Qwen UD 模型（平铺）+mmproj |
 | `~/gguf/metal/` | 四套 repacked native（*.done 标记） |
 | `~/gguf/deepseek/` | 2.25bpw 四分片全（含作者重传新 pin）+ coder 5/6 分片（Engram 未完） |
-| `~/.local/share/strata/install/` | 全部 run config（含 iq4_xs-v31-1m.json 1M 档；iq3_s 带 F16=1；五套带 --batch 2）+ strata-dsv41 0.1.55 引擎 |
+| `~/.local/share/strata/install/` | 全部 run config（含 iq4_xs-v31-1m.json 1M 档；iq3_s 带 F16=1；五套带 --batch 2）+ strata-dsv41 0.1.57 引擎（官方签名件，勘误后） |
 | `/Applications/Strata.app` | v0.2.11-46-g95a99ca7 定制版（含全部夜班功能） |
 
-## 四、未完成与下一步（按优先级）
+## 四、未完成与下一步（按优先级，2026-11-07 晚刷新）
 
-1. **DS 大杯 Mac 引擎布局问题**——根因已定（10074 专家 86.6GB 落 CPU lane，lane 启发式无 PCIe 概念在 Mac 失效）；kimi 审查建议：c 报官方（素材已备）+ b strings 旋钮限时深挖（**已枚举 220+ DS4_* 旋钮**，`DS4_UMA_GPU_RESERVE_GB=96` 试验中布局只微调 9622/82.8GB 未根治）+ d 临时用 Qwen UD 系或 MLX 中小杯
-2. **Coder Engram 110.6GB 收尾**——xet 重建 403（HF CDN 拒代理 CAS 请求）；方案：直连窗口重试或 aria2 镜像 range（曾到 95%）
-3. **2.25bpw 安装收尾**——`strata launch --family deepseek41 --model ist-das-2.25bpw --model-path ~/gguf/deepseek/2.25bpw --dsv41-package ~/strata-setup/strata-dsv41-0.1.55-macos-arm64-metal.tar.gz --port 8082`（引擎包本地已有；但 DS 引擎慢问题同 1）
-4. **夜间纯净窗口欠账**——CONTIG A/B（五连败定论：白天 4K-prefill 必死）+ batch=1v2 对照+F16 速度复测；脚本模板在账本 §三十
-5. **用户验证项**——真实拖放一次（埋点在岗）、UX-8 分支徽章、1M 档日常使用反馈
-6. **auto-memory**——等 harness 0.2.2-rc.x
-7. **20b MLX**——删 `~/.cache/huggingface/hub/models--mlx-community--gpt-oss-20b-MXFP4-Q8` 重下或不修
-8. **R2 yarn4××1M GPU 挂死**——已定因（组合 bug 非 yarn4× 本身）；可报官方（素材齐）
+1. **夜间纯净窗口七相**（脚本就绪 `~/strata-setup/night/final-debts.sh`，cron 23:37 点火）：CONTIG A/B + batch 1v2 + F16 复测 + **DS lane 六旋钮臂（本夜最高价值：asis96/noenv/lane_cal/stream_force/cpu_lane0/vram100，任一臂让 CPU-lane 专家数下降+tok/s 上升即为 Mac 修复旋钮）** + 20b MLX 重下 + dspark Q8_0 重下验 SHA + 2.25bpw 安装冒烟（引擎本地 0.1.57）。跑完按 results-YYYYMMDD.jsonl 入账本
+2. **DS 大杯上游报告投递**——`ds4-mac-lane-issue-report.md` 成稿待投；若夜间六臂找到可用旋钮，报告加"旋钮可绕过"一节后同投
+3. **yarn4× 报告投递**——`engine-issue-yarn4x-gpu-freeze.md` 已按 M3 Max 勘误+交叉定因加固，成稿待投
+4. **UD-Q8_K_XL（506GB）**——仅 shard1 完，本机无运行目标；是否续传（SSD 流式实验？）等用户裁决
+5. **用户验证项**——真实拖放一次（埋点在岗）、UX-8 分支徽章、1M 档日常使用反馈、**技能批量导入与 auto-memory 记忆注入各试一次**（App 重启后生效）
+6. **harness 整包升级 0.2.2-rc.1**——npm 已发 latest；非必需（auto-memory 已在 0.2.1-alpha.3 落地），升级需 pnpm deploy 重建 234MB bundle+重打 pi-ai patch，另立夜建窗口
+7. **已装 App 的 profile.mjs 不含 auto-memory insert**——插件本体已放入（真加载验证过）+ `~/.dsh/cordis.patch.yml` 用户层注册行已就位，重启 App 后 harness 自行挂载；仓库 profile.mjs 的注册行走下次 App 重建进包（双保险）
 
 ## 五、铁律（勿违反）
 
@@ -215,4 +225,4 @@ a46aa9c0 契约测试  f0e9754f v0.2.11 合并（3 冲突谁完善谁上）
 | 纯 IO（下载/pack 转换） | ✅ 但与引擎互斥 | DS 下载、2.25 转换 |
 | 引擎+下载并行 | ❌ 页缓存互杀 | §二十七/欠账链五连败的根因之一 |
 
-——交接完毕。账本（~/strata-setup/ACCEPTANCE-LEDGER.md §一~§三十一）是唯一权威过程记录。
+——交接完毕。账本（~/strata-setup/ACCEPTANCE-LEDGER.md §一~§三十三）是唯一权威过程记录。
