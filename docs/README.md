@@ -39,6 +39,10 @@ Use the guide for your GPU and operating system. Model and feature support can d
 - [How the engine works](HOW_IT_WORKS.md), [technical reference](DETAILS.md) and [Terminal reference](TERMINAL.md)
 - [KVA: approximate prompt processing for the late layers (experimental, opt-in)](KVA.md)
 - [App development](../apps/host/README.md) and [packaging](../packaging/README.md)
+- [Harness lessons for the agent layer](HARNESS_LESSONS.md) — what to take from Kimi CLI, Claude Code, Codex and DeepSeek Harness under the local context window
+- [Harness roadmap](HARNESS_ROADMAP.md) — the executable plan: host backstops, upstream landing, engine prerequisites
+- [Cross-harness comparison study](AGENT_HARNESS_COMPARISON.md) — imported source-level analysis of Kimi CLI, Claude Code, Codex, DeepSeek Harness and Strata (2026-11-08)
+- [Execution goal and acceptance](EXECUTION_GOAL_AND_ACCEPTANCE.md) — the goal contract for an implementing agent session: comprehension gate, discipline, acceptance matrix, audits
 
 ## AI tools and media
 
