@@ -13,7 +13,7 @@ strata_control/draft_layer.py), so a setup run that rewrites the engine argument
            (RESULTS-DRAFT.md section 4); a ``--spec`` or ``--draft-conf`` the person set by hand (``user_args``) stays
   mtp      the model's own draft layer (``--mtp <folder>``) and none of the DFlash2 flags
   off      no draft layer and no DFlash2 (the same as ``"mtp": false``: the engine still looks ahead in the text with ``--spec``)
-  auto     DFlash2 wherever the engine has it (DFLASH2_BACKENDS) and the model is Qwen3.8-Flash-Next, Gyro or an Unsloth quantization, the MTP everywhere else
+  auto     the MTP for Qwen3.8-Flash-Next (the measured verdict: faster on both workloads); DFlash2 for Gyro or an Unsloth quantization wherever the engine has it (DFLASH2_BACKENDS), the MTP everywhere else. A run config names no family, so a plain Qwen3.8-Flash-Next quant name (no ``-gyro-``/``-unsloth-`` build inside) counts as the qwen family and gets the same MTP
 
 Recommend, never force: a choice that cannot be applied (DFlash2 with several requests at once, no drafter file yet) does not stop the
 start. The other drafter runs if it is on this computer, else none, and ``Decision.note`` says why in one short line. Nothing is loaded twice and the
@@ -249,6 +249,9 @@ SUPPORTED_FAMILIES = ("qwen", "gyro", "unsloth")
 #: qwen3.8-flash-next-unsloth-ud-q4_k_xl. (Coder is qwen3.8-flash-next-coder-iq1_m, NVFP4 qwen3.8-flash-next-nvfp4-nvfp4: neither matches.) Mirrored in
 #: apps/host/server/native-settings.mjs; tests/drafting.test.mjs keeps the two the same.
 _SUPPORTED_NAME = re.compile(r"^qwen3\.8-flash-next(-gyro-[a-z0-9._-]+|-unsloth-[a-z0-9._-]+|-(q|iq|tq)\d[a-z0-9_.]*)?$", re.IGNORECASE)
+#: The plain Qwen3.8-Flash-Next quant names (no ``-gyro-``/``-unsloth-`` build inside): a run config names no family, so Auto's verdict ("the MTP for the qwen family") is
+#: asked by the model's name and this is the qwen family by name. Gyro and Unsloth builds keep DFlash2 (the same rule: apps/host/server/native-settings.mjs PLAIN_QWEN_MODEL).
+_PLAIN_QWEN_NAME = re.compile(r"^qwen3\.8-flash-next(-(q|iq|tq)\d[a-z0-9_.]*)?$", re.IGNORECASE)
 
 
 def supported_model(model_name: str | None = None, family: str | None = None) -> bool:
@@ -660,13 +663,21 @@ def can_run_dflash2(model_name: str | None, family: str | None, backend: str | N
 
 
 def choice_of(mode: Any, *, model_name: str | None = None, family: str | None = None, backend: str | None = None, archs: Any = None) -> str:
-    """The drafter the choice means for this model on this computer, before anything is looked up on disk: ``dflash2``, ``mtp`` or ``off``. Auto is DFlash2 wherever
-    the engine has it (DFLASH2_BACKENDS) and the model is one it was made for, the MTP everywhere else; DFlash2 asked for by name where it cannot run is MTP."""
+    """The drafter the choice means for this model on this computer, before anything is looked up on disk: ``dflash2``, ``mtp`` or ``off``. Auto gives
+    Qwen3.8-Flash-Next the MTP - the measured verdict (the two workloads: Chinese +8%, code +6% over DFlash2) - by family, or by name when a run config names no family
+    (a plain Qwen3.8-Flash-Next quant; Gyro and Unsloth builds keep DFlash2), and the other families DFlash2 wherever the engine has it (DFLASH2_BACKENDS), the MTP
+    everywhere else; DFlash2 asked for by name where it cannot run is MTP."""
     asked = normalize(mode)
     if asked == "off":
         return "off"
     if asked == "mtp":
         return "mtp"
+    if asked == "dflash2":                   # the person chose it by name: kept where it can run, the MTP says why otherwise
+        return "dflash2" if can_run_dflash2(model_name, family, backend, archs) else "mtp"
+    if family == "qwen":                     # the measured verdict (both workloads: Chinese +8%, code +6%): auto gives Qwen3.8-Flash-Next the MTP
+        return "mtp"
+    if family is None and model_name and _PLAIN_QWEN_NAME.match(str(model_name)):
+        return "mtp"                         # the verdict by name: the qwen family's quant, Gyro and Unsloth builds are the families that keep DFlash2
     return "dflash2" if can_run_dflash2(model_name, family, backend, archs) else "mtp"
 
 

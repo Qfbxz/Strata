@@ -39,12 +39,16 @@ def serving_dflash2():
 
 
 class AutoAndTheBackends(unittest.TestCase):
-    def test_auto_is_dflash2_where_the_engine_has_it(self):
-        """Owner 2026-11-02: DFlash2 is the primary drafter on every system whose engine has it (CUDA, HIP, Metal, Intel SYCL since the DF2-SYCL engine)."""
+    def test_auto_by_the_measured_verdict(self):
+        """Owner 2026-11-06 measured verdict: qwen auto is the MTP (faster on both workloads on this machine), by family and by a plain quant name (a run config names no family);
+        Gyro and Unsloth keep DFlash2 where the engine has it (CUDA, HIP, Metal, Intel SYCL since the DF2-SYCL engine); the other families are the MTP."""
         self.assertEqual(drafting.DFLASH2_BACKENDS, ("cuda", "hip", "metal", "sycl"))
         for backend in ("cuda", "hip", "metal", "sycl"):
-            for family in ("qwen", "gyro", "unsloth"):
+            for family in ("gyro", "unsloth"):
                 self.assertEqual(drafting.choice_of("auto", family=family, backend=backend), "dflash2", (backend, family))
+            self.assertEqual(drafting.choice_of("auto", family="qwen", backend=backend), "mtp", (backend, "qwen"))
+        for name, want in (("qwen3.8-flash-next-iq3_s", "mtp"), ("qwen3.8-flash-next-unsloth-ud-q4_k_xl", "dflash2"), ("qwen3.8-flash-next-gyro-gyro-s", "dflash2")):
+            self.assertEqual(drafting.choice_of("auto", model_name=name, backend="cuda"), want, name)
         self.assertEqual(drafting.choice_of("auto", family="qwen", backend=None), "mtp", "an unknown computer is the MTP")
         self.assertEqual(drafting.choice_of("auto", family="qwen", backend="cpu"), "mtp", "an engine without the code is the MTP")
         for family in ("coder", "swift", "nvfp4", "deepseek41"):
@@ -508,6 +512,7 @@ class UnslothAndTheOtherFlashNextFiles(unittest.TestCase):
         self.assertIn("DRAFTING_FAMILIES=['qwen','gyro','unsloth']", host)
         self.assertIn("DRAFTING_FAMILIES = ['qwen', 'gyro', 'unsloth']", page)
         self.assertIn(r"-unsloth-[a-z0-9._-]+", host)
+        self.assertIn("PLAIN_QWEN_MODEL", host)
 
 
 class TheInstalledEngineDecidesTheFlags(unittest.TestCase):
@@ -1019,12 +1024,13 @@ class TheDownloadPlanListsIt(unittest.TestCase):
                 self.assertIn("the DFlash2 drafter (1.2 GB)", runner.download_plan()["text"])
                 self.assertIn("--drafting mtp", runner.download_plan()["text"])
                 auto = Runner(S.LaunchSettings(family="qwen", model="Q2_0", context=32768, vision="off"), catalog=catalog(HW_12))
-                self.assertIn("dflash2", [p["kind"] for p in auto.download_plan()["parts"]], "Auto is DFlash2: its drafter is the download")
+                self.assertNotIn("dflash2", [p["kind"] for p in auto.download_plan()["parts"]], "Auto for qwen is the MTP per the measured verdict: the DF2 drafter is not the download")
+                self.assertIn("mtp", [p["kind"] for p in auto.download_plan()["parts"]], "the MTP layer is what auto fetches for qwen")
                 mtp = Runner(S.LaunchSettings(family="qwen", model="Q2_0", context=32768, vision="off", drafting="mtp"), catalog=catalog(HW_12))
                 kinds = [p["kind"] for p in mtp.download_plan()["parts"]]
                 self.assertNotIn("dflash2", kinds)
                 self.assertIn("mtp", kinds, "the MTP is chosen: its layer is the download, DFlash2's is not")
-                self.assertNotIn("mtp", [p["kind"] for p in auto.download_plan()["parts"]], "one drafter per run: a new install fetches only the one it will use")
+                self.assertIn("mtp", [p["kind"] for p in auto.download_plan()["parts"]], "the measured verdict: qwen auto fetches the MTP layer, not the DF2 drafter")
                 other = Runner(S.LaunchSettings(family="coder", model="IQ3_XXS", context=32768, vision="off", drafting="dflash2"), catalog=catalog(HW_12))
                 self.assertNotIn("dflash2", [p["kind"] for p in other.download_plan()["parts"]], "not for this model: hidden, not offered")
 

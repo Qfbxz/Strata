@@ -194,7 +194,6 @@ class OldSavedValues(Base):
             d, args = self.apply(self.cfg(drafting=byname))
             self.assertEqual(loaded(args), {"dflash2"}, byname)
 
-    @unittest.skipIf(sys.platform == "darwin", "the drafting auto on a Mac resolves DFlash2 (metal runs it): the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only)")
     def test_a_saved_argument_list_that_names_both_drafters_starts_with_the_one_chosen(self):
         both = [*self.args, "--draft", "dflash2", "--draft-model", "old.pack", "--draft-fallback", "mtp", "--draft-conf", "0.5"]
         for mode, want in ((None, "mtp"), ("auto", "mtp"), ("dflash2", "dflash2"), ("mtp", "mtp"), ("both", "mtp")):
@@ -228,7 +227,7 @@ class TheServerAndTheTerminalEndAtTheSameArguments(Base):
 
     def test_each_choice_through_the_server(self):
         for backend, archs in HARDWARE:
-            for mode, want in ((None, {"dflash2"}), ("auto", {"dflash2"}), ("dflash2", {"dflash2"}), ("mtp", {"mtp"}), ("off", set())):
+            for mode, want in ((None, {"mtp"}), ("auto", {"mtp"}), ("dflash2", {"dflash2"}), ("mtp", {"mtp"}), ("off", set())):
                 args = self.server_args(self.cfg(**({} if mode is None else {"drafting": mode})), backend, archs)
                 self.assertEqual(loaded(args), want, (backend, archs, mode))
                 if want == {"dflash2"}:
@@ -238,7 +237,7 @@ class TheServerAndTheTerminalEndAtTheSameArguments(Base):
 
     def test_a_layer_split_through_the_server(self):
         for backend, archs in (("cuda", ["sm_120"]), ("cuda", ["sm_86"]), ("hip", ["gfx1201"])):
-            for mode, want in ((None, {"dflash2"}), ("auto", {"dflash2"}), ("dflash2", {"dflash2"}), ("mtp", {"mtp"}), ("off", set())):
+            for mode, want in ((None, {"mtp"}), ("auto", {"mtp"}), ("dflash2", {"dflash2"}), ("mtp", {"mtp"}), ("off", set())):
                 cfg = self.cfg(gpu=[0, 1], **({} if mode is None else {"drafting": mode}))
                 args = self.server_args(cfg, backend, archs)
                 where = (backend, archs, mode)
@@ -303,7 +302,7 @@ class TheServerAndTheTerminalEndAtTheSameArguments(Base):
 
     def test_the_terminal_choices_reach_the_engine_alone(self):
         base = {"exe": "component:strata-engine", "model_name": NAMES["qwen"], "port": 8080, "args": list(self.args)}
-        for choice, want in ((None, {"dflash2"}), ("auto", {"dflash2"}), ("dflash2", {"dflash2"}), ("mtp", {"mtp"}), ("off", set())):
+        for choice, want in ((None, {"mtp"}), ("auto", {"mtp"}), ("dflash2", {"dflash2"}), ("mtp", {"mtp"}), ("off", set())):
             with mock.patch.object(drafting, "detect_hardware", return_value=("cuda", ["sm_120"])):
                 cfg = derive_config(base, S.LaunchSettings(drafting=choice), bool_flags=frozenset())
             args = self.server_args(cfg)
@@ -313,8 +312,8 @@ class TheServerAndTheTerminalEndAtTheSameArguments(Base):
         """The app writes its Drafting choice into the model's own settings file; the Terminal derives its run config from that file. Choosing Auto in the Terminal's
         Drafting step has to mean Auto, not the app's older choice (the step stores what modelstate.drafting_to_save says)."""
         from strata_cli.launch import modelstate
-        for saved, key, want in (("mtp", "auto", {"dflash2"}), ("off", "auto", {"dflash2"}), ("dflash2", "mtp", {"mtp"}), ("mtp", "dflash2", {"dflash2"}),
-                                 ("mtp", "off", set()), (None, "auto", {"dflash2"}), ("auto", "auto", {"dflash2"}), (None, "mtp", {"mtp"})):
+        for saved, key, want in (("mtp", "auto", {"mtp"}), ("off", "auto", {"mtp"}), ("dflash2", "mtp", {"mtp"}), ("mtp", "dflash2", {"dflash2"}),
+                                 ("mtp", "off", set()), (None, "auto", {"mtp"}), ("auto", "auto", {"mtp"}), (None, "mtp", {"mtp"})):
             base = {"exe": "component:strata-engine", "model_name": NAMES["qwen"], "port": 8080, "args": list(self.args), **({} if saved is None else {"drafting": saved})}
             with mock.patch.object(drafting, "detect_hardware", return_value=("cuda", ["sm_120"])):
                 cfg = derive_config(base, S.LaunchSettings(drafting=modelstate.drafting_to_save(key, saved)), bool_flags=frozenset())

@@ -159,7 +159,7 @@ test('the paragraph under the dropdown is gone (owner, 11-01: people who care kn
   for (const text of Object.values(en)) for (const word of ['recommend', 'best ', 'better', 'should']) assert.ok(!text.toLowerCase().includes(word), `${word} in "${text.slice(0, 50)}"`);
 });
 
-test('one drafter per run: Auto is DFlash2 where the engine has it, the same word in Python and in the app', async () => {
+test('one drafter per run: Auto follows the measured verdict (the MTP for Qwen3.8-Flash-Next, DFlash2 for Gyro and Unsloth), the same word in Python and in the app', async () => {
   const { transform } = await import('esbuild');
   const code = (await transform(read('../src/lib/drafting.ts'), { loader: 'ts', format: 'esm' })).code;
   const ts = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
@@ -167,10 +167,10 @@ test('one drafter per run: Auto is DFlash2 where the engine has it, the same wor
   for (const [choice, family, served] of [['auto', 'qwen', true], [undefined, 'gyro', true], ['auto', 'unsloth', true], ['auto', 'swift', true], ['auto', 'nvfp4', true], ['auto', 'qwen', false], ['auto', 'coder', true], ['mtp', 'qwen', true], ['dflash2', 'qwen', true], ['off', 'qwen', true], ['dflash2', 'coder', true]]) {
     assert.equal(ts.resolveDrafter(choice, family, served), host.resolveDrafter(choice, family, served), `${choice} ${family} ${served}`);
   }
-  assert.equal(ts.resolveDrafter('auto', 'qwen', true), 'dflash2');
+  assert.equal(ts.resolveDrafter('auto', 'qwen', true), 'mtp', 'the measured verdict (2026-11-06): qwen auto is the MTP');
   assert.equal(ts.resolveDrafter('auto', 'qwen', null), 'mtp', 'Control has not answered: the MTP');
-  assert.equal(host.resolveDrafter('auto', 'Qwen3.8-Flash-Next-iq3_s', true), 'dflash2', 'a run config model name works too');
-  // the names setup.py writes (f"{family name}-{model.lower()}"): Unsloth's quantizations are DFlash2's; Swift, Coder and NVFP4 are not
+  assert.equal(host.resolveDrafter('auto', 'Qwen3.8-Flash-Next-iq3_s', true), 'mtp', 'a plain Qwen quant name is the qwen family (a run config names no family)');
+  // the names setup.py writes (f"{family name}-{model.lower()}"): Unsloth's quantizations and the Gyro build keep DFlash2; Swift, Coder and NVFP4 are not
   for (const name of ['qwen3.8-flash-next-unsloth-ud-q4_k_xl', 'qwen3.8-flash-next-unsloth-ud-iq4_xs', 'qwen3.8-flash-next-unsloth-q8_0', 'qwen3.8-flash-next-gyro-gyro-s']) assert.equal(host.resolveDrafter('auto', name, true), 'dflash2', name);
   for (const name of ['qwen3.8-flash-next-coder-iq1_m', 'qwen3.8-flash-next-nvfp4-nvfp4', 'swift-1.5-iq2_xs', 'qwen3.8-flash-next-unsloth', 'qwen3.6-35b-a3b-ud-q4_k_xl']) assert.equal(host.resolveDrafter('auto', name, true), 'mtp', name);
   assert.equal(ts.resolveDrafter('auto', 'unsloth', true), 'dflash2');
@@ -233,16 +233,16 @@ test('the drafter memory figures in the app are the ones strata_control/drafting
   assert.doesNotMatch(page, /drafter: nowDrafter/);
 });
 
-test('where the all-cards split engine takes the start, Auto is the MTP in the label, the fit, the install and a plain Auto load (Control plan says so)', async () => {
+test('the measured verdict puts the split rule behind it: Auto is the MTP for qwen on every card count, the MTP for Gyro and Unsloth where the split says so, and a person\'s choice stays', async () => {
   const { transform } = await import('esbuild');
   const code = (await transform(read('../src/lib/drafting.ts'), { loader: 'ts', format: 'esm' })).code;
   const ts = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
   const host = await import('../server/native-settings.mjs');
   for (const [choice, family, served, split, want] of [
     ['auto', 'qwen', true, true, 'mtp'], [undefined, 'unsloth', true, true, 'mtp'], ['auto', 'gyro', true, true, 'mtp'],
-    ['auto', 'qwen', true, false, 'dflash2'], ['auto', 'qwen', true, undefined, 'dflash2'], ['auto', 'qwen', true, null, 'dflash2'],
+    ['auto', 'qwen', true, false, 'mtp'], ['auto', 'qwen', true, undefined, 'mtp'], ['auto', 'qwen', true, null, 'mtp'],
     ['dflash2', 'qwen', true, true, 'dflash2'], ['mtp', 'qwen', true, true, 'mtp'], ['off', 'qwen', true, true, 'off'],
-    ['auto', 'qwen', false, true, 'mtp'], ['auto', 'swift', true, true, 'mtp'],
+    ['auto', 'qwen', false, true, 'mtp'], ['auto', 'swift', true, true, 'mtp'], ['auto', 'unsloth', true, false, 'dflash2'], ['auto', 'gyro', true, null, 'dflash2'],
   ]) {
     assert.equal(ts.resolveDrafter(choice, family, served, split), want, `ts ${choice} ${family} ${served} ${split}`);
     assert.equal(host.resolveDrafter(choice, family, served, split), want, `host ${choice} ${family} ${served} ${split}`);

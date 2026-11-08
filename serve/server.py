@@ -3772,8 +3772,8 @@ def engine_args(cfg: dict, exe: str | None = None, *, announce: bool = True) -> 
     if cfg.get("user_args"):
         args = user_args.merge(args, cfg["user_args"])
     # "drafting": auto | mtp | dflash2 | off (strata_control/drafting.py; the Models screen and `strata launch --drafting` write it): which drafter
-    # guesses ahead. ONE drafter per run: DFlash2 alone (no --mtp, --draft-fallback none) or the MTP alone (no DFlash2 option). Auto is DFlash2 where the engine
-    # has it, on one card and on a layer split over several cards. A choice that cannot be applied (no drafter file yet, several requests at once) starts the other one if it is on this computer,
+    # guesses ahead. ONE drafter per run: DFlash2 alone (no --mtp, --draft-fallback none) or the MTP alone (no DFlash2 option). Auto is the MTP for Qwen3.8-Flash-Next
+    # (the measured verdict, by family or by a plain quant name) and DFlash2 for Gyro or an Unsloth quantization where the engine has it. A choice that cannot be applied (no drafter file yet, several requests at once) starts the other one if it is on this computer,
     # else none, and says why in the engine's /metrics ("drafting_note"). The start never downloads.
     shaped = {**cfg, "args": args}
     backend, archs = drafting.detect_hardware()

@@ -485,11 +485,11 @@ class DoctorAndTheDrafter(unittest.TestCase):
         from unittest import mock
         from strata_control import drafting
         with mock.patch.object(drafting, "detect_hardware", return_value=("cuda", ["sm_120"])):
-            self.assertEqual(self.report()["status"], "optional_missing", "Auto is DFlash2 here")
+            self.assertEqual(self.report()["status"], "missing", "Auto is the MTP for a plain Qwen3.8-Flash-Next quant (the measured verdict): its layer is required")
             self.assertEqual(self.report(drafting="dflash2")["status"], "optional_missing")
             self.assertEqual(self.report(drafting="mtp")["status"], "missing", "the MTP is chosen: its layer is required")
             self.assertEqual(self.report(mtp=False)["status"], "missing", "unchanged for a config that switched the layer off by hand")
         with mock.patch.object(drafting, "detect_hardware", return_value=("sycl", [])):
-            self.assertEqual(self.report()["status"], "optional_missing", "Intel is DFlash2 too")
+            self.assertEqual(self.report()["status"], "missing", "the verdict gives the qwen family the MTP on every computer: the layer is required here too")
         with mock.patch.object(drafting, "detect_hardware", return_value=("cpu", [])):
             self.assertEqual(self.report()["status"], "missing", "an engine without the code stays on the MTP")

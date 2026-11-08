@@ -347,10 +347,11 @@ class PlanTellsTheApp(Base):
 
     @unittest.skipIf(sys.platform == "darwin", "the all-cards split engine is the Linux DGX Spark feature (SE.expected system=linux): it does not exist on a Mac, so the auto plan resolves to DFlash2 there and the MTP-on-split expectations are Linux-CI scoped")
     def test_one_card_or_a_chosen_dflash2_do_not(self):
-        for probe, mode in ((cards(1), "auto"), (cards(2), "dflash2")):
+        # the measured verdict: qwen auto is the MTP on every shape; by-name dflash2 keeps DFlash2
+        for probe, mode, want in ((cards(1), "auto", "mtp"), (cards(2), "dflash2", "dflash2")):
             p = self.plan(probe, "--mode", mode)
             self.assertFalse(p["split"], (len(probe), mode))
-            self.assertEqual(p["choice"], "dflash2")
+            self.assertEqual(p["choice"], want)
 
 
 @contextlib.contextmanager
@@ -441,15 +442,19 @@ class AppPlanEqualsTerminalPlan(Base):
 
     def test_a_persons_dflash2_or_off_or_one_card_is_the_same_in_the_app_and_the_terminal(self):
         for name, probe, mode, config, kw in (("their DFlash2", cards(2), "dflash2", None, {"gpus": [0, 1], "drafting": "dflash2"}),
-                                              ("split-engine off", cards(2), "auto", {"split_engine": "off", "model_name": "qwen3.8-flash-next-unsloth-ud-q4_k_xl", "args": []}, {"gpus": [0, 1], "split_engine": "off"}),
+                                              ("split-engine off", cards(2), "auto", {"split_engine": "off", "model_name": "qwen3.8-flash-next-iq3_s", "args": []}, {"gpus": [0, 1], "split_engine": "off"}),
                                               ("one card", cards(1), "auto", None, {"gpus": [0]})):
             with self.subTest(name):
                 p = self.plan(probe, "--mode", mode, config=config)
                 drafter, split, kinds = self.terminal(probe, **kw)
                 self.assertFalse(p["split"])
-                self.assertEqual(p["choice"], "dflash2")
-                self.assertEqual((drafter, split), ("dflash2", False))
-                self.assertNotIn("mtp", kinds)
+                want = "dflash2" if name == "their DFlash2" else "mtp"      # by-name wins; auto follows the measured verdict on every shape
+                self.assertEqual(p["choice"], want)
+                self.assertEqual((drafter, split), (want, False))
+                if want == "dflash2":      # by-name DFlash2: its drafter is the download, so kinds carries it
+                    self.assertIn("dflash2", kinds)
+                else:
+                    self.assertNotIn("dflash2", kinds)
 
     @unittest.skipIf(sys.platform == "darwin", "the all-cards split engine is the Linux DGX Spark feature: on a Mac the plan resolves DFlash2 (metal runs it) without the split's MTP layer")
     def test_a_saved_dflash2_is_overridden_by_the_auto_the_screen_carries(self):
