@@ -7,6 +7,7 @@ path from the launch settings to the argument list. (tests/terminal/test_draftin
 
 from __future__ import annotations
 
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -62,13 +63,19 @@ class Base(unittest.TestCase):
 
 
 class EveryChoiceOnEveryBackend(Base):
-    def test_auto_dflash2_and_the_unset_choice_load_dflash2_alone(self):
+    @unittest.skipIf(sys.platform == "darwin", "the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only): on a Mac auto resolves DFlash2")
+    def test_auto_loads_the_mtp_for_qwen_and_dflash2_for_the_other_families(self):
+        # the measured verdict: qwen auto is the MTP; the other families keep DFlash2; by-name dflash2 stays dflash2 everywhere
         for backend, archs in HARDWARE:
             for family in ("qwen", "gyro", "unsloth"):
                 for mode in (None, "auto", "dflash2"):
                     cfg = self.cfg(family, **({} if mode is None else {"drafting": mode}))
                     d, args = self.apply(cfg, family, backend, archs)
                     where = (backend, archs, family, mode)
+                    if family == "qwen" and mode in (None, "auto"):
+                        self.assertEqual((d.drafter, loaded(args)), ("mtp", {"mtp"}), where)
+                        self.assertFalse([a for a in args if a.startswith("--draft")], where)
+                        continue
                     self.assertEqual(d.drafter, "dflash2", where)
                     self.assertEqual(loaded(args), {"dflash2"}, where)
                     self.assertEqual(flag(args, "--draft-fallback"), "none", where)
@@ -92,6 +99,7 @@ class EveryChoiceOnEveryBackend(Base):
             self.assertEqual((d.drafter, loaded(args)), ("off", set()), (backend, archs))
             self.assertFalse([a for a in args if a in MTP_ONLY or a.startswith("--draft")])
 
+    @unittest.skipIf(sys.platform == "darwin", "the drafting auto on a Mac resolves DFlash2 (metal runs it): the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only)")
     def test_no_engine_with_the_code_means_the_mtp_for_auto(self):
         for backend in (None, "cpu"):
             for mode in (None, "auto", "dflash2"):
@@ -106,10 +114,12 @@ class EveryChoiceOnEveryBackend(Base):
                 self.assertNotIn("--draft", args, (family, mode))
                 self.assertEqual(loaded(args), {"mtp"}, (family, mode))
 
+    @unittest.skipIf(sys.platform == "darwin", "the drafting auto on a Mac resolves DFlash2 (metal runs it): the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only)")
     def test_several_requests_load_the_mtp_alone_for_auto(self):
+        # the measured verdict: auto qwen is the MTP directly - several requests do not block it (no DF2 note anymore)
         for mode in (None, "auto"):
             d, args = self.apply(self.cfg(**({} if mode is None else {"drafting": mode})), slots=4)
-            self.assertEqual((d.drafter, d.note, loaded(args)), ("mtp", drafting.NOT_HERE, {"mtp"}), mode)
+            self.assertEqual((d.drafter, d.note, loaded(args)), ("mtp", "", {"mtp"}), mode)
             self.assertFalse([a for a in args if a.startswith("--draft")])
         d, args = self.apply(self.cfg(drafting="mtp"), slots=4)
         self.assertEqual((d.drafter, d.note, loaded(args)), ("mtp", "", {"mtp"}))
@@ -132,29 +142,32 @@ class EveryChoiceOnEveryBackend(Base):
         self.assertTrue(drafting.blocked_by(["--batch", "3"], named=True, backend="Metal"))
         self.assertFalse(drafting.blocked_by([], slots=4, named=True, backend="cuda"))
 
-    def test_a_layer_split_runs_dflash2_alone_like_one_card(self):
-        """Owner 2026-11-02: Auto is DFlash2 on a layer split over several cards too (the 0.1.56 engine runs it; paired decode 1.014 against the MTP)."""
+    @unittest.skipIf(sys.platform == "darwin", "the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only): on a Mac auto resolves DFlash2")
+    def test_a_layer_split_runs_the_mtp_for_qwen_auto_and_dflash2_by_name(self):
+        """Owner 2026-11-06 measured verdict: Auto gives qwen the MTP on a layer split over several cards too (the MTP's --batch-mtp is the measured choice there); DFlash2 by name keeps its own flow."""
         for backend, archs in (("cuda", ["sm_120"]), ("cuda", ["sm_86"]), ("hip", ["gfx1201"]), ("hip", ["gfx1100"])):
-            for mode in (None, "auto", "dflash2"):
+            for mode in (None, "auto"):
                 cfg = self.cfg(**({} if mode is None else {"drafting": mode}))
                 one, args_one = self.apply(dict(cfg, args=list(cfg["args"])), "qwen", backend, archs)
                 two, args_two = self.apply(dict(cfg, args=list(cfg["args"])), "qwen", backend, archs, split=True)
-                self.assertEqual((two.drafter, two.note, loaded(args_two)), ("dflash2", "", {"dflash2"}), (backend, mode))
+                self.assertEqual((two.drafter, two.note, loaded(args_two)), ("mtp", "", {"mtp"}), (backend, mode))
                 self.assertEqual(args_two, args_one, "the same arguments as one card")
-                self.assertNotIn("--mtp", args_two)
             d, args = self.apply(self.cfg(drafting="mtp"), "qwen", backend, archs, split=True)
             self.assertEqual((d.drafter, d.note, loaded(args)), ("mtp", "", {"mtp"}), backend)
             self.assertFalse([a for a in args if a.startswith("--draft")])
-        # a saved argument list that already names the layer split changes nothing either
-        d, args = self.apply(self.cfg(args=[*self.args, "--layer-split", "auto"], drafting="auto"))
+        # DFlash2 by name on the split keeps the dflash2 flow
+        d, args = self.apply(self.cfg(args=[*self.args, "--layer-split", "auto"], drafting="dflash2"))
         self.assertEqual((d.drafter, loaded(args)), ("dflash2", {"dflash2"}))
         self.assertEqual(flag(args, "--layer-split"), "auto")
 
+    @unittest.skipIf(sys.platform == "darwin", "the drafting auto on a Mac resolves DFlash2 (metal runs it): the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only)")
     def test_a_missing_file_runs_the_other_drafter_alone_and_says_so(self):
         (self.data / "dflash2" / drafting.PACK_NAME).unlink()
-        for mode in (None, "auto", "dflash2"):
+        for mode in (None, "auto"):
             d, args = self.apply(self.cfg(**({} if mode is None else {"drafting": mode})))
-            self.assertEqual((d.drafter, d.note, loaded(args)), ("mtp", drafting.NOT_DOWNLOADED, {"mtp"}), mode)
+            self.assertEqual((d.drafter, d.note, loaded(args)), ("mtp", "", {"mtp"}), mode)   # qwen auto never needed the DF2 pack
+        d, args = self.apply(self.cfg(drafting="dflash2"))
+        self.assertEqual((d.drafter, d.note, loaded(args)), ("mtp", drafting.NOT_DOWNLOADED, {"mtp"}), "by-name dflash2 with no pack: the MTP runs and says so")
         (self.data / "dflash2" / drafting.PACK_NAME).write_bytes(b"x" * (2 << 20))
         (self.data / "mtp" / "rt" / "experts.bin").unlink()
         d, args = self.apply(self.cfg(drafting="mtp"))
@@ -170,15 +183,21 @@ class OldSavedValues(Base):
         for same in ("MTP", " mtp "):
             self.assertEqual(drafting.normalize(same), "mtp", same)
 
+    @unittest.skipIf(sys.platform == "darwin", "the drafting auto on a Mac resolves DFlash2 (metal runs it): the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only)")
     def test_every_old_value_loads_one_drafter(self):
-        for old in ("both", "mtp+dflash2", "dflash2+mtp", "dflash", "", None, True, "DFlash2", "MTP"):
+        # the legacy auto-normalizing values follow auto's measured verdict (qwen: MTP); only the by-name values keep their drafter
+        for old in ("both", "mtp+dflash2", "dflash2+mtp", "dflash", "", None, True, "MTP"):
             d, args = self.apply(self.cfg(drafting=old))
             self.assertEqual(len(loaded(args)), 1, old)
-            self.assertEqual(loaded(args), {"mtp"} if str(old).strip().lower() == "mtp" else {"dflash2"}, old)
+            self.assertEqual(loaded(args), {"mtp"}, old)
+        for byname in ("DFlash2", "dflash2"):
+            d, args = self.apply(self.cfg(drafting=byname))
+            self.assertEqual(loaded(args), {"dflash2"}, byname)
 
+    @unittest.skipIf(sys.platform == "darwin", "the drafting auto on a Mac resolves DFlash2 (metal runs it): the MTP-first expectations are the Linux-CI split-engine flows (the all-cards split is Linux-only)")
     def test_a_saved_argument_list_that_names_both_drafters_starts_with_the_one_chosen(self):
         both = [*self.args, "--draft", "dflash2", "--draft-model", "old.pack", "--draft-fallback", "mtp", "--draft-conf", "0.5"]
-        for mode, want in ((None, "dflash2"), ("auto", "dflash2"), ("dflash2", "dflash2"), ("mtp", "mtp"), ("both", "dflash2")):
+        for mode, want in ((None, "mtp"), ("auto", "mtp"), ("dflash2", "dflash2"), ("mtp", "mtp"), ("both", "mtp")):
             cfg = {"model_name": NAMES["qwen"], "args": list(both), **({} if mode is None else {"drafting": mode})}
             d, args = self.apply(cfg)
             self.assertEqual(loaded(args), {want}, mode)
