@@ -39,8 +39,12 @@ class Launches(Base):
             with self.subTest(mode=mode):
                 first = self.launch(extra={"--draft-conf": "0.35"}, drafting=mode)
                 argv = self.server_args(first)
-                self.assertEqual((argv.count("--draft-conf"), flag(argv, "--draft-conf")), (1, "0.35"))
-                self.assertEqual(flag(first["user_args"], "--draft-conf"), "0.35", "the saved config carries it where the drafter policy keeps it")
+                self.assertEqual(flag(first["user_args"], "--draft-conf"), "0.35", "the saved config carries the person's flag")
+                if mode == "dflash2":
+                    self.assertEqual((argv.count("--draft-conf"), flag(argv, "--draft-conf")), (1, "0.35"))
+                else:
+                    # Auto for a plain Qwen3.8-Flash-Next quant is the MTP (the measured verdict): --draft-conf is DFlash2's knob, one drafter per run keeps it off the engine
+                    self.assertNotIn("--draft-conf", argv)
                 second = self.launch(extra={"--draft-conf": "0.35"}, prev=first, drafting=mode)
                 self.assertEqual(self.server_args(second), argv, "a second launch with the same flags is the same argv")
                 self.assertEqual(second["args"].count("--draft-conf"), 1)
