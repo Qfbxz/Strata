@@ -108,14 +108,18 @@ class HipPackageForAnotherCard(unittest.TestCase):
             root = Path(d)
             folder = make_package(root, backend="hip")
             rewrite(folder, schema_version=2, archs=["gfx1200", "gfx1201"], build_id="test")
-            with mock.patch.object(ec, "hip_archs_present", return_value=["gfx1103"]):
+            # the macos matrix gate would refuse hip before the arch logic this test exercises runs: open it like the maintainer's Linux CI does
+            with mock.patch.object(ec, "backend_supported", return_value=(True, "")), \
+                 mock.patch.object(ec, "hip_archs_present", return_value=["gfx1103"]):
                 with self.assertRaises(ec.EngineMissing) as ctx:
                     ec.resolve(root, backend="hip")
             self.assertIn("gfx1103", str(ctx.exception))
             self.assertIn("gfx1201", str(ctx.exception))
-            with mock.patch.object(ec, "hip_archs_present", return_value=["gfx1201"]):
+            with mock.patch.object(ec, "backend_supported", return_value=(True, "")), \
+                 mock.patch.object(ec, "hip_archs_present", return_value=["gfx1201"]):
                 self.assertEqual(ec.resolve(root, backend="hip").backend, "hip")
-            with mock.patch.object(ec, "hip_archs_present", return_value=[]):      # cannot tell: not a refusal
+            with mock.patch.object(ec, "backend_supported", return_value=(True, "")), \
+                 mock.patch.object(ec, "hip_archs_present", return_value=[]):      # cannot tell: not a refusal
                 self.assertEqual(ec.resolve(root, backend="hip").backend, "hip")
 
 
