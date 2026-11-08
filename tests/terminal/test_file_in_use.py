@@ -22,7 +22,8 @@ class Sites(unittest.TestCase):
             # updater._move_dir keeps its own longer retry loop
             bare = [l for l in bare if not (rel.endswith("updater.py") and "source, destination" in l)]
             self.assertEqual(bare, [], rel)
-            self.assertIn("_atomic_mod.replace(", text, rel)
+            # runconfig delegates to the P0-5 guarded writer; every other site calls the atomic replace directly
+            self.assertIn("_atomic_mod.guarded_write(" if rel.endswith("runconfig.py") else "_atomic_mod.replace(", text, rel)
 
 
 class Retry(unittest.TestCase):
