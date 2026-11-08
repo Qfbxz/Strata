@@ -101,6 +101,14 @@
 - **镜像续传**：改走 hf-mirror.com 直连（实测 200/<1.3s），`daytime_resume.sh` 白天续传 mlx20b→dspark Q8_0，成功即写 state/*.done 供当晚链条跳过；今晚 23:37 守候触发器兜底。
 - **host 套件首次全绿（1636/1636，rc=0，e94670ad）**：connector-setup 测试在装了 cloudflared 的机器上必挂（候选搜索扫到系统副本抢答了 mock 下载）→ 用 STRATA_CLOUDFLARED_SEARCH=own 钉死搜索域；运行器加 --test-timeout=120000 保底（单测试再无法冻结整夜套件）；reasoning-effort 三协议旧测试对齐新线契约（仅 chat 协议、仅 saved-thinking 发送）；样式测试跟齐 12px 读回退；拖放测试跟齐 macOS 实测的 cfg(not linux)；子智能体弹层标题恢复"按全部记录数"契约；Composer 恢复稳定 handler；AGENT_PROMPT 压回 1600 字符内；法文排版（不换行空格+弯撇号）9 串修复；Manual gate 测试给可证明路径；packaged/native/pictures 夹具 realpath 化（macOS /var→/private/var）。归因：18 项本会话回归 + 7 项 origin/main 继承红（packaged×5、load-pictures、native-settings，同 realpath 根因）全部清零。
 
+### 第九阶段：午间核实 + 软链收口（2026-11-08 午）
+
+- **用户指令兑现**："下载继续"→ mlx/dspark 续传 12:11 拉起（resume_mlx/dspark_only.sh，HF_ENDPOINT 镜像在岗）；"双示意图不管，发错"→ 排查销项，UI 侧无重复渲染证据归档。
+- **"harness 合并落盘并打包了吗？worktree 清了吗？"核实为是**：/Applications App 的 Resources/harness（dsh 0.2.1-alpha.3，上游 commit 571902028a，234MB）与仓库 stage-harness.mjs 产物 lib/、package.json 逐字节同构；host 侧 harness 功能（children/memory/profile/agents 目录）全在 main 且套件覆盖。worktree list 仅主工作树，无残留分支/worktree。
+- **缓存缩水诊断**：mlx 缓存 11229→7784MB 非数据丢失——hf 对被杀进程留下的半截 blob 弃置重拉（10:54 新落 5.28GB 分片为证），3 分片实际进度 2 完成+1 在拉。
+- **软链支持收口（58038b01，套件 1750 测/1638 过/0 败）**：skill-scan 批量扫描现在走进软链目录（agents 读取器同款"symlink farms"规则），real-path visited 集防软链环，软链 SKILL.md 算候选；单加与批量导入 cpSync 加 dereference（仓库不再收悬空链接）；typedFolder 本就 stat 跟随无需改。route 级测试证明软链包落盘为真实字节。两个 server 文件已热部署进 /Applications App（与 bundle 逐字节比对仅含本次改动，App 重启生效）。
+- **顺带核实归档**：AGENTS.md/CLAUDE.md 双读兼容本就在（project-instructions NAMES 两者同读，CLAUDE.md 先）；auto-compact 已在库（agent-compaction.test.mjs + server 侧压缩链）；右侧可折叠工作区面板即 Codex/DeepSeek 式侧栏（wspanel 38% 宽+关闭钮）。
+
 ---
 
 
