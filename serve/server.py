@@ -156,6 +156,35 @@ def end_leftover_engines(exe: str) -> None:
         print(f"[strata] could not check for engines left by an earlier run: {type(e).__name__}", flush=True)
 
 
+ENGINE_LEASE: list[int] = []     # the shared activity-lease descriptor while THIS server's engine is alive (0 or 1 entries)
+
+
+def _engine_lease_take() -> None:
+    """Hold the runtime folder's shared activity lease only while this server's engine process is alive. #4463 wanted
+    `strata update` and a calibration run to see a serving engine and wait for it or refuse, instead of test-starting a
+    second copy of the model beside it - and that is about a model that IS served. A server with no engine process (the
+    desktop app's resident backend between models) holds nothing, so an engine update is no longer refused for nothing
+    (f-0428: an idle server held the lease from boot and every `strata update` said "a running Strata server is serving").
+    The lease is taken when the engine spawns and dropped when close() ends it or the pump sees its output close, so it
+    tracks the engine, not the server. A lease that cannot be taken never stops the server."""
+    if ENGINE_LEASE:
+        return
+    try:
+        from strata_control import runtime as _runtime
+        ENGINE_LEASE.append(_runtime.acquire_activity_lease(shared=True))
+    except Exception:                                # noqa: BLE001 - a lease that cannot be taken never stops the server
+        pass
+
+
+def _engine_lease_drop() -> None:
+    for fd in ENGINE_LEASE:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+    ENGINE_LEASE.clear()
+
+
 def listen_problem(host: str, port: int, e: OSError) -> str:
     """#769: why the server cannot listen.  Only an address that is taken says "already in use"; anything else (a port
     Windows keeps reserved, an address this PC does not have, no permission) says what the OS said."""
@@ -1216,6 +1245,7 @@ class StrataEngine:
                 self.log.close()
             raise
         proc = self.proc                                 # THIS start's process: a close() from another thread may set self.proc to None meanwhile (#4792)
+        _engine_lease_take()                             # an engine is alive: an update or a calibration must see it (#4463)
         # the READY read has a timeout (#1317): the lines come from a thread, up to READY, so the rest of the stream
         # stays for _pump (one reader at a time)
         ready_q: queue.Queue = queue.Queue()
@@ -1445,6 +1475,7 @@ class StrataEngine:
             lines.put(line)
         if self.proc is proc:                           # a killed engine's pump must not mark its successor dead
             self.ended = True                           # its output closed: it is gone, even before the OS says so
+            _engine_lease_drop()                        # the engine is gone: an idle server holds no lease (f-0428)
             if line and line.startswith("ERR"):         # #997 #890: why it exited, though no request may read it
                 self.last_err = line[4:].strip()        # (a failed batch window: every request reads its slot)
         lines.put(None)
@@ -3116,6 +3147,7 @@ class StrataEngine:
                 self.ended = True
                 self.progress, self.last = None, {}
                 self.progress_ms, self.reused = 0, 0
+                _engine_lease_drop()                    # the engine is gone: an idle server holds no lease (f-0428)
 
 
 IMAGE_URL_MAX = 32 << 20        # an image URL is read up to this (the web app attaches pictures of up to 20 MB)
@@ -9826,19 +9858,13 @@ def tool_call_recovery_setting(cfg: dict) -> bool:
 
 
 def main(argv=None, *, lifecycle_event=None, interrupt_exit_code: int = 0) -> int:
-    """Serve until stopped. For as long as it runs this server holds the shared activity lease of the runtime folder (the same one `strata serve` and
-    a runtime host take), so `strata update` and a calibration run see an engine that was started by running this file directly - the desktop app's
-    source install does - and wait for it or refuse, instead of test-starting a second copy of the model beside it (#4463). A lease that cannot be
-    taken (an exclusive holder, a runtime folder that is not usable) never stops the server.
+    """Serve until stopped. The shared activity lease of the runtime folder is held only while the engine process is
+    alive (_engine_lease_take / _engine_lease_drop): `strata update` and a calibration run still see a model that IS
+    served and wait for it or refuse, instead of test-starting a second copy of the model beside it (#4463), while a
+    server with no engine loaded (the desktop app's resident backend between models) blocks nothing (f-0428).
 
     Its console output goes through a bounded queue (serve/nonblocking_out.py, #4479 / #2481): a console that stops taking output must not hold a
     request's turn, a cancel or an admission.  STRATA_BLOCKING_CONSOLE=1 turns it off (testers)."""
-    lease = None
-    try:
-        from strata_control import runtime as _runtime
-        lease = _runtime.acquire_activity_lease(shared=True)
-    except Exception:                                  # noqa: BLE001 - serving never depends on the lease
-        lease = None
     try:
         if os.environ.get("STRATA_BLOCKING_CONSOLE") == "1":
             return _main(argv, lifecycle_event=lifecycle_event, interrupt_exit_code=interrupt_exit_code)
@@ -9846,11 +9872,7 @@ def main(argv=None, *, lifecycle_event=None, interrupt_exit_code: int = 0) -> in
         with decoupled_console():
             return _main(argv, lifecycle_event=lifecycle_event, interrupt_exit_code=interrupt_exit_code)
     finally:
-        if lease is not None:
-            try:
-                os.close(lease)
-            except OSError:
-                pass
+        _engine_lease_drop()                             # the process is ending: its engine, if any, is gone with it
 
 
 def _main(argv=None, *, lifecycle_event=None, interrupt_exit_code: int = 0) -> int:

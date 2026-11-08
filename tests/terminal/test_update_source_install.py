@@ -74,10 +74,17 @@ class AppLaunchedEngine(unittest.TestCase):
         self.addCleanup(env.stop)
 
     def test_a_server_started_by_running_serve_server_is_seen_by_the_busy_check(self):
+        """#4463: what the update's busy check must see is a live engine (f-0428: the lease follows the engine, so the
+        test takes it the way the spawn does). A server with no engine - the idle case this test starts from - blocks
+        nothing: the desktop app's resident backend between models held the old boot lease for ever and every update
+        refused for nothing."""
         seen = {}
 
         def serving(*args, **kwargs):
+            self.assertEqual(updater.serving_now(), [], "no engine yet: nothing is serving")
+            server._engine_lease_take()               # the engine's spawn holds the lease from then on
             seen["during"] = updater.serving_now()
+            server._engine_lease_drop()               # (the test's engine is gone when main returns)
             return 0
         self.assertEqual(updater.serving_now(), [])
         with mock.patch.object(server, "_main", serving):
