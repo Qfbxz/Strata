@@ -111,6 +111,7 @@
 - **"逆向技能包移植"收口（46258fe0，套件 1751 测/1639 过/0 败）**：REA 与 reverse-skill-router 本就随 native 技能目录（~/.agents/skills、~/.kimi-code/skills，skillsNative 默认开）进 App 目录并物化给 agent——但物化只写 SKILL.md，正文的 references/*.md 链接全部落空。materializeSkills 现按预算（200 文件/16MiB）携带技能夹附带文件（去引用真实字节、防软链环、跳 build 垃圾与隐藏夹、已正确的副本不动以保 watcher 静默）；REA 实测 7 份 references 全落地（37.4KB 样本完好）二次物化零抖动；bundled/自写技能（无源夹）字节不变。两文件已热部署进已装 App（bundle 逐字节比对仅含本次改动），重启生效。
 - **ds_lane 六臂终判（results-20261108.jsonl 全量复核，2026-11-08 午）**：**负结果**——没有任何一臂同时满足"CPU-lane 专家数下降 + tok/s 上升"的旋钮判据（各臂专家数均停留 9.2k-10.2k 区间）；lane_cal 4.7 vs asis96 3.9 tok/s（+21%）为布局未变下的实测增益，stream_force 2.6、cpu_lane0 2.2 为负信号，vram100 serve 超时。臂布局串显示 CUDA0/15360 专家——六臂跑在 Spark 侧而非 Mac 本机。**#5487/#5488 补评论条件未达成，不投**（两 issue 至今 0 回复，持续观察）。
 - **装 App 全 server 目录漂移审计（对 apps/host/server 全量 diff）**：唯一漂移=agent/preset.mjs（e94670ad 的 AGENT_PROMPT 精简版在 09:04 打包后落 commit，没进包）——已热部署补齐并 boot 复验（health ok）；此后仓库↔装 App server 目录 **0 差异**（前端 dist 本就逐字节同构）。下次整体重建前，App 内 server 与 main 完全一致。
+- **看门狗误杀教训（ops，§六补充）**：hf 的 xet `.incomplete` **不存活于进程被杀**——每次 15 分钟零增长杀进程重试都把已拉的半截文件整段丢弃（mlx 一天内白扔 3.7GB+3.9GB 两轮，dspark 重启即弃 2.6GB）。两看门狗阈值 15→40 分钟（resume_mlx/dspark_only.sh），慢速周期不再触发误杀；重启后双流 ~5MB/s 正常。后续凡"慢但活着"的镜像一律拉长判死窗口，勿靠重启续命。
 
 ---
 
