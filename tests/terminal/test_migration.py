@@ -167,6 +167,7 @@ class ExistingInstallIsFoundInPlace(unittest.TestCase):
     def test_the_settings_path_is_the_one_setup_writes(self):
         self.assertEqual(models.settings_path(), setup.settings_path())
 
+    @unittest.skipIf(sys.platform == "darwin", "setup.main on a Mac dispatches to metal/setup_mac.py before the migration flow")
     def test_a_plain_start_from_the_old_folder_uses_the_remembered_data_folder_and_moves_nothing(self):
         started = []
         out = io.StringIO()
