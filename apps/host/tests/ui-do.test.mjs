@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { build, transform } from 'esbuild';
 
 const src = name => readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
@@ -77,7 +78,7 @@ import { join } from 'node:path';
 const walk = dir => readdirSync(dir).flatMap(name => { const p = join(dir, name); return statSync(p).isDirectory() ? (name === 'locales' ? [] : walk(p)) : /\.tsx?$/.test(name) ? [p] : []; });
 
 test('#4748 every Copy control goes through one shared behaviour: no bare clipboard call, no copy icon button of its own', () => {
-  const files = walk(new URL('../src', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+  const files = walk(fileURLToPath(new URL('../src', import.meta.url)));
   const bare = [], own = [];
   for (const file of files) {
     if (/lib[\/]clipboard\.ts$/.test(file)) continue;

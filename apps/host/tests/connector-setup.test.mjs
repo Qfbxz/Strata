@@ -25,7 +25,7 @@ test('corrupt or unverified downloads cannot become executable', () => {
 test('failed concurrent setup shares one download, cleans up and can be retried', async () => {
   const directory=await mkdtemp(join(tmpdir(),'strata-connector-test-'));
   let requests=0, release;
-  const installer=createConnectorInstaller({directory,platform:'linux',arch:'x64',fetchImpl:async()=>{
+  const installer=createConnectorInstaller({directory,platform:'linux',arch:'x64',/* pin the search to Strata's own (empty) folder, so a cloudflared elsewhere on this computer cannot answer the setup before the download runs */env:{STRATA_CLOUDFLARED_SEARCH:'own'},fetchImpl:async()=>{
     requests++;
     await new Promise(resolve=>{release=resolve;});
     return {ok:false};

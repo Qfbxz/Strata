@@ -59,7 +59,8 @@ test('the profile gives a thinking model the OpenRouter efforts and the OpenRout
   assert.equal(provider.compat.thinkingFormat, 'openrouter');
   const [think, plain, unknown] = provider.models;
   assert.deepEqual(think.reasoningEfforts, OPENROUTER_EFFORTS); assert.equal(think.reasoning, true);
-  assert.equal(plain.reasoning, undefined); assert.equal(unknown.reasoning, undefined);
+  assert.equal(plain.reasoning, undefined, 'an explicit no keeps the Reasoning menu off');
+  assert.deepEqual(unknown.reasoningEfforts, OPENROUTER_EFFORTS); assert.equal(unknown.reasoning, true, 'an unprobed model lights the menu by default; the row switch turns it off');
   assert.deepEqual(unknown.input, ['text', 'image'], 'pictures on by default');
 });
 

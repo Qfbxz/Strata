@@ -15,7 +15,7 @@ test('the Linux shell hooks the drag signals of the page and keeps Windows and m
   assert.match(rust, /pointer_buttons_up\(widget\)/);
   assert.match(rust, /hand_over_drop\(target\.clone\(\), port, token\.clone\(\), list\)/);
   assert.match(rust, /fn file_uri_to_path\(uri: &str\) -> Option<String>/);
-  assert.match(rust, /#\[cfg\(windows\)\]\s+let builder = builder\.disable_drag_drop_handler\(\);/);
+  assert.match(rust, /#\[cfg\(not\(target_os = "linux"\)\)\]\s+let builder = builder\.disable_drag_drop_handler\(\);/);
   const toml = await read('../../desktop/src-tauri/Cargo.toml');
   assert.match(toml, /\[target\.'cfg\(target_os = "linux"\)'\.dependencies\]\ngtk = "0\.18"\nwebkit2gtk = "2\.0"/);
 });

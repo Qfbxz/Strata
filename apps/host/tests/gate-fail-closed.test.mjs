@@ -9,7 +9,7 @@ function gate(current) {
   apply({ on: (_e, h) => { handler = h; }, inject: () => {}, sessions: new Map(), permissionPresets: { current }, approval: { overrideOf: () => 'never' } });
   return handler;
 }
-const session = { header: { origin: 'user' } };
+const session = { header: { origin: 'user', cwd: '/tmp/strata-gate-chat' } };
 const allow = async () => ({ kind: 'allow' });
 const quiet = async fn => { const warn = console.warn; const lines = []; console.warn = (...a) => lines.push(a.join(' ')); try { return [await fn(), lines]; } finally { console.warn = warn; } };
 
@@ -22,7 +22,7 @@ test('a call that changes things asks when the preset cannot be resolved', async
 
 test('a provably read-only call still goes through, and a shell write asks', async () => {
   const handler = gate(() => { throw new Error('gone'); });
-  const [read] = await quiet(() => handler({ name: 'read', agent: { session }, input: { file_path: 'x' } }, allow));
+  const [read] = await quiet(() => handler({ name: 'read', agent: { session }, input: { file_path: '/tmp/strata-gate-chat/x' } }, allow));
   assert.equal(read.kind, 'allow');
   const [shell] = await quiet(() => handler({ name: 'bash', agent: { session }, input: { command: 'rm -rf x' } }, allow));
   assert.equal(shell.kind, 'ask');

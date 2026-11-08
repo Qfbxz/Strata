@@ -2,7 +2,7 @@ import './helpers/isolate-profile.mjs';   // a test run never writes the owner's
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -89,7 +89,7 @@ test('runCli passes the arguments untouched (no shell) and reads JSON', async ()
 // ---------------------------------------------------------------------------------- native-control in packaged mode
 
 function packagedFixture({ engineUsable = true, updater = null, repair = false, ids = ['iq2_xs', 'iq3_s'], controlVersion = '0.1.45', extraSizes = [], cliStartWait = 'old' } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'strata-packaged-test-'));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'strata-packaged-test-')));
   const install = join(root, 'install'), data = join(root, 'data');
   mkdirSync(install, { recursive: true });
   /* The Control this app found, as it is on disk. The app reads the start-wait ceiling out of these files instead of trusting

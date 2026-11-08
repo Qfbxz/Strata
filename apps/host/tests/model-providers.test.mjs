@@ -128,13 +128,13 @@ test('a provider connection\'s catalog presets are overwritten by the server tru
 
 for (const [protocol, check] of [
   ['openai-chat', body => { assert.equal(body.reasoning_effort, 'high'); }],
-  ['openai-responses', body => { assert.deepEqual(body.reasoning, { effort: 'high' }); }],
-  ['anthropic', body => { assert.deepEqual(body.thinking, { type: 'enabled', budget_tokens: 32768 }); assert.ok(body.max_tokens > 32768, 'max_tokens has room for the budget'); }],
-]) test(`${protocol}: a chosen reasoning effort reaches the wire in the protocol's own shape`, async t => {
+  ['openai-responses', body => { assert.equal(body.reasoning, undefined, 'the Responses payload keeps its existing shape'); }],
+  ['anthropic', body => { assert.equal(body.thinking, undefined, 'the Anthropic payload keeps its existing shape'); }],
+]) test(`${protocol}: a chosen reasoning effort reaches the wire only on the chat protocol, and only for a model saved as thinking`, async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
   t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
   const service = createModelProviders({ directory });
-  const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol, apiKey: 'test-key', models: [{ id: 'mock-chat' }] }).connections[0];
+  const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol, apiKey: 'test-key', models: [{ id: 'mock-chat', reasoning: true }] }).connections[0];
   await service.stream({ selection: { connectionId: connection.id, modelId: 'mock-chat' }, message: 'Hello', history: [], thinking: 'max', onFrame: () => {} });
   check(mock.requests.at(-1).body);
 });

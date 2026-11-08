@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { sensorPace, ACTIVE_MS, IDLE_MS, WATCH_MS } from '../server/sensor-pace.mjs';
 import { readGpuTelemetry } from '../server/device-probes.mjs';
 
@@ -104,7 +105,7 @@ test('#4661: only the Monitor screen asks for the drives; the start-up fetch and
   const { join } = await import('node:path');
   const hits = [];
   const walk = async dir => { for (const entry of await readdir(dir, { withFileTypes: true })) { const p = join(dir, entry.name); if (entry.isDirectory()) await walk(p); else if (/\.(ts|tsx)$/.test(entry.name) && /drives=1/.test(await readFile(p, 'utf8'))) hits.push(entry.name); } };
-  await walk(new URL('../src', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
+  await walk(fileURLToPath(new URL('../src', import.meta.url)));
   assert.deepEqual(hits, ['Monitor.tsx']);
   const monitor = await import('../server/monitor.mjs');
   assert.equal(typeof monitor.watchDrives, 'function');
