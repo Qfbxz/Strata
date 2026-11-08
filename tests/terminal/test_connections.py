@@ -219,7 +219,7 @@ class ConnectionTests(unittest.TestCase):
             thread.join(timeout=2)
 
     def test_deeply_nested_telemetry_returns_one_redacted_error(self):
-        depth = 20000  # Python 3.13 parses 1100 levels; the recursion limit is reached at a few thousand on every version
+        depth = 20000  # Python 3.13 parses 1100 levels; 3.14's iterative json scanner parses the whole body and the client classifies it as a non-object
         body = b"[" * depth + b"0" + b"]" * depth
 
         class Handler(BaseHTTPRequestHandler):
@@ -238,11 +238,18 @@ class ConnectionTests(unittest.TestCase):
         thread.start()
         try:
             root = f"http://127.0.0.1:{server.server_port}"
-            with self.assertRaisesRegex(ClientError, "malformed JSON telemetry"):
-                Endpoint(root).snapshot()
+            if sys.version_info >= (3, 14):              # 3.14's iterative scanner parses the body: a valid JSON list, and the client says non-object
+                with self.assertRaisesRegex(ClientError, "non-object telemetry"):
+                    Endpoint(root).snapshot()
+            else:                                        # <= 3.13: the recursive scanner hits the recursion limit
+                with self.assertRaisesRegex(ClientError, "malformed JSON telemetry"):
+                    Endpoint(root).snapshot()
             code, response = self._cli("status", "--url", root, "--json")
             self.assertEqual(code, 3)
-            self.assertEqual(response["error"]["message"], "server returned malformed JSON telemetry")
+            if sys.version_info >= (3, 14):              # the iterative scanner classifies it as a non-object
+                self.assertEqual(response["error"]["message"], "server returned a non-object telemetry response")
+            else:
+                self.assertEqual(response["error"]["message"], "server returned malformed JSON telemetry")
             bundle = Path(self.temp.name) / "deep-json-monitor.pyz"
             subprocess.run([sys.executable, str(ROOT / "packaging/monitor_bundle.py"),
                             "build", str(bundle)], capture_output=True, text=True, check=True)
@@ -251,8 +258,11 @@ class ConnectionTests(unittest.TestCase):
                                       capture_output=True, text=True, check=False)
             self.assertEqual(portable.returncode, 3)
             self.assertFalse(portable.stderr)
-            self.assertEqual(json.loads(portable.stdout)["error"]["message"],
-                             "server returned malformed JSON telemetry")
+            portable_message = json.loads(portable.stdout)["error"]["message"]
+            if sys.version_info >= (3, 14):              # the iterative scanner classifies it as a non-object
+                self.assertEqual(portable_message, "server returned a non-object telemetry response")
+            else:
+                self.assertEqual(portable_message, "server returned malformed JSON telemetry")
         finally:
             server.shutdown()
             server.server_close()
