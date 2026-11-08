@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import os
 import unittest
 from unittest import mock
 
@@ -260,6 +261,9 @@ class LightTheme(unittest.TestCase):
         self.assertLess(contrast(DARK.accent, "#ffffff"), 3.0)                  # the old dark colours are what the report measured (1.92:1)
 
     def run_app(self, coro, size=(120, 40)):
+        # NO_COLOR in the runner's environment would force colour_choice to "never": the light-colour
+        # assertions need the palette, so the app runs as if the terminal wanted colours
+        os.environ.pop("NO_COLOR", None)
         async def go():
             app = LaunchMonitor(Source(metrics("idle")), None, info=dict(INFO), interval=30, theme="light", color="always")
             async with app.run_test(size=size) as pilot:
