@@ -106,7 +106,10 @@ class Base(unittest.TestCase):
                 await pilot.pause(0.2)
                 return await coro(app, pilot, ctx)
 
-        return asyncio.run(go())
+        # The list's cursor glyph is each widget's own probe of the environment, not ctx.glyphs:
+        # a runner with TERM=dumb must not flip the screen to the ASCII forms the assertions read.
+        with mock.patch.dict(os.environ, {"TERM": "xterm-256color"}):
+            return asyncio.run(go())
 
 
 class StartScreenTests(Base):
