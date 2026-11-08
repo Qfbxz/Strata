@@ -109,6 +109,7 @@
 - **软链支持收口（58038b01，套件 1750 测/1638 过/0 败）**：skill-scan 批量扫描现在走进软链目录（agents 读取器同款"symlink farms"规则），real-path visited 集防软链环，软链 SKILL.md 算候选；单加与批量导入 cpSync 加 dereference（仓库不再收悬空链接）；typedFolder 本就 stat 跟随无需改。route 级测试证明软链包落盘为真实字节。两个 server 文件已热部署进 /Applications App（与 bundle 逐字节比对仅含本次改动），并**实机启服验证**：打包件 boot 成功（health ok，带 DS 8080 后端），scan 命中两个软链包（描述经链接读出），add 落盘为真实 Directory+真实字节——软链修复在已装 App 内端到端成立。
 - **顺带核实归档**：AGENTS.md/CLAUDE.md 双读兼容本就在（project-instructions NAMES 两者同读，CLAUDE.md 先）；auto-compact 已在库（agent-compaction.test.mjs + server 侧压缩链）；右侧可折叠工作区面板即 Codex/DeepSeek 式侧栏（wspanel 38% 宽+关闭钮）。
 - **"逆向技能包移植"收口（46258fe0，套件 1751 测/1639 过/0 败）**：REA 与 reverse-skill-router 本就随 native 技能目录（~/.agents/skills、~/.kimi-code/skills，skillsNative 默认开）进 App 目录并物化给 agent——但物化只写 SKILL.md，正文的 references/*.md 链接全部落空。materializeSkills 现按预算（200 文件/16MiB）携带技能夹附带文件（去引用真实字节、防软链环、跳 build 垃圾与隐藏夹、已正确的副本不动以保 watcher 静默）；REA 实测 7 份 references 全落地（37.4KB 样本完好）二次物化零抖动；bundled/自写技能（无源夹）字节不变。两文件已热部署进已装 App（bundle 逐字节比对仅含本次改动），重启生效。
+- **ds_lane 六臂终判（results-20261108.jsonl 全量复核，2026-11-08 午）**：**负结果**——没有任何一臂同时满足"CPU-lane 专家数下降 + tok/s 上升"的旋钮判据（各臂专家数均停留 9.2k-10.2k 区间）；lane_cal 4.7 vs asis96 3.9 tok/s（+21%）为布局未变下的实测增益，stream_force 2.6、cpu_lane0 2.2 为负信号，vram100 serve 超时。臂布局串显示 CUDA0/15360 专家——六臂跑在 Spark 侧而非 Mac 本机。**#5487/#5488 补评论条件未达成，不投**（两 issue 至今 0 回复，持续观察）。
 
 ---
 
