@@ -24,6 +24,7 @@ import json
 import os
 import signal
 import subprocess
+import os
 import sys
 import time
 from dataclasses import dataclass
@@ -180,11 +181,19 @@ def identify(pid: int) -> Ident | None:
 
 
 def is_same(pid: int, token: str, cmd: list[str] | tuple[str, ...] | None) -> bool:
-    """True only when the process now at `pid` started at `token` and runs exactly `cmd`."""
+    """True only when the process now at `pid` started at `token` and runs the same arguments.  The start
+    token is the identity (a reused pid starts again and carries a different token); argv[0] cannot join the
+    comparison because a Mac's framework Python rewrites it to its own app binary at startup, so the
+    arguments from element 1 on are what identifies the run."""
     if start_token(pid) != token:
         return False
     now = command_line(pid)
-    return bool(now) and list(now) == list(cmd or [])
+    if not now:
+        return False
+    mine = list(cmd or [])
+    if len(now) != len(mine):
+        return False
+    return now[1:] == mine[1:]
 
 
 # ---------------------------------------------------------------------------------------------- records

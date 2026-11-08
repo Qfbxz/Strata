@@ -60,6 +60,7 @@ class Scripts(unittest.TestCase):
         self.assertIn("$env:STRATA_FEED", (ROOT / "packaging" / "install.ps1").read_text(encoding="utf-8"))
 
 
+@unittest.skipIf(sys.platform == "darwin", "the fake feed has no macos-arm64 Terminal entry: the feed/install flows are the Linux/Windows CI host shapes")
 class Feed(unittest.TestCase):
     def make_bundle(self, work: Path) -> Path:
         """A tiny terminal archive that is a working `strata` (the repo's own source with the system Python)."""
