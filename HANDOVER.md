@@ -130,6 +130,8 @@
 
 - **看门狗误杀教训（ops，§六补充）**：hf 的 xet `.incomplete` **不存活于进程被杀**——每次 15 分钟零增长杀进程重试都把已拉的半截文件整段丢弃（mlx 一天内白扔 3.7GB+3.9GB 两轮，dspark 重启即弃 2.6GB）。两看门狗阈值 15→40 分钟（resume_mlx/dspark_only.sh），慢速周期不再触发误杀；重启后双流 ~5MB/s 正常。后续凡"慢但活着"的镜像一律拉长判死窗口，勿靠重启续命。
 
+- **mtp-primary 起草器迁移收官（owner 11-06 双工况实测裁决落地，2026-11-08 深夜，ca4d7599+fa67dcd7）**：15 败契约簇全清。核心发现：run config 只带 model_name 不带 family，`drafting plan --config`/doctor 走 by-name 判定是真实产品路径——故 verdict 须按名字落地：新增 `_PLAIN_QWEN_NAME`（plain Qwen3.8-Flash-Next 量化名= qwen 家族→auto=MTP；`-gyro-`/`-unsloth-` 构建名保留 DFlash2；by-name dflash2 照旧保留），三镜像同步（drafting.py choice_of / native-settings.mjs resolveDrafter+PLAIN_QWEN_MODEL+hint 文案 / drafting.ts）。连带：doctor 对 plain qwen auto 现报层必需（missing）、server.py 起始注释、npm 翻转 1751 测/1639 过/0 败。测试对齐六文件：test_drafting（by-name 三断言+镜像锁）、test_drafting_single（4 处 server 期望+清一条过时 darwin 守卫——auto 现全平台解析 MTP）、test_split_parallel（split-off 形状改 plain 名 iq3_s+按 want 分支 kinds 断言）、test_issues_022（doctor 期望）、test_launch_precedence（auto 子测试：`--draft-conf` 是 DFlash2 旋钮，MTP 下不达引擎但 user_args 留档、二次 launch argv 恒等）。账目：drafting 家族 192 过/36 跳、fix3_0212 38 过/4 跳、全量第一轮 2481 过/1 败（唯一败即 precedence auto 子测试）→终门第二轮全量复跑在案（/tmp/final2.log）。tuiqa 4 设计债已被 63d8ff31+NO_COLOR 清零，**19 败清单全部归零**。harness 四文档批次入库（11aa38fb：LESSONS/ROADMAP/COMPARISON/EXECUTION_GOAL+README 索引）。
+
 ---
 
 
