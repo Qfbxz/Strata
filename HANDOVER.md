@@ -216,7 +216,7 @@ a46aa9c0 契约测试  f0e9754f v0.2.11 合并（3 冲突谁完善谁上）
 4. **UD-Q8_K_XL（506GB）**——仅 shard1 完，本机无运行目标；是否续传（SSD 流式实验？）等用户裁决
 5. **用户验证项**——真实拖放一次（埋点在岗）、UX-8 分支徽章、1M 档日常使用反馈、**技能批量导入与 auto-memory 记忆注入各试一次**（App 重启后生效）
 6. **harness 整包升级 0.2.2-rc.1**——npm 已发 latest；非必需（auto-memory 已在 0.2.1-alpha.3 落地），升级需 pnpm deploy 重建 234MB bundle+重打 pi-ai patch，另立夜建窗口
-7. **已装 App 的 profile.mjs 不含 auto-memory insert**——插件本体已放入（真加载验证过）+ `~/.dsh/cordis.patch.yml` 用户层注册行已就位，重启 App 后 harness 自行挂载；仓库 profile.mjs 的注册行走下次 App 重建进包（双保险）
+7. ~~**已装 App 的 profile.mjs 不含 auto-memory insert**~~ **✅ 随 11-08 晨 09:04 新安装自动解决**（/Applications/Strata.app 的 profile.mjs:79 含 AUTO_MEMORY_PLUGIN 注册，memory-files.mjs 与插件本体俱在）已就位，重启 App 后 harness 自行挂载；仓库 profile.mjs 的注册行走下次 App 重建进包（双保险）
 
 ## 五、铁律（勿违反）
 
