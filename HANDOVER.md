@@ -95,6 +95,12 @@
 - 用户日常负载=中文办公+大项目前后端算法编译（双工况验证纪律）
 - monitor 分层：脚本守夜+我做决策+kimi 出分析（晨报）
 
+### 第八阶段：晨间套件修复 + 夜班收官（2026-11-08 早）
+
+- **夜班链条 09:04:48 收官**：batch/ds_lane/contig OK，install-app OK（新 App Strata-custom-v0.2.11-75-g* 已装 /Applications），DS 2.00bpw 服务器自动恢复 8080，results-20261108.jsonl 入账。mlx20b（02:29）与 dspark_dl（06:29）下载超时 FAIL，ds225 冒烟 rc=6——根因同一：系统代理关闭 + mihomo 上游节点死，hf/github 全程不可达。
+- **镜像续传**：改走 hf-mirror.com 直连（实测 200/<1.3s），`daytime_resume.sh` 白天续传 mlx20b→dspark Q8_0，成功即写 state/*.done 供当晚链条跳过；今晚 23:37 守候触发器兜底。
+- **host 套件首次全绿（1636/1636，rc=0，e94670ad）**：connector-setup 测试在装了 cloudflared 的机器上必挂（候选搜索扫到系统副本抢答了 mock 下载）→ 用 STRATA_CLOUDFLARED_SEARCH=own 钉死搜索域；运行器加 --test-timeout=120000 保底（单测试再无法冻结整夜套件）；reasoning-effort 三协议旧测试对齐新线契约（仅 chat 协议、仅 saved-thinking 发送）；样式测试跟齐 12px 读回退；拖放测试跟齐 macOS 实测的 cfg(not linux)；子智能体弹层标题恢复"按全部记录数"契约；Composer 恢复稳定 handler；AGENT_PROMPT 压回 1600 字符内；法文排版（不换行空格+弯撇号）9 串修复；Manual gate 测试给可证明路径；packaged/native/pictures 夹具 realpath 化（macOS /var→/private/var）。归因：18 项本会话回归 + 7 项 origin/main 继承红（packaged×5、load-pictures、native-settings，同 realpath 根因）全部清零。
+
 ---
 
 
