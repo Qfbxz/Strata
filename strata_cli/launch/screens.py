@@ -1673,7 +1673,7 @@ class SaveScreen(Base):
         lines = self.summary_lines()
         warnings = self.ctx.warnings()
         body_h = self.query_one("#body").size.height
-        full_need = 2 + len(lines) + len(warnings) + 3 + 3
+        full_need = 2 + len(lines) + len(warnings) + 3 + 3 + 5          # the + 5 is the three-choice menu: without it in the budget a 24-row terminal never goes compact and the third choice scrolls out of view
         compact = bool(body_h) and full_need > body_h
         name = self.query_one("#name", Input)
         name.set_class(compact, "slim")
