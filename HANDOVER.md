@@ -108,6 +108,7 @@
 - **缓存缩水诊断**：mlx 缓存 11229→7784MB 非数据丢失——hf 对被杀进程留下的半截 blob 弃置重拉（10:54 新落 5.28GB 分片为证），3 分片实际进度 2 完成+1 在拉。
 - **软链支持收口（58038b01，套件 1750 测/1638 过/0 败）**：skill-scan 批量扫描现在走进软链目录（agents 读取器同款"symlink farms"规则），real-path visited 集防软链环，软链 SKILL.md 算候选；单加与批量导入 cpSync 加 dereference（仓库不再收悬空链接）；typedFolder 本就 stat 跟随无需改。route 级测试证明软链包落盘为真实字节。两个 server 文件已热部署进 /Applications App（与 bundle 逐字节比对仅含本次改动），并**实机启服验证**：打包件 boot 成功（health ok，带 DS 8080 后端），scan 命中两个软链包（描述经链接读出），add 落盘为真实 Directory+真实字节——软链修复在已装 App 内端到端成立。
 - **顺带核实归档**：AGENTS.md/CLAUDE.md 双读兼容本就在（project-instructions NAMES 两者同读，CLAUDE.md 先）；auto-compact 已在库（agent-compaction.test.mjs + server 侧压缩链）；右侧可折叠工作区面板即 Codex/DeepSeek 式侧栏（wspanel 38% 宽+关闭钮）。
+- **"逆向技能包移植"收口（46258fe0，套件 1751 测/1639 过/0 败）**：REA 与 reverse-skill-router 本就随 native 技能目录（~/.agents/skills、~/.kimi-code/skills，skillsNative 默认开）进 App 目录并物化给 agent——但物化只写 SKILL.md，正文的 references/*.md 链接全部落空。materializeSkills 现按预算（200 文件/16MiB）携带技能夹附带文件（去引用真实字节、防软链环、跳 build 垃圾与隐藏夹、已正确的副本不动以保 watcher 静默）；REA 实测 7 份 references 全落地（37.4KB 样本完好）二次物化零抖动；bundled/自写技能（无源夹）字节不变。两文件已热部署进已装 App（bundle 逐字节比对仅含本次改动），重启生效。
 
 ---
 
