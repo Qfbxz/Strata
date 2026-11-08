@@ -462,6 +462,8 @@ for the choice being made.`,
         enabled: true,
         triggers: [name.replace(/-/g, ' ')],
         body: parsed.body,
+        // The source folder rides along at materialize time: a body that links reference files finds them beside the rewritten SKILL.md.
+        dir: full,
         sizeKb: Number(sizeKb.toFixed(1)),
       });
     }

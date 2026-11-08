@@ -4,7 +4,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startScriptedWorker } from './helpers/scripted-worker.mjs';
@@ -45,6 +45,37 @@ test('writing a skill refuses a duplicate and an empty name, and materializing m
     mkdirSync(join(live, 'old-one'));
     materializeSkills(live, list.slice(0, 1));
     assert.ok(!existsSync(join(live, 'old-one')) && !existsSync(join(live, 'commit-messages')), 'removed skills disappear from the agent folder');
+  } finally { cleanup(dir); }
+});
+
+test('a skill from a folder carries its companion files: reference guides ride along, junk stays behind, and a second pass touches nothing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'strata-skill-carry-'));
+  try {
+    const source = join(dir, 'na-reverse-pack');
+    mkdirSync(join(source, 'references', 'deep'), { recursive: true });
+    mkdirSync(join(source, 'node_modules', 'junk'), { recursive: true });
+    mkdirSync(join(source, '.hidden'), { recursive: true });
+    writeFileSync(join(source, 'SKILL.md'), '---\nname: reverse-pack\n---\nSource body the agent never sees (it gets the rewritten one).\n');
+    writeFileSync(join(source, 'references', 'connection.md'), 'Read this when the connection drops.\n');
+    writeFileSync(join(source, 'references', 'deep', 'nested.md'), 'Nested guides travel too.\n');
+    writeFileSync(join(source, 'node_modules', 'junk', 'x.md'), 'never carried\n');
+    writeFileSync(join(source, '.hidden', 'x.md'), 'never carried\n');
+    const live = join(dir, 'live');
+    const list = [{ id: 'na-reverse-pack', name: 'Reverse pack', description: 'Has references', body: 'Carry my references.', enabled: true, dir: source }];
+    materializeSkills(live, list);
+    assert.equal(readFileSync(join(live, 'na-reverse-pack', 'SKILL.md'), 'utf8').includes('Source body'), false, 'the SKILL.md is the rewritten one, not the source file');
+    assert.equal(readFileSync(join(live, 'na-reverse-pack', 'references', 'connection.md'), 'utf8'), 'Read this when the connection drops.\n');
+    assert.equal(readFileSync(join(live, 'na-reverse-pack', 'references', 'deep', 'nested.md'), 'utf8'), 'Nested guides travel too.\n');
+    assert.ok(!existsSync(join(live, 'na-reverse-pack', 'node_modules')), 'build junk is not carried');
+    assert.ok(!existsSync(join(live, 'na-reverse-pack', '.hidden')), 'hidden folders are not carried');
+    // a second materialize is a no-op for the companions: the agent's folder watcher must not see churn
+    const guide = join(live, 'na-reverse-pack', 'references', 'connection.md');
+    const before = statSync(guide).mtimeMs;
+    materializeSkills(live, list);
+    assert.equal(statSync(guide).mtimeMs, before, 'an already-correct copy is left untouched');
+    // a skill with no folder (bundled, inline) still materializes exactly as before
+    materializeSkills(live, [{ id: 'bundled-one', name: 'Bundled one', body: 'Inline only.', enabled: true }]);
+    assert.equal(readFileSync(join(live, 'bundled-one', 'SKILL.md'), 'utf8').includes('Inline only'), true);
   } finally { cleanup(dir); }
 });
 

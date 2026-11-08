@@ -6,7 +6,7 @@
  * list (bundled, written, added, edited, switched on or off) into one folder the Harness is told to scan (`materializeSkills`), every time
  * anything changes. The Harness watches that folder, so a skill saved in the app is there for the next message without a restart.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** The kebab-case name the Harness requires, from what a person typed ("Directory opener" -> "directory-opener"). */
@@ -52,11 +52,59 @@ export function writeCreatedSkill(root, { name, description, body }) {
   return id;
 }
 
+/** Folders of a skill pack that never hold reference docs worth carrying (huge build junk). */
+const CARRY_SKIP_DIRS = new Set(['node_modules', '.git', '.svn', '.hg', 'dist', 'build', 'out', 'target', '__pycache__', '.venv', 'venv', '.next', '.cache', '.gradle', '.idea', '.vscode']);
+/** A skill carries at most this many companion files and this many bytes of them. */
+const CARRY_MAX_FILES = 200;
+const CARRY_MAX_BYTES = 16 * 1024 * 1024;
+
+/**
+ * Carry a skill folder's companion files (reference guides the body links to, data tables,
+ * scripts) into the materialized folder. The SKILL.md itself is rewritten here, so the source
+ * one is skipped; junk folders are never carried; dereferenced real bytes land (symlink farms
+ * travel as files); a visited set of real paths keeps a symlink cycle finite. A file already
+ * present with the same size is left untouched, so the agent's folder watcher does not see a
+ * change on every materialize. Files beyond the budgets stay behind (the skill still works;
+ * its body is what the agent reads first).
+ */
+function carrySkillFiles(from, dest) {
+  let files = 0, bytes = 0;
+  const seen = new Set();
+  const walk = (src, rel) => {
+    let entries;
+    try { entries = readdirSync(src, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (files >= CARRY_MAX_FILES || bytes >= CARRY_MAX_BYTES) return;
+      if (rel === '' && entry.name === 'SKILL.md') continue;
+      if (entry.name.startsWith('.') || (entry.isDirectory() && CARRY_SKIP_DIRS.has(entry.name))) continue;
+      const sourcePath = join(src, entry.name);
+      let real = sourcePath;
+      try { real = realpathSync(sourcePath); } catch { continue; }
+      if (seen.has(real)) continue;
+      seen.add(real);
+      const target = join(dest, rel, entry.name);
+      let info;
+      try { info = statSync(sourcePath); } catch { continue; }
+      if (info.isDirectory()) { mkdirSync(target, { recursive: true }); walk(sourcePath, join(rel, entry.name)); continue; }
+      if (!info.isFile()) continue;
+      if (bytes + info.size > CARRY_MAX_BYTES) continue;
+      try { if (statSync(target).size === info.size) continue; } catch { /* not carried yet */ }
+      mkdirSync(join(dest, rel), { recursive: true });
+      try { cpSync(sourcePath, target, { dereference: true }); } catch { continue; }
+      files++; bytes += info.size;
+    }
+  };
+  walk(from, '');
+  return { files, bytes };
+}
+
 /**
  * Make `root` hold exactly the skills the agent may use: one folder each, a SKILL.md with frontmatter. A skill switched off is written
  * with `disable-model-invocation` (the agent does not offer it); folders of skills that are gone are removed. Only this folder is touched.
+ * A skill that comes from a folder (`dir`: a native skill pack, a workspace skill) carries that folder's companion files with it, so a
+ * body that links `references/*.md` finds them beside the rewritten SKILL.md.
  * @param {string} root
- * @param {Array<{id: string, name: string, description?: string, body?: string, enabled?: boolean}>} skills
+ * @param {Array<{id: string, name: string, description?: string, body?: string, enabled?: boolean, dir?: string}>} skills
  */
 export function materializeSkills(root, skills) {
   mkdirSync(root, { recursive: true });
@@ -74,6 +122,7 @@ export function materializeSkills(root, skills) {
     // Only a changed skill is rewritten: the agent watches this folder and treats every write as a change to its list.
     let same = false; try { same = readFileSync(file, 'utf8') === text; } catch { /* not there yet */ }
     if (!same) writeFileSync(file, text);
+    if (s.dir && existsSync(s.dir) && statSync(s.dir).isDirectory()) carrySkillFiles(s.dir, dir);
   }
   for (const entry of readdirSync(root, { withFileTypes: true })) if (entry.isDirectory() && !keep.has(entry.name)) rmSync(join(root, entry.name), { recursive: true, force: true });
   return [...keep];
