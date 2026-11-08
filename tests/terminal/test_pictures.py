@@ -75,7 +75,10 @@ class Layout:
         kw.setdefault("hardware", {"vram_gb": 12, "make": "nvidia", "arch": 120})
         kw.setdefault("endpoint", self.mirror.as_uri())
         kw.setdefault("online", lambda url: True)
-        with mock.patch.dict(pictures.PROJECTOR_BY_FAMILY, {"qwen": TINY}), mock.patch.dict(os.environ, {"STRATA_NO_ACQUIRE": ""}):
+        # the fixtures are discrete-VRAM cards (the 24 GB rule and the sm arch demotion): on a Mac the real
+        # sys.platform would make every fetch unified-gpu and none of these rules would run
+        with mock.patch.object(sys, "platform", "linux"), \
+             mock.patch.dict(pictures.PROJECTOR_BY_FAMILY, {"qwen": TINY}), mock.patch.dict(os.environ, {"STRATA_NO_ACQUIRE": ""}):
             return pictures.fetch(self.config, **kw)
 
 
@@ -292,6 +295,7 @@ class ReaderRule(unittest.TestCase):
     def section(self, asked="yes", **hw):
         return pictures.reader_section(self.engine, Path("/m/mm.gguf"), Path("/m/a.gguf"), asked, hw)
 
+    @unittest.skipIf(sys.platform == "darwin", "the -hip gpu reader is a Linux/Windows layout: a Mac has one strata-vision for both readers")
     def test_amd_gets_the_gpu_reader_with_the_cpu_one_behind_it_from_24_gb(self):
         self.make(self.cpu, self.hip, build={"vision_archs": "gfx1201;gfx1100"})
         s, _ = self.section(vram_gb=32, make="amd", arch="gfx1201")
@@ -302,6 +306,7 @@ class ReaderRule(unittest.TestCase):
         self.assertFalse(s["gpu"])
         self.assertIn("gfx1030", note)
 
+    @unittest.skipIf(sys.platform == "darwin", "the arch demotion runs on the Linux/Windows two-reader layout: a Mac has one strata-vision for both readers")
     def test_nvidia_reader_the_build_has_no_code_for_runs_on_the_cpu(self):
         self.make(self.cpu, build={"vision_archs": "86;89", "ptx": False})
         s, note = self.section("gpu", vram_gb=48, make="nvidia", arch=75)

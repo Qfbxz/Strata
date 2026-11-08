@@ -132,6 +132,8 @@ class RealDataTests(unittest.TestCase):
         total_fixes = sum(len(r["fixes"]) for r in report)
         # after the repair, no config may still point into a version folder that is gone
         for family in self.COMPONENTS.iterdir():
+            if not family.is_dir():
+                continue                 # Finder's .DS_Store and other stray files are not engine families
             versions = {d.name for d in family.iterdir() if d.is_dir()}
             for cfg in self.INSTALL.glob("strata-*.json"):
                 text = cfg.read_text()
