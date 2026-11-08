@@ -175,6 +175,23 @@
 
 批次 1-4（删除安全/写者与数据根/安全双修/构建基建）全部 commit+测试绿；MLX P0=批次 6 ✅；批次 7 的 UX 三项/lint/A2141 ✅。P1 系终态：P1-1✅/P1-2 关闭（本机不适用）/P1-3+P1-7 被 1M 战役覆盖/P1-4 下载 SHA 体系实证/P1-5✅/P1-6 意外达成/P1-8 用户关闭/P1-9 早已修/P1-10✅。
 
+### G. 需求面总对账（2026-11-08 午，12 项 ask 全部有证据）
+
+| 您的要求 | 证据 |
+|---|---|
+| 技能管理：外层目录扫描嵌套技能+列表导入 | bf83e05f + 58038b01（软链+防环）+ 46258fe0（references 随行） |
+| agents/、hooks/ 目录加载智能体与脚本 | 第七阶段 47 行（agent-files/hooks 双事件） |
+| 输入框项目夹旁 git 分支+分支数管理浏览 | 3c6623da（分支芯片）+ 5ca12bbb（分支管理器） |
+| 右侧折叠面板（Codex 式）+ 顶部子智能体 Dock/工作区/定向输入 | 47 行（wspanel+SubagentDock） |
+| 自动记忆界面 + 自动续接 + 自动压缩 | d97e2ded（记忆面板）+ auto-continue 插件 a893b013 + agent-compaction 在库 |
+| 记忆在任何会话适时使用 | profile 注册 auto-memory（直聊开关 55199a03），App 重启挂载 |
+| 网页搜索/无头爬取/文献下载/REA 逆向技能 | strata-search（DDG/exa/perplexity）+ native 技能目录自动收编 + 46258fe0 修复引用落地 |
+| 新功能设置界面可视化管理+持久化 | 55199a03（Assistant 六开关 features 持久化） |
+| CLAUDE.md + AGENTS.md 兼容 | project-instructions NAMES 双读（CLAUDE.md 先） |
+| 原生技能包存储路径查找 | ns-/na-/nc- 三目录只读收编 |
+| agents 技能包及目录软链 | agent-files symlink farms + 58038b01 扫描/导入同规 |
+| harness 合并落盘并打包 / worktree 清理 | 逐字节同构验证（571902028a，234MB）+ worktree 仅主树 |
+
 ---
 
 ## 二、全部代码修改都在本仓库（36 commits，本地 main）
