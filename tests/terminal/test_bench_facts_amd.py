@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import sys
 import unittest
 from unittest import mock
 
@@ -57,6 +58,10 @@ class AmdSmiProbe(unittest.TestCase):
         self.cmds = mock.patch.object(bf, "run_cmd", run_cmd)
         self.cmds.start()
         self.addCleanup(self.cmds.stop)
+        # the amd-smi branch is gated to non-darwin hosts (a Mac has no AMD card to ask for); the fixture is that Linux tree
+        self.plt = mock.patch.object(sys, "platform", "linux")
+        self.plt.start()
+        self.addCleanup(self.plt.stop)
 
     def test_names_both_cards_with_their_vram(self):
         cards, driver = bf.other_gpus()
@@ -99,6 +104,7 @@ class AmdSmiProbe(unittest.TestCase):
 
 
 @unittest.skipIf(os.name == "nt", "the probe is the non-Windows branch")
+@unittest.skipIf(sys.platform == "darwin", "the amd-smi branch runs on the Linux host: on a Mac the probe reads the chip instead")
 class ServedName(unittest.TestCase):
     """The server's `gpu` string is the driver's product_name, empty on gfx1201, so it degrades to the vendor. That
     must not overwrite the card the local probe named, while a card only the server can see still wins."""
