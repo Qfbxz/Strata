@@ -145,6 +145,29 @@ function prune(dir) {
 }
 prune(out);
 
+// --- reconcile runtime imports -------------------------------------------------------------------------------------------
+// (2026-11-09, rc.1) The 0.2.2 packaging moved some runtime imports (dsh-client-store, dsh-client-ui-primitives,
+// dsh-client-ui-slots, dsh-util-file-drag, ...) into devDependencies, so `pnpm deploy --prod` leaves gaps that the cli
+// still imports by name — the same contract the #29 check guards. Copy every missing package from the source checkout
+// (the same source of truth the peer fill above uses) until the import check is clean. A name that exists nowhere fails
+// loudly instead of staging a broken Harness.
+for (;;) {
+  const lost = missingHarnessImports(out);
+  if (!lost.length) break;
+  let copied = 0;
+  for (const l of lost) {
+    if (resolvable(l.missing)) continue;
+    const from = workspace.get(l.missing) ?? join(src, 'node_modules', ...l.missing.split('/'));
+    if (!existsSync(from)) continue;                 // the final check below names it loudly
+    const realFrom = realpathSync(from);
+    const to = join(out, 'node_modules', ...l.missing.split('/'));
+    mkdirSync(join(to, '..'), { recursive: true });
+    cpSync(realFrom, to, { recursive: true, dereference: true, filter: f => !relative(realFrom, f).split(sep).includes('node_modules') });
+    copied++;
+  }
+  if (!copied) { console.error(['staged Harness is missing imported packages:', ...lost.map(l => `  ${l.from} -> ${l.missing}`)].join(String.fromCharCode(10))); process.exit(1); }
+}
+
 // Strata's provenance-recorded output-budget correction applies only to this copy.
 const patches = [patchStagedHarnessBudget(out)];
 

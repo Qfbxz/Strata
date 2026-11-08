@@ -267,7 +267,7 @@ a46aa9c0 契约测试  f0e9754f v0.2.11 合并（3 冲突谁完善谁上）
 3. ~~yarn4× 报告投递~~ **✅ 已投 [#5487](https://github.com/Niko1221/Strata/issues/5487)**（同批：夜间旋钮臂若找到可用旋钮，以评论补充）
 4. **UD-Q8_K_XL（506GB）**——仅 shard1 完，本机无运行目标；是否续传（SSD 流式实验？）等用户裁决
 5. **用户验证项**——真实拖放一次（埋点在岗）、UX-8 分支徽章、1M 档日常使用反馈、**技能批量导入与 auto-memory 记忆注入各试一次**（App 重启后生效）
-6. **harness 整包升级 0.2.2-rc.1**——npm 已发 latest；非必需（auto-memory 已在 0.2.1-alpha.3 落地）。**勘察已完成（11-09 凌晨）：runbook 落盘 `~/strata-setup/harness-upgrade/RUNBOOK.md`**——工具链全貌（stage-harness/harness-budget/harness-prune 三脚本 + sha256 门补丁器）、注入插件恰两个（auto-memory 1.3.0 + client-auto-continue 0.17.3，字节级平移即可）、钉版机制（build-custom-app.sh 1.5/5 步）、六步命令与回滚。执行需 ~30 分钟（github clone 20 分 + 装配 5 分 + 重建 App），须在夜链结束后的安静窗执行（clone/构建会顶掉预检窗）。
+6. ~~**harness 整包升级 0.2.2-rc.1**~~ **✅ 端到端完成（2026-11-09 06:07，RUNBOOK 全六步跑通）**：clone（tag=dsh-v0.2.2-rc.1，20287 文件）→ pnpm 构建（366 client artifacts）→ stage 装配（243 MiB/26915 文件；**新增对账循环**修掉 rc.1 把 dsh-client-store 等运行时导入挪进 devDependencies 的部署缺口）→ 预算补丁（pi-ai 1.1.0→**1.3.0 版本钉更新**，目标文件字节未变，afterSha256=fe657e35… 与旧成品逐字节一致）→ 注入双插件（TREE-OK）→ 留档 `app-versions/harness-0.2.2-rc.1` → 钉版翻转 → 重建 App（Strata-custom-v0.2.11-140-g67e9a9e4-1109，缓存命中 121 秒）→ 备份旧版（Strata-installed-backup-1109.app 可回滚）→ 换装 → 重启。**核验全过**：新 App harness=0.2.2-rc.1、profile.mjs:79 注册行在、dsh-auto-memory 包在位、DS 服务无断档。宿主入口双布局兼容实证（harness-runtime.mjs:49-50）。stage-harness.mjs 的对账循环已进仓（reconcile runtime imports，对 0.2.1 旧成品重装配亦安全）
 7. ~~**已装 App 的 profile.mjs 不含 auto-memory insert**~~ **✅ 随 11-08 晨 09:04 新安装自动解决**（/Applications/Strata.app 的 profile.mjs:79 含 AUTO_MEMORY_PLUGIN 注册，memory-files.mjs 与插件本体俱在）已就位，重启 App 后 harness 自行挂载；仓库 profile.mjs 的注册行走下次 App 重建进包（双保险）
 
 ## 五、铁律（勿违反）
