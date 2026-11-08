@@ -106,7 +106,7 @@
 - **用户指令兑现**："下载继续"→ mlx/dspark 续传 12:11 拉起（resume_mlx/dspark_only.sh，HF_ENDPOINT 镜像在岗）；"双示意图不管，发错"→ 排查销项，UI 侧无重复渲染证据归档。
 - **"harness 合并落盘并打包了吗？worktree 清了吗？"核实为是**：/Applications App 的 Resources/harness（dsh 0.2.1-alpha.3，上游 commit 571902028a，234MB）与仓库 stage-harness.mjs 产物 lib/、package.json 逐字节同构；host 侧 harness 功能（children/memory/profile/agents 目录）全在 main 且套件覆盖。worktree list 仅主工作树，无残留分支/worktree。
 - **缓存缩水诊断**：mlx 缓存 11229→7784MB 非数据丢失——hf 对被杀进程留下的半截 blob 弃置重拉（10:54 新落 5.28GB 分片为证），3 分片实际进度 2 完成+1 在拉。
-- **软链支持收口（58038b01，套件 1750 测/1638 过/0 败）**：skill-scan 批量扫描现在走进软链目录（agents 读取器同款"symlink farms"规则），real-path visited 集防软链环，软链 SKILL.md 算候选；单加与批量导入 cpSync 加 dereference（仓库不再收悬空链接）；typedFolder 本就 stat 跟随无需改。route 级测试证明软链包落盘为真实字节。两个 server 文件已热部署进 /Applications App（与 bundle 逐字节比对仅含本次改动，App 重启生效）。
+- **软链支持收口（58038b01，套件 1750 测/1638 过/0 败）**：skill-scan 批量扫描现在走进软链目录（agents 读取器同款"symlink farms"规则），real-path visited 集防软链环，软链 SKILL.md 算候选；单加与批量导入 cpSync 加 dereference（仓库不再收悬空链接）；typedFolder 本就 stat 跟随无需改。route 级测试证明软链包落盘为真实字节。两个 server 文件已热部署进 /Applications App（与 bundle 逐字节比对仅含本次改动），并**实机启服验证**：打包件 boot 成功（health ok，带 DS 8080 后端），scan 命中两个软链包（描述经链接读出），add 落盘为真实 Directory+真实字节——软链修复在已装 App 内端到端成立。
 - **顺带核实归档**：AGENTS.md/CLAUDE.md 双读兼容本就在（project-instructions NAMES 两者同读，CLAUDE.md 先）；auto-compact 已在库（agent-compaction.test.mjs + server 侧压缩链）；右侧可折叠工作区面板即 Codex/DeepSeek 式侧栏（wspanel 38% 宽+关闭钮）。
 
 ---
