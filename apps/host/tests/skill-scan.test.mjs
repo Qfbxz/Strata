@@ -5,7 +5,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { scanSkillFolders, uniqueDest, SCAN_SKIP_DIRS } from '../server/skill-scan.mjs';
@@ -75,9 +75,9 @@ test('the scan stops at its depth bound and at its result bound, and says so', (
 test('a folder that cannot be read is skipped quietly; an unreadable SKILL.md stays a candidate without its words', () => {
   const ok = { withFileTypes: true };
   const dirs = {
-    '/tree': [{ name: 'locked', isFile: () => false, isDirectory: () => true }, { name: 'open', isFile: () => false, isDirectory: () => true }],
+    '/tree': [{ name: 'locked', isFile: () => false, isDirectory: () => true, isSymbolicLink: () => false }, { name: 'open', isFile: () => false, isDirectory: () => true, isSymbolicLink: () => false }],
     '/tree/locked': new Error('permission denied'),
-    '/tree/open': [{ name: 'SKILL.md', isFile: () => true, isDirectory: () => false }],
+    '/tree/open': [{ name: 'SKILL.md', isFile: () => true, isDirectory: () => false, isSymbolicLink: () => false }],
   };
   const io = {
     readdirSync(dir) { const e = dirs[dir]; if (e instanceof Error) throw e; return e; },
@@ -93,4 +93,31 @@ test('the import destination keeps its name when free, and takes a -2/-3 suffix 
   assert.equal(uniqueDest('review', () => false), 'review');
   assert.equal(uniqueDest('review', name => name === 'review'), 'review-2');
   assert.equal(uniqueDest('review', name => name === 'review' || name === 'review-2'), 'review-3');
+});
+
+test('a symlinked skill folder, a symlinked collection and a symlinked SKILL.md are all found; a symlink cycle ends quietly', () => {
+  const root = mkdtempSync(join(tmpdir(), 'strata-skill-scan-'));
+  try {
+    const outside = mkdtempSync(join(tmpdir(), 'strata-skill-farm-'));
+    makeSkill(join(outside, 'far-skill'), { name: 'far-skill', description: 'Lives outside the tree' });
+    // a symlinked skill folder and a symlinked whole collection sit inside the scanned tree
+    symlinkSync(join(outside, 'far-skill'), join(root, 'linked-skill'), 'dir');
+    symlinkSync(outside, join(root, 'linked-collection'), 'dir');
+    // a skill whose SKILL.md is a symlink to a file elsewhere
+    mkdirSync(join(root, 'linked-md'), { recursive: true });
+    writeFileSync(join(outside, 'real-notes.md'), '---\nname: linked-md\ndescription: Notes live elsewhere\n---\n\nBody.\n');
+    symlinkSync(join(outside, 'real-notes.md'), join(root, 'linked-md', 'SKILL.md'), 'file');
+    // a cycle: a folder holding a link back to itself must not hang the walk
+    makeSkill(join(root, 'loop', 'loop-real'), { name: 'loop-real' });
+    symlinkSync(root, join(root, 'loop', 'self'), 'dir');
+
+    const found = scanSkillFolders(root);
+    // 'linked-skill' and 'linked-collection' both lead to the same real folder as their first
+    // visitor, so 'far-skill' is reported once, under its own folder's name; a candidate is
+    // always named for the folder the walk stood in.
+    assert.deepEqual(found.candidates.map(c => c.name).sort(), ['far-skill', 'linked-md', 'loop-real']);
+    const byName = Object.fromEntries(found.candidates.map(c => [c.name, c]));
+    assert.equal(byName['linked-md'].description, 'Notes live elsewhere');
+    assert.equal(found.candidates.filter(c => c.name === 'far-skill').length, 1);
+  } finally { cleanup(root); }
 });

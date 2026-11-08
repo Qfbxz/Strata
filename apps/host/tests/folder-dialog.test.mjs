@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, symlink } from 'node:fs/promises';
+import { lstatSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -137,6 +138,44 @@ test('the host accepts a typed folder path for the picker and for adding a skill
   } finally {
     child.kill();
     await rm(skill, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true }).catch(() => {});
+  }
+});
+
+test('symlinked skill packs land as real files: add copies through the link, scan finds the farm, import dedupes names', { timeout: 60000 }, async () => {
+  const { child, base, home } = await startHost();
+  const farm = await mkdtemp(join(tmpdir(), 'strata-skill-farm-'));
+  const outside = await mkdtemp(join(tmpdir(), 'strata-skill-far-'));
+  try {
+    const post = (path, body) => fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    // a real pack outside the farm, a symlinked pack inside it, and a symlinked SKILL.md
+    await mkdir(join(outside, 'far-pack'), { recursive: true });
+    await writeFile(join(outside, 'far-pack', 'SKILL.md'), '---\nname: far-pack\ndescription: Lives outside\n---\nbody\n');
+    await symlink(join(outside, 'far-pack'), join(farm, 'linked-pack'), 'dir');
+    await mkdir(join(farm, 'own-pack'), { recursive: true });
+    await writeFile(join(outside, 'notes.md'), '---\nname: own-pack\ndescription: Notes elsewhere\n---\nbody\n');
+    await symlink(join(outside, 'notes.md'), join(farm, 'own-pack', 'SKILL.md'), 'file');
+
+    // the scan sees both the linked pack and the pack whose SKILL.md is a link
+    const scan = await (await post('/api/skills/scan', { path: farm })).json();
+    assert.deepEqual(scan.candidates.map(c => c.name).sort(), ['linked-pack', 'own-pack']);
+
+    // add through a symlink: the store copy is a real folder with a real SKILL.md, not a dangling link
+    const add = await post('/api/skills/add', { path: join(farm, 'linked-pack') });
+    assert.equal(add.status, 200);
+    const stored = join(home, 'skills', 'linked-pack');
+    assert.equal(lstatSync(stored).isSymbolicLink(), false);
+    assert.match(await readFile(join(stored, 'SKILL.md'), 'utf8'), /name: far-pack/);
+
+    // batch import takes the pack whose SKILL.md is a symlink and copies real bytes
+    const imp = await (await post('/api/skills/import', { paths: [join(farm, 'own-pack')] })).json();
+    assert.deepEqual(imp.failed, []);
+    assert.deepEqual(imp.imported.map(x => x.added), ['own-pack']);
+    assert.match(await readFile(join(home, 'skills', 'own-pack', 'SKILL.md'), 'utf8'), /Notes elsewhere/);
+  } finally {
+    child.kill();
+    await rm(farm, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
     await rm(home, { recursive: true, force: true }).catch(() => {});
   }
 });

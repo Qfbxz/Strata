@@ -6,9 +6,11 @@
  * walks the tree, treats a folder that holds a SKILL.md as one candidate and does not
  * descend into it (its other subfolders are that skill's own files, not more skills),
  * skips folders that never hold skills or are hidden, and stops at a bounded depth and
- * count so even a huge tree answers quickly.
+ * count so even a huge tree answers quickly. Symlinked skill folders and symlinked
+ * SKILL.md files count (collections are often symlink farms); a visited-set of real
+ * paths keeps a symlink cycle from walking forever.
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseSkillFile } from './skill-files.mjs';
 
@@ -29,12 +31,14 @@ export function scanSkillFolders(root, opts = {}) {
   const candidates = [];
   let truncated = false;
   let scannedDirs = 0;
+  const visited = new Set();
+  try { visited.add(realpathSync(root)); } catch { visited.add(root); }
   const walk = (dir, depth) => {
     if (truncated || depth > maxDepth) return;
     scannedDirs++;
     let entries;
     try { entries = io.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    if (entries.some(e => e.isFile() && e.name === 'SKILL.md')) {
+    if (entries.some(e => (e.isFile() || e.isSymbolicLink()) && e.name === 'SKILL.md')) {
       let text = null;
       try { text = io.readFileSync(join(dir, 'SKILL.md'), 'utf8'); } catch { /* unreadable: still a candidate, without its words */ }
       const parsed = text === null ? { title: null, description: null } : parseSkillFile(text);
@@ -50,9 +54,16 @@ export function scanSkillFolders(root, opts = {}) {
     }
     for (const entry of entries) {
       if (truncated) return;
-      if (!entry.isDirectory()) continue;
+      // A symlinked folder counts as a folder (skill collections are often symlink farms,
+      // the same rule the agents reader applies); the visited set keeps cycles finite.
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
       if (entry.name.startsWith('.') || skip.has(entry.name)) continue;
-      walk(join(dir, entry.name), depth + 1);
+      const next = join(dir, entry.name);
+      let key = next;
+      try { key = realpathSync(next); } catch { /* an unreadable link: the walk's own readdir skips it */ }
+      if (visited.has(key)) continue;
+      visited.add(key);
+      walk(next, depth + 1);
     }
   };
   walk(root, 0);

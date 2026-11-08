@@ -2109,7 +2109,8 @@ async function api(req, res, path, method, url) {
         return error(res, 400, `A skill called "${base}" is already in this workspace. Rename the folder, or remove the existing one first.`);
       }
       mkdirSync(join(WORKSPACE, 'skills'), { recursive: true });
-      cpSync(chosen, dest, { recursive: true });
+      // dereference: the chosen folder may itself be a symlink (skill packs travel as symlink farms) and the store holds real files.
+      cpSync(chosen, dest, { recursive: true, dereference: true });
       return json(res, 200, { added: base });
     } catch (e) {
       // Dismissing the dialog is { cancelled: true } above; anything thrown here is a real problem.
@@ -2148,7 +2149,8 @@ async function api(req, res, path, method, url) {
         if (!base || base === '/' || base.startsWith('.')) { failed.push({ from, error: 'That folder has no usable name.' }); continue; }
         // A name already in the workspace takes a -2/-3 suffix instead of failing the whole batch.
         const destName = uniqueDest(base, candidate => existsSync(join(root, candidate)));
-        try { cpSync(from, join(root, destName), { recursive: true }); imported.push({ from, added: destName }); }
+        // dereference: a picked skill may be a symlink or hold symlinked files; the store keeps real files.
+        try { cpSync(from, join(root, destName), { recursive: true, dereference: true }); imported.push({ from, added: destName }); }
         catch (e) { failed.push({ from, error: e.message }); }
       }
       return json(res, 200, { imported, failed });
