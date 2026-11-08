@@ -118,7 +118,7 @@ class LaunchDeepSeek(unittest.TestCase):
         code, out, err = run_cli(["launch", "--plan", "--model", "ud-q8_k_xl", "--no-tui"])
         self.assertEqual(code, 0, err)
         self.assertIn("read from the SSD", out)
-        self.assertIn("free disk space", out)
+        self.assertIn("[!] This computer has 64 GB of RAM", out)               # the small-RAM warning, worded as the plan says it now
         self.assertIn("It is still allowed", out)
         row = next(r for r in catalog(self.hw).rows() if r.family == "deepseek41" and r.model == "UD-Q8_K_XL")
         self.assertEqual(row.verdict, "no")                         # "too big (can still try)": the plan above is printed and nothing is refused
@@ -126,7 +126,8 @@ class LaunchDeepSeek(unittest.TestCase):
     def test_the_plan_names_dspark_not_mtp(self):
         code, out, err = run_cli(["launch", "--plan", "--model", "ud-q8_k_xl", "--no-tui"])
         self.assertEqual(code, 0, err)
-        self.assertIn("drafting  DSpark", out)
+        self.assertIn("drafting  off", out)                                   # the DeepSeek drafter measured slower on a Mac: the plan says so and starts none
+        self.assertIn("was not faster on a Mac", out)
         self.assertNotIn("MTP", out)
 
     def test_the_plan_does_not_promise_a_strata_engine_download_for_deepseek(self):
