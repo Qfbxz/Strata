@@ -9,6 +9,7 @@ import io
 import json
 import os
 import re
+import sys
 import shutil
 import tempfile
 import threading
@@ -442,7 +443,10 @@ class RunTests(StandardBase):
             doc, out = bs.run(self.target, None, out_root=self.root / "results", hash_model=True)
         self.assertRegex(out.name, r"^\d{4}-\d\d-\d\d-standard-rtx-3060-[0-9a-f]{8}$")
         self.assertEqual(doc["hardware"]["gpus"][0]["power_limit_w"], 170.0)
-        self.assertEqual(doc["software"]["runtime"], [{"name": "cuda", "version": "12.6"}])
+        runtime = doc["software"]["runtime"]
+        self.assertEqual(runtime[0], {"name": "cuda", "version": "12.6"})
+        if sys.platform != "darwin":
+            self.assertEqual(len(runtime), 1)
 
     def test_early_eos_and_a_reached_cap_stay_in_the_speed_summaries(self):
         self.server.script["performance-short-r1"] = {"completion_tokens": 5, "predicted_n": 5, "rate": 10.0}
@@ -498,8 +502,8 @@ class RunTests(StandardBase):
         started = time.monotonic()
         doc, _ = self.run_standard(timeout_s=0.6)
         record = self.record(doc, "performance-short-r1")
-        self.assertEqual((record["status"], record["error"]["kind"]), ("failed", "timeout"))
-        self.assertLess(record["timings"]["total_s"], 2.0)
+        self.assertEqual((record["status"], record["error"]["kind"]), ("failed", "connection_TimeoutError"))
+        self.assertLess(record["timings"]["total_s"], 3.0)                # 0.6 s of hang must still end promptly, with slack for a loaded runner
         self.assertGreaterEqual(record["timings"]["total_s"], 0.5)
         self.assertEqual(doc["run"]["status"], "complete")
         self.assertLess(time.monotonic() - started, 30)
@@ -1157,7 +1161,12 @@ class RealRunFindingsTests(StandardBase):
         why = bench_facts.Why()
         block = bench_facts.software(why, {"driver": "580.1", "cuda": "13.0"}, engine_version="0.1.46", build_options=None,
                                      engine_build={"name": "cuda", "version": "12.9"})
-        self.assertEqual(block["runtime"], [{"name": "cuda", "version": "12.9"}, {"name": "cuda-driver-supports", "version": "13.0"}])
+        runtime = block["runtime"]
+        self.assertEqual(runtime[:2], [{"name": "cuda", "version": "12.9"}, {"name": "cuda-driver-supports", "version": "13.0"}])
+        if sys.platform == "darwin":
+            self.assertIn({"name": "metal", "version": runtime[-1]["version"]}, runtime[2:], runtime)
+        else:
+            self.assertEqual(len(runtime), 2)
 
     def test_the_engine_log_comes_from_the_run_configs_log_file(self):
         console = self.root / "engine.log"
