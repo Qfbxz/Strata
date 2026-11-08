@@ -498,6 +498,7 @@ class SetupArgs(unittest.TestCase):
                 self.assertIn("is a tight fit: needs more disk space.", text)
                 self.assertNotIn("tight: tight", text)
 
+    @unittest.skipIf(sys.platform == "darwin", "a Mac's setup takes fewer options: setup_args's mac-fit keep-set drops --kv/--gpu*/--mtp (runner.py)")
     def test_the_apps_own_installer_arguments(self):
         import tempfile
         own = tempfile.mkdtemp()

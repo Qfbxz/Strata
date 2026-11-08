@@ -1,6 +1,7 @@
 """0.2.3 RC stress test: #6 (A07/B03) the download size counts the draft layer and the picture reader, B03 `--plan` does not call an installed
 engine missing, B10/E04 `--drafting off` leaves `--mtp <path>` out of the written config."""
 
+import sys
 import unittest
 from unittest import mock
 
@@ -43,6 +44,7 @@ class DownloadSize(unittest.TestCase):
             kinds = [p.kind for p in self.runner(family=family, model=model).model_state().parts]
             self.assertEqual(kinds, ["weights", "mtp", "mmproj"], family)
 
+    @unittest.skipIf(sys.platform == "darwin", "a Mac's setup takes fewer options: setup_args's mac-fit keep-set drops --kv/--gpu*/--mtp (runner.py)")
     def test_setup_is_told_the_draft_layer_is_off_for_drafting_off(self):
         args = self.runner(drafting="off").setup_args()
         self.assertEqual(args[args.index("--mtp") + 1], "off")

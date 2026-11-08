@@ -114,6 +114,7 @@ class NoTuiNeverAsks(unittest.TestCase):
         self.assertIn("Keeping your 3.0 GB", out.getvalue())
 
 
+@unittest.skipIf(sys.platform == "darwin", "a Mac's setup takes fewer options: setup_args's mac-fit keep-set drops --kv/--gpu*/--mtp (runner.py)")
 class SetupArguments(unittest.TestCase):
     def installed(self, h: Home, **cfg):
         path = h.base / "install" / "strata-iq3_xxs.json"
