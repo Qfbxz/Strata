@@ -237,6 +237,7 @@ class StartNeverAcquiresTests(unittest.TestCase):
                 code = e
         return code, out.getvalue(), started
 
+    @unittest.skipIf(sys.platform == "darwin", "setup.main on a Mac dispatches to metal/setup_mac.py before the cuda acquisition paths")
     def test_a_start_with_an_old_engine_makes_no_request_and_runs_no_installer(self):
         rec = _Recorder()
         code, text, started = self.run_setup(rec, "--yes", "--no-browser")
@@ -262,6 +263,7 @@ class StartNeverAcquiresTests(unittest.TestCase):
             if p != self.cfg:                                          # a start touches the config (most recently used)
                 self.assertEqual(p.stat().st_mtime_ns, ns, p)
 
+    @unittest.skipIf(sys.platform == "darwin", "setup.main on a Mac dispatches to metal/setup_mac.py before the cuda acquisition paths")
     def test_a_card_the_engine_has_no_code_for_is_a_typed_error_naming_the_command(self):
         rec = _Recorder()
         card = {"index": 0, "name": "RTX 5090", "arch": "120", "vram_gb": 32.0, "driver": "580.0"}
@@ -317,6 +319,7 @@ class StartNeverAcquiresTests(unittest.TestCase):
 
 
 class CliServeIsOfflineTests(unittest.TestCase):
+    @unittest.skipIf(sys.platform == "darwin", "the serve plan on a Mac probes IOAccelerator (ioreg), not the Linux drm backends this test pins")
     def test_serve_plan_reaches_no_network_and_runs_no_program(self):
         rec = _Recorder()
         with tempfile.TemporaryDirectory() as d:
