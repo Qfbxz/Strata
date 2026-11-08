@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -328,6 +329,7 @@ class PlanOnBusyCards(Base):
             self.addCleanup(p.stop)
         return r
 
+    @unittest.skipIf(sys.platform == "darwin", "the all-cards split engine is the Linux DGX Spark feature (SE.expected system=linux): it does not exist on a Mac, so the auto plan resolves to DFlash2 there and the MTP-on-split expectations are Linux-CI scoped")
     def test_busy_cards_resolve_to_dflash2_and_fetch_no_draft_layer(self):
         r = self.runner([card(0, free=8192), card(1, free=8192)])
         self.assertFalse(r.split_expected())
@@ -336,6 +338,7 @@ class PlanOnBusyCards(Base):
         self.assertNotIn("mtp", kinds)
         self.assertNotIn("MTP", r.drafting_plan_line())
 
+    @unittest.skipIf(sys.platform == "darwin", "the all-cards split engine is the Linux DGX Spark feature (SE.expected system=linux): it does not exist on a Mac, so the auto plan resolves to DFlash2 there and the MTP-on-split expectations are Linux-CI scoped")
     def test_free_cards_still_resolve_to_the_split_with_the_mtp(self):
         r = self.runner([card(0, free=97000), card(1, free=97000)])
         self.assertTrue(r.split_expected())
@@ -343,6 +346,7 @@ class PlanOnBusyCards(Base):
         self.assertIn("mtp", [p["kind"] for p in r.download_plan()["parts"]])
         self.assertEqual(r.drafting_plan_line(), "Drafting: MTP (the all-cards split engine uses the MTP draft layer, 5.2 GB)")
 
+    @unittest.skipIf(sys.platform == "darwin", "the all-cards split engine is the Linux DGX Spark feature (SE.expected system=linux): it does not exist on a Mac, so the auto plan resolves to DFlash2 there and the MTP-on-split expectations are Linux-CI scoped")
     def test_a_running_server_of_this_launch_is_not_busy_memory(self):
         """build_config runs before the old server is stopped: the memory it holds is given back, so it must not turn the split down on a restart."""
         busy = [card(0, free=8192), card(1, free=8192)]
@@ -373,6 +377,7 @@ class AppPlanWhileItsEngineRuns(Base):
         self.assertEqual(code, 0, err)
         return json.loads(out)
 
+    @unittest.skipIf(sys.platform == "darwin", "the all-cards split engine is the Linux DGX Spark feature (SE.expected system=linux): it does not exist on a Mac, so the auto plan resolves to DFlash2 there and the MTP-on-split expectations are Linux-CI scoped")
     def test_busy_cards_say_dflash2_unless_the_running_engine_is_about_to_be_unloaded(self):
         p = self.plan()
         self.assertEqual((p["split"], p["choice"]), (False, "dflash2"))
