@@ -14,7 +14,7 @@ import { ElectricityPrice } from '../components/ElectricityPrice';
 import { ApprovalNotifySetting, DoneSoundSetting, PortSetting, TraySetting, useShellState } from '../components/ShellSettings';
 import { FeatureFlagsSetting } from '../components/FeatureFlags';
 import { LANGUAGES } from '../lib/i18n';
-import { resetAppearance, setLanguage, setWhileBusy } from '../lib/store';
+import { resetAppearance, setContrast, setLanguage, setWhileBusy } from '../lib/store';
 import { CONTENT_FONT_RANGE, setContentFontSize, setDensity, setFocus, setMotion, setShortcuts, setTheme, setTransparency, setUiScale, UI_SCALES, useStore, setSettingsSection } from '../lib/store';
 const PANELS = [{ name: 'Appearance', icon: 'sun', sections: ['General', 'Reading & focus'] }, { name: 'Assistant', icon: 'skills', sections: ['Assistant files'] }, { name: 'Models', icon: 'models', sections: [] }, { name: 'Tools', icon: 'tool', sections: [] }, { name: 'Storage', icon: 'disk', sections: ['Storage'] }, { name: 'Engine', icon: 'engine', sections: [] }, { name: 'About', icon: 'info', sections: ['About', 'Update', 'Privacy'] }] as const;
 export function SettingsScreen() {
@@ -47,6 +47,7 @@ export function SettingsScreen() {
         { section: 'Reading & focus', label: 'Motion', hint: 'Reduced motion also disables smooth scrolling.', aliases: 'animation system full reduced', control: <Select value={prefs.motion} ariaLabel={tr("Motion")} options={[{ value: 'system', label: 'Follow system' }, { value: 'full', label: 'Full' }, { value: 'reduced', label: 'Reduced' }]} onChange={setMotion}/> },
         { section: 'Reading & focus', label: 'Transparency', hint: 'Translucent controls or solid surfaces. Text stays opaque.', aliases: 'blur glass liquid opaque translucent', control: <Select value={prefs.transparency} ariaLabel={tr("Transparency")} options={[{ value: 'translucent', label: 'Translucent' }, { value: 'opaque', label: 'Opaque' }]} onChange={setTransparency}/> },
         { section: 'Reading & focus', label: 'Focus reading', hint: 'Hides navigation in chat. Settings stays open above the conversation.', aliases: 'distraction quiet', control: <button className="st-toggle" role="switch" aria-checked={prefs.focus} aria-label={tr("Focus reading")} onClick={() => setFocus(!prefs.focus)}/> },
+        { section: 'Reading & focus', label: 'Contrast', hint: 'Standard keeps the palette as designed; increased strengthens text and borders.', aliases: 'accessibility legibility borders stronger', control: <Select value={prefs.contrast} ariaLabel={tr("Contrast")} options={[{ value: 'standard', label: 'Standard' }, { value: 'increased', label: 'Increased' }]} onChange={v => setContrast(v as typeof prefs.contrast)}/> },
         { section: 'Reading & focus', label: 'Reset appearance', hint: 'Puts the theme, text sizes, spacing, motion and transparency back to their shipped values. Your layout and privacy choices stay as they are.', aliases: 'defaults restore undo theme size spacing motion transparency', control: <ResetAppearanceSetting/> },
     ];
     const q = query.trim().toLowerCase();

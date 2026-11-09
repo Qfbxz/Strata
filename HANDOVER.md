@@ -158,6 +158,8 @@
 
 - **【恢复丢失的 Settings 搜索与「重置外观」控件；三条 flow 由红转绿】（2026-11-09 晚）**：58 条 UI flow 中 privacy / settingsreset / settingssearch 长期必挂，根因是它们依赖的两个控件在界面重构中丢失：设置页搜索框（`.settingsindex__search`，CSS 仍在）与「Reset appearance」字段（`resetAppearance()` 仍在 store，但无入口）。**恢复**：①导航栏搜索框——按标签/提示/别名过滤当前面板字段，整节无匹配即隐藏，全无匹配给 Empty + Clear search（节元素补 `id=settings-*` 供 flow 计数）；②Reading & focus 新增「Reset appearance」字段，两步确认（Reset → Keep/Reset），复用 `resetAppearance()`（不碰布局与隐私）；③privacy flow 改为核对产品事实（Privacy 面板写明不发送用量遥测、且不存在遥测开关），保留“外观重置不动隐私答案”的检查；④删除无调用的 `setShareTelemetry`。新增 7 条字符串已进 9 种语言（s9067–s9073）。**验证**：三条 flow 全绿（settingsreset：Reset appearance 唯一命中、Keep 后不变、Reset 后主题与缩放恢复且 rail 不动；settingssearch：dark 命中别名、zzzz 出 Empty、Clear 后 15 字段/2 节复原；privacy：读到原句、遥测开关数=0）；`npm run check` rc=0；npm 全量 1753 测中 1637 过/112 跳，4 例红（model-directory/parallel-chats/reliability/runtime-api）孤立复跑 13/13 全绿，为并行加载抖动；locale-gaps 3/3 过。dist 已同步进在役 App（index-B-wqk0gB.js）。
 
+- **【又找回两个「有状态无入口」的控件：Contrast 与聊天归档】（2026-11-09 晚）**：静态盘点 `store.ts` 的 136 个导出 → 22 个在 `src` 无引用，逐一核对后确认两处是**功能完整但缺控件**：①`prefs.contrast` 已由 `applyPrefs()` 写到 `<html data-contrast>`，三组 CSS 配色也在，唯独没有设置入口 → Reading & focus 新增「Contrast」下拉（Standard / Increased），实测切换后 `data-contrast=increased` 且 localStorage 持久化；②`toggleArchive()`、`archived` 过滤、“Include archived chats”、侧栏 “Archived” 标记全在，会话菜单却只有 Rename/Pin/Delete → 补「Archive / Unarchive」菜单项（layers 图标），实测归档后该行即从侧栏消失、未删除。新增 4 条字符串（s9074–s9077）已进 9 种语言；法语 `;` 前按项目规范改用 NBSP（french-catalog 测试由红转绿）。**验证**：contrast 与 archive 的 Playwright 实测如上；`npm run check` rc=0；全量套件复跑（French 修好后）**1753 测/1641 过/0 败/112 跳，rc=0**（此前一跑的 3 例红中：route 双聊与 two live chats 属已知并行加载抖动、单独复跑即绿；French 已按规范修 NBSP）。dist 已同步进在役 App（index-CEnpRrEG.js）。
+
 ---
 
 

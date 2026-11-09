@@ -19,7 +19,7 @@ import { MOD, runCommand } from '../lib/commands';
 import { bindingFor, bindingKeys, useBindings } from '../lib/shortcut-bindings';
 import { Btn, Dialog, Icon, IconBtn, type IconName } from '../components/ui';
 import { Brand } from '../components/Brand';
-import { addWorkspace, deleteSession, go, isUnread, liveChatIds, pickWorkspace, renameSession, removeWorkspace, renameWorkspace, selectSession, setActiveWorkspace, setNavOpen, togglePin, toggleRail, setTheme, useStore } from '../lib/store';
+import { addWorkspace, deleteSession, go, isUnread, liveChatIds, pickWorkspace, renameSession, removeWorkspace, renameWorkspace, selectSession, setActiveWorkspace, setNavOpen, toggleArchive, togglePin, toggleRail, setTheme, useStore } from '../lib/store';
 export function Sidebar({ containerRef }: {
     containerRef: RefObject<HTMLElement | null>;
 }) {
@@ -120,6 +120,7 @@ export function Sidebar({ containerRef }: {
     {tr(menuId && menuSession ? <FloatingMenu anchor={menuTrigger.current} title={tr("Actions for {0}", [sessionTitle(menuSession)])} onClose={closeMenu}>
       <button role="menuitem" className="menu__item" onClick={() => { setName(sessionTitle(menuSession)); setNavOpen(false); setRenameId(menuId); setMenuId(null); }}><Icon name="pencil"/>{tr("Rename")}</button>
       <button role="menuitem" className="menu__item" onClick={() => { togglePin(menuId); closeMenu(); }}><Icon name="pin"/>{tr(menuSession.pinned ? 'Unpin' : 'Pin')}</button>
+      <button role="menuitem" className="menu__item" onClick={() => { toggleArchive(menuId); closeMenu(); }}><Icon name="layers"/>{tr(menuSession.archived ? 'Unarchive' : 'Archive')}</button>
       <button role="menuitem" className="menu__item menu__item--danger" onClick={() => { setNavOpen(false); setDeleteId(menuId); setMenuId(null); }}><Icon name="trash"/>{tr("Delete chat")}</button>
     </FloatingMenu> : null)}
     <Dialog open={!!renameId} compact title={tr("Rename chat")} onClose={() => setRenameId(null)} actions={<><Btn onClick={() => setRenameId(null)}>{tr("Cancel")}</Btn><Btn variant="primary" disabled={!name.trim()} onClick={() => {

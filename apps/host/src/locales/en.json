@@ -3562,5 +3562,9 @@
  "s9070": "Search settings",
  "s9071": "Search settings…",
  "s9072": "No settings match",
- "s9073": "Try a different word, or clear the search."
+ "s9073": "Try a different word, or clear the search.",
+ "s9074": "Standard",
+ "s9075": "Standard keeps the palette as designed; increased strengthens text and borders.",
+ "s9076": "Archive",
+ "s9077": "Unarchive"
 }
