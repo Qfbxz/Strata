@@ -3135,7 +3135,6 @@ textarea.st-input {
   color: var(--st-danger-text);
 }
 
-
 .stageMark[data-state='wait'] .dot {
   width: 8px;
   height: 8px;
@@ -3165,8 +3164,6 @@ textarea.st-input {
   text-align: center;
   padding: 20px 0 4px;
 }
-
-
 
 /* ---- sidebar: collapse row, workspaces tree, more menu -------------------- */
 

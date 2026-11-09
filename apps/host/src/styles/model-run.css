@@ -313,7 +313,6 @@
 
 @keyframes run-reveal {from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
-
 @media(min-width:1700px) {.model-run{max-width:1240px}.run-card{padding:25px}.run-layout{gap:28px}}
 
 @media(max-width:1100px) {.run-toolbar{flex-wrap:wrap}.run-profile-choice{flex-wrap:wrap}.run-layout{gap:18px;grid-template-columns:minmax(0,1.35fr) minmax(285px,1fr)}.run-card{padding:19px}.run-speeds>div>strong{font-size:25px}.run-profile-actions{gap:3px}.run-profile-actions .st-btn{font-size:11px}}
