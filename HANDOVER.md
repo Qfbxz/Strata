@@ -174,6 +174,8 @@
 
 - **【死代码清理（第三批：lib 与 store 未用导出）】（2026-11-09 晚）**：删除 19 个零引用导出：store 的 `refreshHardware/waitForInstalled/resetEngine/exportEngine/setSkills/scopeSkill/createChatShowcase/createPreviewExamples/loopIsRunning`；format 的 `gbShort/uptime/fitFor/FIT_LABEL/downloadMinutes`；experience 的 `sourceText`；answer-text 的 `isTidy`；kept-state 的 `keptValue/forgetKept`；time-skip 的 `timeSkipNeedsReview`。连带清理无用 import（保留仍被 `/subagents` 演示命令使用的 `createSubagentExample`）。**验证**：tsc 0 错、audit clean、npm 全量 **1750 测/1638 过/0 败/112 跳**。dist 已同步进在役 App。
 
+- **【UI flow 债清理（第二批）】（2026-11-09 晚）**：删除三条整体测试已移除的“会话上下文侧栏”的 flow（`railweight` / `rail` / `panel`——该面板被 telemetry chip 取代，断言的 `.contextpanel__*` / `.railsection` 已不存在）；flow 总数 55→53。抽样复跑 `railgeometry` / `focusmode` / `light` 全部 rc=0（console 里的 400 为无模型环境的聊天请求，属预期）。
+
 ---
 
 

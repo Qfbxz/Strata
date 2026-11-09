@@ -620,35 +620,6 @@ if (flow === 'dismissal') {
   await tall.close();
 }
 
-if (flow === 'railweight') {
-  await page.click('button.nav-new');
-  await page.waitForTimeout(400);
-  await page.fill('textarea', 'say hello');
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(7000);
-  await page.keyboard.press('Enter').catch(() => {});
-  await page.waitForTimeout(3500);
-  await page.click('button[title="Conversation context"]');
-  await page.waitForTimeout(800);
-
-  const out = await page.evaluate(() => {
-    const sec = document.querySelector('.railsection');
-    const cs = getComputedStyle(sec);
-    const body = document.querySelector('.contextpanel__body')?.innerText ?? '';
-    return {
-      sectionIsQuiet: cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.boxShadow === 'none',
-      panelIsOneSurface: getComputedStyle(document.querySelector('.contextpanel')).backgroundColor !== 'rgba(0, 0, 0, 0)',
-      heads: [...document.querySelectorAll('.railsection .h4')].map((h) => h.textContent.trim()),
-      contextWindowMentions: (body.match(/Context window/g) ?? []).length,
-    };
-  });
-  console.log('sections are quiet   :', out.sectionIsQuiet, '(no fill, no shadow)');
-  console.log('the rail is one object:', out.panelIsOneSurface);
-  console.log('section heads        :', JSON.stringify(out.heads));
-  console.log('no repeated heading  :', out.contextWindowMentions === 1, '<- read "Context window / Context window / 6%" before');
-  await shot('450-rail-weight');
-}
-
 if (flow === 'skillscope') {
   await page.goto(`${BASE}/#/skills`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1900);
@@ -1494,44 +1465,6 @@ if (flow === 'sessionmenu') {
   await shot('200-session-menu');
 }
 
-if (flow === 'rail') {
-  await page.click('button.nav-new');
-  await page.waitForTimeout(400);
-  await page.fill('textarea', 'read the readme');
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(7000);
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(6000);
-  await page.click('button[title="Conversation context"]');
-  await page.waitForTimeout(700);
-
-  const state = () => page.evaluate(() => {
-    const body = document.querySelector('.contextpanel__body');
-    const secs = [...document.querySelectorAll('.railsection')];
-    return {
-      sections: secs.length,
-      scrolls: body.scrollHeight > body.clientHeight + 2,
-      firstRows: getComputedStyle(secs[0].querySelector('.railsection__body')).gridTemplateRows,
-    };
-  });
-  console.log('all open    :', JSON.stringify(await state()));
-  await page.click('.railsection__head >> nth=0');
-  await page.waitForTimeout(120);
-  console.log('mid-collapse:', JSON.stringify(await state()), '<- animating, not snapping');
-  await page.waitForTimeout(450);
-  console.log('collapsed   :', JSON.stringify(await state()));
-
-  const tools = await page.evaluate(() => {
-    const sec = [...document.querySelectorAll('.railsection')].find((x) => x.textContent.includes('Tools in reach'));
-    return [...sec.querySelectorAll('.railsection__inner .row')].map((r) => ({
-      name: r.querySelector('.small.strong')?.textContent,
-      used: r.hasAttribute('data-used'),
-    }));
-  });
-  console.log('tools used  :', JSON.stringify(tools.filter((t) => t.used).map((t) => t.name)));
-  await shot('190-context-rail');
-}
-
 if (flow === 'skills') {
   await page.goto(`${BASE}/#/skills`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
@@ -1710,17 +1643,6 @@ if (flow === 'overlays') {
   await page.keyboard.press('Meta+Slash');
   await page.waitForTimeout(700);
   await shot('122-shortcuts');
-}
-
-if (flow === 'panel') {
-  await page.click('text=New conversation');
-  await page.waitForTimeout(500);
-  await page.fill('textarea', 'Read the README and summarise it');
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(5200);
-  await page.click('button[title="Conversation context"]');
-  await page.waitForTimeout(1000);
-  await shot('100-context-panel');
 }
 
 if (flow === 'sampling') {
