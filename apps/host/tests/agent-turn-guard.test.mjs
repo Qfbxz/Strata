@@ -61,6 +61,41 @@ test('a nearly full context stops the turn; a normal one does not', () => {
   assert.equal(new TurnGuard({ contextMax: 0 }).context(1e9), null, 'an unknown window is never guessed');
 });
 
+test('twelve identical calls in a row stop the turn; a different call starts the count again', () => {
+  const g = new TurnGuard();
+  const read = (i, path) => ({ id: `t${i}`, name: 'read', state: 'done', args: { path } });
+  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 1; i++) assert.equal(g.card(read(i, '/same.txt')), null, `${i + 1} of ${GUARD_LIMITS.identicalCalls}`);
+  assert.equal(g.card(read(100, '/same.txt')), 'repeat');
+  assert.equal(g.card(read(101, '/same.txt')), 'repeat', 'once stopped it stays stopped');
+  const h = new TurnGuard();
+  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 1; i++) assert.equal(h.card(read(i, '/same.txt')), null);
+  assert.equal(h.card(read(50, '/other.txt')), null, 'a different call is a different call: the count starts again');
+  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 2; i++) assert.equal(h.card(read(200 + i, '/same.txt')), null);
+  assert.equal(h.card(read(300, '/same.txt')), 'repeat');
+});
+
+test('the repeat limit is a setting: the bridge can tighten or loosen it', () => {
+  const strict = new TurnGuard({ limits: { identicalCalls: 3 } });
+  for (let i = 0; i < 2; i++) assert.equal(strict.card({ id: `t${i}`, name: 'read', state: 'done', args: { path: '/x' } }), null);
+  assert.equal(strict.card({ id: 't9', name: 'read', state: 'done', args: { path: '/x' } }), 'repeat');
+  const loose = new TurnGuard({ limits: { identicalCalls: 0 } });
+  for (let i = 0; i < GUARD_LIMITS.identicalCalls + 5; i++) assert.equal(loose.card({ id: `t${i}`, name: 'read', state: 'done', args: { path: '/x' } }), null, '0 disables the backstop');
+});
+
+test('the same tool with different arguments is not a repeat; running cards are not counted yet', () => {
+  const g = new TurnGuard();
+  for (let i = 0; i < GUARD_LIMITS.identicalCalls + 3; i++) assert.equal(g.card({ id: `r${i}`, name: 'read', state: 'done', args: { path: `/file-${i}.txt` } }), null, 'different files are different calls');
+  const w = new TurnGuard();
+  for (let i = 0; i < GUARD_LIMITS.identicalCalls + 3; i++) assert.equal(w.card({ id: `w${i}`, name: 'read', state: 'running', args: { path: '/same' } }), null, 'a running card is not a finished call');
+});
+
+test('the repeat note is a plain sentence with a next step and a key', () => {
+  const frame = guardNote('repeat');
+  assert.equal(frame.type, 'delta'); assert.equal(frame.own, true);
+  assert.equal(frame.key, GUARD_NOTES.repeat);
+  assert.match(GUARD_NOTES.repeat, /repeating the same operation/i);
+});
+
 test('a turn that ends with no words always gets a plain message: out of room, or nothing written', () => {
   const g = new TurnGuard({ contextMax: 10000 });
   const done = { kind: 'completed' };
