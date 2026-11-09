@@ -182,6 +182,8 @@
 
 - **【服务端死函数清理（第四批）】（2026-11-09 深夜）**：移除 8 个零引用的服务端导出：`monitor.mjs` 的 resetContext/setExpertCache/currentOutputTps、`hardware.mjs` 的 invalidate、`models.mjs` 的 loadedVariant/newDownloadId、`catalog.mjs` 的 modelFile、`supervisor.mjs` 的 currentPort。插件目录（plugins/*、custom-tools-mcp、dsh-infinite-gen-4/scripts）虽无 JS import，但由 Harness 按路径加载，**不动**。**验证**：node --check 全过；覆盖这五个模块的 9 个测试文件 59/59 全绿；npm 全量 **1750 测/1638 过/0 败/112 跳**。
 
+- **【H1 同参数强终止兜底落地（TDD，be5f0232）】（2026-11-10 凌晨）**：turn-guard 新增「同一工具+同一参数连续调用」计数，第 12 次（可设，`agentGuard.identicalCalls`，0=关）终止该 turn 并出人话卡片；新句 `s9078` 已进九语言目录。桥接层修复一处真缺陷：mid-turn 触发的护栏（含既有的 searches-failed）此前被 `!turn.stopping` 门挡住、停止中的 turn 不出注记 → 现在 trip 时的原因确定性地成为 turn 结束注记。脚本化验收：12 次相同 shell 调用以 repeat 注记结束（不再挂死），12 个不同文件不误伤（带内置 Harness 实跑）。**RED**：3 条新测试按预期失败（495cf87b）；**GREEN**：护栏测试 14/14 + 全量 1755 测/1641 过/1 已知环境抖动。设置项：`agentGuard` 段（guard-settings.mjs 校验）+ GET/PUT `/api/agent-guard`。
+
 ---
 
 
