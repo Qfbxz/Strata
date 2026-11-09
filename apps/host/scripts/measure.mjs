@@ -76,6 +76,26 @@ async function setSize(px) {
   }
 }
 
+/** A machine with no model loaded never answers the probe message. The rule under test is the
+ *  reading measure of assistant prose, so one synthetic paragraph in the same container measures
+ *  the same CSS — and the check still runs where no model weights are installed. */
+async function ensureParagraph() {
+  if (await page.locator('.st-msg--assistant .st-bubble p').count()) return;
+  await page.evaluate(() => {
+    const inner = document.querySelector('.chat__inner');
+    if (!inner) throw new Error('no .chat__inner to place the sample paragraph in');
+    const row = document.createElement('div');
+    row.className = 'st-msg st-msg--assistant';
+    const bubble = document.createElement('div');
+    bubble.className = 'st-bubble';
+    const p = document.createElement('p');
+    p.textContent = 'The quick brown fox jumps over the lazy dog. '.repeat(24);
+    bubble.appendChild(p);
+    row.appendChild(bubble);
+    inner.appendChild(row);
+  });
+}
+
 async function prepareConversation() {
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1300);
@@ -84,6 +104,7 @@ async function prepareConversation() {
   await page.fill('textarea', 'read the readme');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(6500);
+  await ensureParagraph();
 }
 
 const rows = [];
@@ -93,6 +114,7 @@ for (const size of [10, 16, 22]) {
   await setSize(size);
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1000);
+  await ensureParagraph();
   rows.push([`${size}px · normal`, await measure()]);
 
   await page.keyboard.press('Meta+Shift+F');

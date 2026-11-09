@@ -146,6 +146,8 @@
 
 - **【UI 设计审计灯转绿 + 新功能样式补齐 + UI 探针钉英文】（2026-11-09 晚）**：`npm run audit` 此前 **14 处失败**（长期红着）→ **clean, rc=0**。修法全走既有 token、不新增 kit 变量：`--st-surface-raised`（未定义；其 rgba 回退又被判字面色）→ `--st-surface-2`（5 处）；`--st-muted`（未定义）→ `--st-ink-muted`（3 处）；`wspanel__crumb` radius 4px → `--st-r-sm`；`chat-photo-card__name`/`branchchip__count` 的 10px → `--st-fs-xs`；缩略图删除钮 `rgba(0,0,0,.62)`/`#fff` → `--st-code-bg`/`--st-code-ink`；补 `feature-flags__grid/__row`（Settings 的七个功能开关此前无任何样式）与 `subagent-tr__u`（子智能体日志的用户行）三条规则。**探针本地化**：contrast/measure/luminance/motion/flow/motionbudget 的 Playwright 页统一 `locale: 'en-US'`——本机系统语言为中文时 UI 自动中文化，按英文 title 定位的探针必然超时（这是它们在本机从未跑通的真因，不是 UI 回归）。**验证**：audit clean(rc=0)、contrast 全配对 PASS(rc=0)、luminance PASS(rc=0)、vite build 通过；measure 仍以“已加载模型的对话”为前提（本次模拟宿主无模型，等 assistant 气泡超时，非样式回归）。dist 已同步进在役 App（`index-ZEzCb3bY.css`；feature-flags / subagent-tr__u / surface-2 标记实测在包）。
 
+- **【UI 质量门一键全绿（measure 去掉模型依赖）】（2026-11-09 晚）**：`npm run check`（typecheck→audit→contrast→measure→luminance）本机 **rc=0**。measure 此前依赖“已加载模型的对话”里出现 assistant 气泡，无模型机器上必然超时 → 增补 `ensureParagraph()`：真实回复缺失时，在同一 `.chat__inner` 注入一条 `.st-msg--assistant` 合成段落（测的仍是同一套 CSS 与容器宽度，不是硬编码数字）；真实回复存在时一律跳过，保真度不变。实测 10/16/22px × normal/focus 六组均 **68 chars/line PASS**（舒适带 45–75）；contrast 全配对 PASS、luminance 九屏 ok、audit clean。
+
 ---
 
 
