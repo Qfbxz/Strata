@@ -281,7 +281,7 @@ if (flow === 'endpoints') {
 if (flow === 'contexthistory') {
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   const ctx = () => page.evaluate(async () => {
     const m = await fetch('/api/monitor').then((r) => r.json());
@@ -376,7 +376,7 @@ if (flow === 'loadguard') {
 if (flow === 'focusmode') {
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'say hello in one line');
   await page.keyboard.press('Enter');
@@ -445,7 +445,7 @@ if (flow === 'focusmode') {
 }
 
 if (flow === 'railgeometry') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'read the readme');
   await page.keyboard.press('Enter');
@@ -487,7 +487,7 @@ if (flow === 'railgeometry') {
 
 if (flow === 'archive') {
   for (const m of ['keep me', 'archive me']) {
-    await page.click('text=New session');
+    await page.click('button.nav-new');
     await page.waitForTimeout(400);
     await page.fill('textarea', m);
     await page.keyboard.press('Enter');
@@ -499,7 +499,7 @@ if (flow === 'archive') {
     [...document.querySelectorAll('.navsession__title')].map((t) => t.textContent));
   console.log('before        :', JSON.stringify(await rows()));
 
-  await page.click('.navsession >> nth=0', { button: 'right' });
+  await page.locator('.session-overflow').first().dispatchEvent('click');
   await page.waitForTimeout(500);
   console.log('menu          :', JSON.stringify(await page.evaluate(() =>
     [...document.querySelectorAll('.menu__item')].map((i) => i.textContent.trim()))));
@@ -514,7 +514,7 @@ if (flow === 'archive') {
     b?.click();
   });
   await page.waitForTimeout(500);
-  await page.fill('input[placeholder="Search conversations"]', 'archive me');
+  await page.fill('input[placeholder="Search chats…"]', 'archive me');
   await page.waitForTimeout(700);
   console.log('found by search:', JSON.stringify(await rows()), '<- archived stays findable');
   await shot('490-archive');
@@ -567,7 +567,7 @@ if (flow === 'dismissal') {
   const tall = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 560 }, deviceScaleFactor: 1 });
   await tall.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await tall.waitForTimeout(1500);
-  await tall.click('text=New session');
+  await tall.click('button.nav-new');
   await tall.waitForTimeout(400);
   for (const m of ['write a paragraph about tides', 'and another about the moon']) {
     await tall.fill('textarea', m);
@@ -621,7 +621,7 @@ if (flow === 'dismissal') {
 }
 
 if (flow === 'railweight') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'say hello');
   await page.keyboard.press('Enter');
@@ -712,7 +712,7 @@ if (flow === 'turnnav') {
   const tall = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 640 }, deviceScaleFactor: 1 });
   await tall.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await tall.waitForTimeout(1500);
-  await tall.click('text=New session');
+  await tall.click('button.nav-new');
   await tall.waitForTimeout(400);
   for (const m of ['first question about tides', 'second question about the moon', 'third question about wind']) {
     await tall.fill('textarea', m);
@@ -932,7 +932,7 @@ if (flow === 'overlayresize') {
   const wide = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1000 }, deviceScaleFactor: 1 });
   await wide.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await wide.waitForTimeout(1500);
-  await wide.click('text=New session');
+  await wide.click('button.nav-new');
   await wide.waitForTimeout(400);
   await wide.fill('textarea', 'hello');
   await wide.keyboard.press('Enter');
@@ -963,7 +963,7 @@ if (flow === 'completioncue') {
   const short = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 520 }, deviceScaleFactor: 1 });
   await short.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await short.waitForTimeout(1500);
-  await short.click('text=New session');
+  await short.click('button.nav-new');
   await short.waitForTimeout(400);
   for (const m of ['write a paragraph about tides', 'and another about the moon']) {
     await short.fill('textarea', m);
@@ -1031,7 +1031,7 @@ if (flow === 'privacy') {
 }
 
 if (flow === 'railclose') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'say hello');
   await page.keyboard.press('Enter');
@@ -1093,7 +1093,7 @@ if (flow === 'treekeys') {
 if (flow === 'readmark') {
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1600);
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'read the readme file in the repo');
   await page.keyboard.press('Enter');
@@ -1168,7 +1168,7 @@ if (flow === 'jumplatest') {
   const short = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 520 }, deviceScaleFactor: 1 });
   await short.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await short.waitForTimeout(1500);
-  await short.click('text=New session');
+  await short.click('button.nav-new');
   await short.waitForTimeout(400);
   for (const m of ['write a paragraph about tides', 'and another about the moon', 'and one about the wind']) {
     await short.fill('textarea', m);
@@ -1225,14 +1225,14 @@ if (flow === 'settingssearch') {
 }
 
 if (flow === 'unread') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'a thread');
   await page.keyboard.press('Enter');
   await page.waitForTimeout(7000);
   await page.keyboard.press('Enter').catch(() => {});
   await page.waitForTimeout(3500);
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(600);
 
   // make the older conversation look updated since it was last read
@@ -1327,7 +1327,7 @@ if (flow === 'empties') {
 }
 
 if (flow === 'branch') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'say hello');
   await page.keyboard.press('Enter');
@@ -1447,7 +1447,7 @@ if (flow === 'skilluse') {
   // a prompt that should trigger one skill and nothing else
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'review this code and check my code for bugs');
   await page.keyboard.press('Enter');
@@ -1469,7 +1469,7 @@ if (flow === 'skilluse') {
 
 if (flow === 'sessionmenu') {
   for (const msg of ['keep this one', 'delete this one']) {
-    await page.click('text=New session');
+    await page.click('button.nav-new');
     await page.waitForTimeout(350);
     await page.fill('textarea', msg);
     await page.keyboard.press('Enter');
@@ -1497,7 +1497,7 @@ if (flow === 'sessionmenu') {
 }
 
 if (flow === 'rail') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'read the readme');
   await page.keyboard.press('Enter');
@@ -1557,7 +1557,7 @@ if (flow === 'skills') {
 
 if (flow === 'sidebar') {
   for (const msg of ['alpha conversation', 'beta conversation']) {
-    await page.click('text=New session');
+    await page.click('button.nav-new');
     await page.waitForTimeout(350);
     await page.fill('textarea', msg);
     await page.keyboard.press('Enter');
@@ -1587,7 +1587,7 @@ if (flow === 'sidebar') {
 }
 
 if (flow === 'retryedit') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'read the readme');
   await page.keyboard.press('Enter');
@@ -1650,7 +1650,7 @@ if (flow === 'palette') {
 }
 
 if (flow === 'telemetry') {
-  await page.click('text=New session');
+  await page.click('button.nav-new');
   await page.waitForTimeout(400);
   await page.fill('textarea', 'read the readme and summarise it');
   await page.keyboard.press('Enter');

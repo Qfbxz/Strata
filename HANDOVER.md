@@ -160,6 +160,8 @@
 
 - **【又找回两个「有状态无入口」的控件：Contrast 与聊天归档】（2026-11-09 晚）**：静态盘点 `store.ts` 的 136 个导出 → 22 个在 `src` 无引用，逐一核对后确认两处是**功能完整但缺控件**：①`prefs.contrast` 已由 `applyPrefs()` 写到 `<html data-contrast>`，三组 CSS 配色也在，唯独没有设置入口 → Reading & focus 新增「Contrast」下拉（Standard / Increased），实测切换后 `data-contrast=increased` 且 localStorage 持久化；②`toggleArchive()`、`archived` 过滤、“Include archived chats”、侧栏 “Archived” 标记全在，会话菜单却只有 Rename/Pin/Delete → 补「Archive / Unarchive」菜单项（layers 图标），实测归档后该行即从侧栏消失、未删除。新增 4 条字符串（s9074–s9077）已进 9 种语言；法语 `;` 前按项目规范改用 NBSP（french-catalog 测试由红转绿）。**验证**：contrast 与 archive 的 Playwright 实测如上；`npm run check` rc=0；全量套件复跑（French 修好后）**1753 测/1641 过/0 败/112 跳，rc=0**（此前一跑的 3 例红中：route 双聊与 two live chats 属已知并行加载抖动、单独复跑即绿；French 已按规范修 NBSP）。dist 已同步进在役 App（index-CEnpRrEG.js）。
 
+- **【UI flow 债清理（第一批）】（2026-11-09 晚）**：`flow.mjs` 里 20 处 `text=New session` 与 1 处 `input[placeholder="Search conversations"]` 指向早已不存在的控件（侧栏按钮现为 `button.nav-new`，搜索占位为 “Search chats…”）→ 全部改为现行选择器；archive flow 的会话菜单改用可发现的 `.session-overflow` 按钮（右键上下文菜单会被浮动菜单的“点外关闭”同帧收起）。archive flow 实测：归档后该行离开列表、未被删除；`privacy/settingsreset/settingssearch` 仍全绿。余下 flow 仍有长尾旧选择器（例：rail 流程停在 `button[title="Conversation context"]`），下一批逐条修。
+
 ---
 
 
