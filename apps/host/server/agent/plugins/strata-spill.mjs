@@ -98,6 +98,20 @@ export function collectText(value) {
 const safeCallId = (callId) => String(callId ?? 'unknown').replace(/[^A-Za-z0-9._-]/g, '_');
 
 /**
+ * The model-facing marker for one spill: retained head + the note (how much was omitted, whether a
+ * token count was measured, the file path) + retained tail. `tokens` rides along when the engine's
+ * own counter could be asked; without it the marker stays honest and reports characters only.
+ * @param {{chars:number, tokens?:number|null, path:string}} input
+ * @returns {string}
+ */
+export function spillMarker({ chars, tokens, path }) {
+  const note = tokens != null && tokens > 0
+    ? `spilled ${chars} chars (~${tokens} tokens), full: ${path}; the assistant can read that file back with its shell tools`
+    : `spilled ${chars} chars, full: ${path}; the assistant can read that file back with its shell tools`;
+  return `…[${note}]`;
+}
+
+/**
  * The spill plan for one result text: below the threshold nothing changes; over it the plan
  * names the spill file and the replacement text (retained head + marker + retained tail). The
  * marker carries the path and tells the assistant it can read the file back with its shell
@@ -114,8 +128,9 @@ export function spillDecision(text, config = {}) {
   }
   const { headText, tailText, omitted } = retention(text, config);
   const path = join(dir, `${safeCallId(config.callId)}.txt`);
-  const replacement = `${headText}…[spilled ${omitted} chars, full: ${path}; the assistant can read that file back with its shell tools]${tailText}`;
-  return { spill: true, replacement, path };
+  const tokens = positiveInt(config.tokens, 0) || null;
+  const replacement = `${headText}${spillMarker({ chars: omitted, tokens, path })}${tailText}`;
+  return { spill: true, replacement, path, omitted };
 }
 
 /** The degrade path: the same truncation with no file claim, for a write that failed. */
@@ -169,8 +184,8 @@ export function apply(ctx, config = {}) {
     }
     const threshold = positiveInt(config.thresholdChars, DEFAULT_THRESHOLD_CHARS);
     /** Write the full text and answer with the model-facing replacement (degrades on failure). */
-    const spillText = (text) => {
-      const plan = spillDecision(text, { ...config, spillDir, callId: exec?.callId });
+    const spillText = (text, tokens = null) => {
+      const plan = spillDecision(text, { ...config, spillDir, callId: exec?.callId, tokens });
       let replacement = plan.replacement;
       if (plan.spill) {
         try {
@@ -186,9 +201,28 @@ export function apply(ctx, config = {}) {
       return replacement;
     };
     const text = collectText(decision);
+    const measure = async (full) => {
+      // The engine's own count (the profile names the count URL and the key env var); anything that
+      // goes wrong — an old engine, a busy server, a timeout — degrades to characters only.
+      if (typeof config.countImpl === 'function') return await config.countImpl(full);
+      if (typeof config.countUrl !== 'string' || !config.countUrl) return null;
+      try {
+        const key = config.keyEnv ? process.env[config.keyEnv] : '';
+        const res = await fetch(config.countUrl, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}`, 'x-api-key': key } : {}) },
+          body: JSON.stringify({ model: config.model ?? '', messages: [{ role: 'user', content: full.slice(0, 200_000) }] }),
+          signal: AbortSignal.timeout(2_000),
+        });
+        if (!res.ok) return null;
+        const n = Number((await res.json())?.input_tokens);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      } catch { return null; }
+    };
     if (text.length > threshold) {
       // The decision carries the model-facing text itself: swap its largest text in place.
-      return replaceLargestText(decision, spillText(text));
+      const tokens = await measure(text).catch(() => null);
+      return replaceLargestText(decision, spillText(text, tokens));
     }
     // An accept without replacement content materializes the model-facing text from the raw
     // result; spill that instead. The raw result is registry-owned, so the decision is rebuilt
@@ -197,7 +231,8 @@ export function apply(ctx, config = {}) {
       && result && Array.isArray(result.content)) {
       const raw = collectText(result.content);
       if (raw.length <= threshold) return decision;
-      const replacement = spillText(raw);
+      const tokens = await measure(raw).catch(() => null);
+      const replacement = spillText(raw, tokens);
       try { return { ...decision, content: replaceLargestText(structuredClone(result.content), replacement) }; }
       catch { return decision; }   // an uncloneable result keeps its original text
     }

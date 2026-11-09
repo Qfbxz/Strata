@@ -366,8 +366,20 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { insert: [{ id: 'auto-memory', name: AUTO_MEMORY_PLUGIN }] },
     // the persona resolver: `persona: "<agents id>"` at spawn becomes that agent's instructions
     { insert: [{ id: 'strata-persona', name: PERSONA_PLUGIN, config: { agentsDirs: agentsDirs() } }] },
-    // Big tool results spill to a private file; the model keeps head, tail and the path (plugins/strata-spill.mjs).
-    { insert: [{ id: 'strata-spill', name: SPILL_PLUGIN, config: { spillDir: join(tmpdir(), 'strata-spill') } }] },
+    // Big tool results spill to a private file; the model keeps head, tail, the path and, when the engine can count, the measured
+    // token count of the spilled text (plugins/strata-spill.mjs; the count degrades to characters on any failure).
+    { insert: [{ id: 'strata-spill', name: SPILL_PLUGIN, config: (() => {
+        const config = { spillDir: join(tmpdir(), 'strata-spill') };
+        if (defaultRoute?.kind === 'local') {
+          const inst = local.find(i => i.id === defaultRoute.instanceId);
+          if (inst) {
+            config.countUrl = `${inst.baseUrl}/v1/messages/count_tokens`;
+            config.model = defaultRoute.modelId;
+            config.keyEnv = `STRATA_LOCAL_KEY_${local.indexOf(inst)}`;
+          }
+        }
+        return config;
+      })() }] },
     // A model stuck on one identical call warns into the host log (plugins/strata-loop-guard.mjs).
     { insert: [{ id: 'strata-loop-guard', name: LOOP_GUARD_PLUGIN, config: {} }] },
     // the structured ask-user tool (v1: the model asks in its next reply and waits; the question is recorded on the session)

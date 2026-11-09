@@ -186,6 +186,8 @@
 
 - **【H2 压缩熔断落地（TDD，bcb3201b）】（2026-11-10 凌晨）**：新模块 `compact-breaker.mjs`（按 chat 记连败，成功即清零，`agentGuard.compactFailures` 设阈值默认 3、0=关）；桥接的自动 summarize 路径接上熔断——连败达阈值后下一次自动压缩被跳过，改出一张错误卡片（`COMPACT_BREAKER`，复用已译的 compactFailed 句），消息原样发送、会话保持可用；手动 `/compact` 不受门控且成功时清零计数。**RED**：模块缺失测试红（3/3）；**GREEN**：单元 3/3 + 护栏测试 17 过。随批：audit clean、dist 重建并同步进在役 App。
 
+- **【H3 spill 附 token 计数落地（TDD，02d726b3+951e…)】（2026-11-10 凌晨）**：spill 标记现为 `spilled N chars (~M tokens), full: path`——计数走引擎自己的 `/v1/messages/count_tokens`（profile 把 countUrl/model/keyEnv 随 spill 配置下发，键按 `keyEnv` 环境变量名引用、值不进配置）；2 秒超时、任何失败（旧引擎/忙/无计数 URL）都优雅降级为纯字符数，spill 本身永不失败。**RED**：spillMarker 未导出测试红（02d726b3）；**GREEN**：12/12（含计数器注入 5120 tokens 进标记、null 降级、共享大对象污染的测试自身 bug 也已修）。profile 已接 countUrl/model/keyEnv（默认本地路由）。
+
 ---
 
 
