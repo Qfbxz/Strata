@@ -1,7 +1,7 @@
 import { tr } from '../lib/i18n';
 /** Settings panels share the existing preference controls. */
-import { useRef, type ReactNode } from 'react';
-import { Btn, Field, Icon, Select, type IconName } from '../components/ui';
+import { useRef, useState, type ReactNode } from 'react';
+import { Btn, Empty, Field, Icon, Select, type IconName } from '../components/ui';
 import { Brand } from '../components/Brand';
 import { SettingsModels } from '../components/SettingsModels';
 import { SettingsTools } from '../components/SettingsTools';
@@ -14,12 +14,13 @@ import { ElectricityPrice } from '../components/ElectricityPrice';
 import { ApprovalNotifySetting, DoneSoundSetting, PortSetting, TraySetting, useShellState } from '../components/ShellSettings';
 import { FeatureFlagsSetting } from '../components/FeatureFlags';
 import { LANGUAGES } from '../lib/i18n';
-import { setLanguage, setWhileBusy } from '../lib/store';
+import { resetAppearance, setLanguage, setWhileBusy } from '../lib/store';
 import { CONTENT_FONT_RANGE, setContentFontSize, setDensity, setFocus, setMotion, setShortcuts, setTheme, setTransparency, setUiScale, UI_SCALES, useStore, setSettingsSection } from '../lib/store';
 const PANELS = [{ name: 'Appearance', icon: 'sun', sections: ['General', 'Reading & focus'] }, { name: 'Assistant', icon: 'skills', sections: ['Assistant files'] }, { name: 'Models', icon: 'models', sections: [] }, { name: 'Tools', icon: 'tool', sections: [] }, { name: 'Storage', icon: 'disk', sections: ['Storage'] }, { name: 'Engine', icon: 'engine', sections: [] }, { name: 'About', icon: 'info', sections: ['About', 'Update', 'Privacy'] }] as const;
 export function SettingsScreen() {
     const prefs = useStore(s => s);
     const [shell, saveShell] = useShellState();
+    const [query, setQuery] = useState('');
     const active = prefs.settingsSection;
     const scrollRef = useRef<HTMLDivElement>(null);
     const fields: {
@@ -46,7 +47,11 @@ export function SettingsScreen() {
         { section: 'Reading & focus', label: 'Motion', hint: 'Reduced motion also disables smooth scrolling.', aliases: 'animation system full reduced', control: <Select value={prefs.motion} ariaLabel={tr("Motion")} options={[{ value: 'system', label: 'Follow system' }, { value: 'full', label: 'Full' }, { value: 'reduced', label: 'Reduced' }]} onChange={setMotion}/> },
         { section: 'Reading & focus', label: 'Transparency', hint: 'Translucent controls or solid surfaces. Text stays opaque.', aliases: 'blur glass liquid opaque translucent', control: <Select value={prefs.transparency} ariaLabel={tr("Transparency")} options={[{ value: 'translucent', label: 'Translucent' }, { value: 'opaque', label: 'Opaque' }]} onChange={setTransparency}/> },
         { section: 'Reading & focus', label: 'Focus reading', hint: 'Hides navigation in chat. Settings stays open above the conversation.', aliases: 'distraction quiet', control: <button className="st-toggle" role="switch" aria-checked={prefs.focus} aria-label={tr("Focus reading")} onClick={() => setFocus(!prefs.focus)}/> },
+        { section: 'Reading & focus', label: 'Reset appearance', hint: 'Puts the theme, text sizes, spacing, motion and transparency back to their shipped values. Your layout and privacy choices stay as they are.', aliases: 'defaults restore undo theme size spacing motion transparency', control: <ResetAppearanceSetting/> },
     ];
+    const q = query.trim().toLowerCase();
+    const fieldMatches = (f: typeof fields[number]) => !q || `${tr(f.label)} ${tr(f.hint)} ${f.aliases ?? ''}`.toLowerCase().includes(q);
+    const sectionMatches = (section: string) => !q || tr(section).toLowerCase().includes(q) || fields.some(f => f.section === section && fieldMatches(f));
     function activate(name: typeof PANELS[number]['name']) {
         setSettingsSection(name);
         scrollRef.current?.scrollTo({ top: 0 });
@@ -62,22 +67,36 @@ export function SettingsScreen() {
             document.getElementById(`settings-tab-${PANELS[next].name}`)?.focus();
         }}>
       {tr(PANELS.map(panel => <button key={panel.name} role="tab" id={`settings-tab-${panel.name}`} aria-controls={`settings-panel-${panel.name}`} aria-selected={active === panel.name} tabIndex={active === panel.name ? 0 : -1} className="settingsindex__item" onClick={() => activate(panel.name)}><Icon name={panel.icon as IconName} size={17}/>{tr(panel.name)}</button>))}
+      <input className="st-input settingsindex__search" type="search" aria-label={tr("Search settings")} placeholder={tr("Search settings…")} value={query} onChange={e => setQuery(e.target.value)}/>
     </nav>
     <div className="settings-pane" ref={scrollRef}>
       {tr(PANELS.map(panel => <div key={panel.name} role="tabpanel" tabIndex={0} id={`settings-panel-${panel.name}`} aria-labelledby={`settings-tab-${panel.name}`} hidden={active !== panel.name}>
         {tr(panel.name === 'Models' ? <SettingsModels /> : panel.name === 'Tools' ? (active === panel.name ? <SettingsTools /> : null) : panel.name === 'Engine' && active === panel.name ? <div className="stack stack--lg settings-body"><section className="settings-section"><h2 className="h3" style={{ marginBottom: 14 }}>{tr("Engine")}</h2><NativeOperations /></section></div> : active === panel.name ? <div className="stack stack--lg settings-body">
-          {tr(panel.sections.map(section => <section className="settings-section" key={section}>
+          {tr(q && panel.sections.length && !panel.sections.some(sectionMatches) ? <Empty icon="search" title={tr("No settings match")} body={tr("Try a different word, or clear the search.")} action={<Btn size="sm" onClick={() => setQuery('')}>{tr("Clear search")}</Btn>}/> : null)}
+          {tr(panel.sections.map(section => {
+            if (!sectionMatches(section)) return null;
+            const shown = tr(section).toLowerCase().includes(q) ? fields.filter(f => f.section === section) : fields.filter(f => f.section === section && fieldMatches(f));
+            return <section className="settings-section" key={section} id={`settings-${section.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
             <h2 className="h3" style={{ marginBottom: 14 }}>{tr(section)}</h2>
             <div className="st-card st-card--flush">
               {tr(section === 'About' ? <div className="settings-about-brand"><Brand variant="lockup" height={28}/><AboutVersions/></div> : null)}
               {tr(section === 'Storage' ? <SettingsStorage /> : null)}
               {tr(section === 'Privacy' ? <PrivacyNotes /> : null)}
               {tr(section === 'Update' ? <SettingsUpdates /> : null)}
-              {tr(fields.filter(f => f.section === section).map(f => <Field key={f.label} label={tr(f.label)} hint={tr(f.hint)}>{tr(f.control)}</Field>))}
+              {tr(shown.map(f => <Field key={f.label} label={tr(f.label)} hint={tr(f.hint)}>{tr(f.control)}</Field>))}
             </div>
-          </section>))}
+          </section>;
+          }))}
         </div> : null)}
       </div>))}
     </div>
   </div>;
+}
+
+/** Reset the appearance choices only: the store deliberately leaves the layout and the privacy answer alone. */
+function ResetAppearanceSetting() {
+    const [confirm, setConfirm] = useState(false);
+    return confirm
+        ? <span className="row"><Btn size="sm" variant="ghost" onClick={() => setConfirm(false)}>{tr("Keep")}</Btn><Btn size="sm" variant="danger" onClick={() => { resetAppearance(); setConfirm(false); }}>{tr("Reset")}</Btn></span>
+        : <Btn size="sm" onClick={() => setConfirm(true)}>{tr("Reset")}</Btn>;
 }

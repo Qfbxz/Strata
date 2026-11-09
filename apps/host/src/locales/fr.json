@@ -3555,5 +3555,12 @@
   "s9063": "· tronqué à 512 Ko",
   "s9064": "Dossier déposé - envoyé avec le prochain message",
   "s9065": "Agents sur ce Mac",
-  "s9066": "La CLI exécute sa propre boucle d’agent ; la tâche part en un message"
+  "s9066": "La CLI exécute sa propre boucle d’agent ; la tâche part en un message",
+ "s9067": "Conserver",
+ "s9068": "Réinitialiser l’apparence",
+ "s9069": "Rétablit le thème, les tailles de texte, les espacements, les animations et la transparence à leurs valeurs d’origine. Votre disposition et vos choix de confidentialité restent inchangés.",
+ "s9070": "Rechercher des réglages",
+ "s9071": "Rechercher des réglages…",
+ "s9072": "Aucun réglage ne correspond",
+ "s9073": "Essayez un autre mot ou effacez la recherche."
 }

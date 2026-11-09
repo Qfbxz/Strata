@@ -3555,5 +3555,12 @@
  "s9063": "· bei 512 KB gekürzt",
  "s9064": "Ordner abgelegt - wird mit der nächsten Nachricht gesendet",
  "s9065": "Agents auf diesem Mac",
- "s9066": "Die CLI läuft in ihrer eigenen Agentschleife; die Aufgabe geht als eine Nachricht"
+ "s9066": "Die CLI läuft in ihrer eigenen Agentschleife; die Aufgabe geht als eine Nachricht",
+ "s9067": "Behalten",
+ "s9068": "Darstellung zurücksetzen",
+ "s9069": "Setzt Design, Textgrößen, Abstände, Bewegung und Transparenz auf die Auslieferungswerte zurück. Dein Layout und deine Datenschutzauswahl bleiben unverändert.",
+ "s9070": "Einstellungen durchsuchen",
+ "s9071": "Einstellungen durchsuchen…",
+ "s9072": "Keine passenden Einstellungen",
+ "s9073": "Versuche ein anderes Wort oder leere die Suche."
 }

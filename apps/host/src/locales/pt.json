@@ -3555,5 +3555,12 @@
  "s9063": "· truncado em 512 KB",
  "s9064": "Pasta largada - será enviada com a próxima mensagem",
  "s9065": "Agentes neste Mac",
- "s9066": "A CLI roda o seu próprio loop de agente; a tarefa vai como uma mensagem"
+ "s9066": "A CLI roda o seu próprio loop de agente; a tarefa vai como uma mensagem",
+ "s9067": "Manter",
+ "s9068": "Redefinir aparência",
+ "s9069": "Devolve o tema, os tamanhos de texto, o espaçamento, o movimento e a transparência aos valores de fábrica. O seu layout e as suas escolhas de privacidade não mudam.",
+ "s9070": "Pesquisar definições",
+ "s9071": "Pesquisar definições…",
+ "s9072": "Nenhuma definição corresponde",
+ "s9073": "Tente outra palavra ou limpe a pesquisa."
 }

@@ -3555,5 +3555,12 @@
  "s9063": "· truncated at 512 KB",
  "s9064": "Dropped folder - sent with the next message",
  "s9065": "Agents on this Mac",
- "s9066": "The CLI runs its own agent loop; the task goes as one message"
+ "s9066": "The CLI runs its own agent loop; the task goes as one message",
+ "s9067": "Keep",
+ "s9068": "Reset appearance",
+ "s9069": "Puts the theme, text sizes, spacing, motion and transparency back to their shipped values. Your layout and privacy choices stay as they are.",
+ "s9070": "Search settings",
+ "s9071": "Search settings…",
+ "s9072": "No settings match",
+ "s9073": "Try a different word, or clear the search."
 }

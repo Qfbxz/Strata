@@ -622,19 +622,6 @@ export function resetAppearance() {
   savePrefs();
 }
 
-/**
- * Records the standing privacy choice.
- *
- * The control was local component state that nothing persisted and nothing
- * read — it snapped back on every reload, so a reader who turned reporting off
- * had no way to know their choice had not been recorded. A privacy control that
- * silently forgets is worse than no control at all.
- */
-export function setShareTelemetry(on: boolean) {
-  set({ shareTelemetry: on });
-  savePrefs();
-}
-
 export function setContentFontSize(px: number) {
   const clamped = Math.min(CONTENT_FS_MAX, Math.max(CONTENT_FS_MIN, Math.round(px)));
   set({ contentFontSize: clamped });

@@ -997,24 +997,9 @@ if (flow === 'completioncue') {
 
 if (flow === 'privacy') {
   await page.goto(`${BASE}/#/settings`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2200);
-  const state = () => page.evaluate(() => {
-    const t = [...document.querySelectorAll('.st-toggle')]
-      .find((x) => /usage data/i.test(x.getAttribute('aria-label') ?? ''));
-    return {
-      checked: t?.getAttribute('aria-checked'),
-      stored: JSON.parse(localStorage.getItem('strata.prefs.v2') ?? '{}').shareTelemetry,
-    };
-  });
-  console.log('at rest      :', JSON.stringify(await state()), '<- a real false, not an omitted attribute');
-  await page.click('.st-toggle[aria-label="Share anonymous usage data"]');
-  await page.waitForTimeout(700);
-  console.log('after toggling:', JSON.stringify(await state()));
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2200);
-  console.log('after reload :', JSON.stringify(await state()), '<- the choice is recorded');
+  await page.waitForTimeout(1800);
 
-  // a privacy choice is not an appearance setting
+  // A privacy answer is not an appearance setting: the stored answer survives an appearance reset.
   await page.fill('.settingsindex__search', 'reset appearance', { timeout: 8000 });
   await page.waitForTimeout(600);
   const clickIn = (label) => page.evaluate((t) => {
@@ -1025,7 +1010,23 @@ if (flow === 'privacy') {
   await page.waitForTimeout(400);
   await clickIn('Reset');
   await page.waitForTimeout(900);
-  console.log('after a reset:', JSON.stringify(await state()), '<- untouched by an appearance reset');
+  console.log('after a reset:', JSON.stringify(await page.evaluate(() => ({
+    shareTelemetry: JSON.parse(localStorage.getItem('strata.prefs.v2') ?? '{}').shareTelemetry ?? false,
+    theme: document.documentElement.dataset.theme ?? '(none)',
+  }))), '<- privacy answer untouched by an appearance reset');
+
+  // Strata sends no usage telemetry, and the Privacy panel says so. A toggle claiming otherwise
+  // would be a control with no pipeline behind it, so the check is that none exists.
+  await page.fill('.settingsindex__search', '');
+  await page.click('#settings-tab-About');
+  await page.waitForTimeout(700);
+  const panel = await page.evaluate(() => ({
+    notes: (document.querySelector('.privacy-notes')?.textContent ?? '').trim(),
+    toggles: [...document.querySelectorAll('.st-toggle')]
+      .filter((x) => /usage data|telemetry/i.test(x.getAttribute('aria-label') ?? '')).length,
+  }));
+  console.log('privacy note :', JSON.stringify(panel.notes.slice(0, 96)), '<- no usage telemetry');
+  console.log('telemetry toggle:', panel.toggles, '<- none: nothing is sent');
   await shot('340-privacy');
 }
 
