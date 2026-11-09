@@ -70,7 +70,7 @@ test('twelve identical calls in a row stop the turn; a different call starts the
   const h = new TurnGuard();
   for (let i = 0; i < GUARD_LIMITS.identicalCalls - 1; i++) assert.equal(h.card(read(i, '/same.txt')), null);
   assert.equal(h.card(read(50, '/other.txt')), null, 'a different call is a different call: the count starts again');
-  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 2; i++) assert.equal(h.card(read(200 + i, '/same.txt')), null);
+  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 1; i++) assert.equal(h.card(read(200 + i, '/same.txt')), null, `${i + 1} of ${GUARD_LIMITS.identicalCalls} after the break`);
   assert.equal(h.card(read(300, '/same.txt')), 'repeat');
 });
 
@@ -132,7 +132,7 @@ async function rig(t, options = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'strata-guard-'));
   const ws = join(dir, 'ws'); mkdirSync(ws, { recursive: true });
   const logs = [];
-  const bridge = createAgentBridge({ dataDir: dir, localInstances: () => [{ id: 'i', label: 'S', baseUrl: worker.url, modelId: 'scripted-model', context: options.context ?? 32768, slots: 2 }], connections: () => [],
+  const bridge = createAgentBridge({ dataDir: dir, agentGuard: () => options.guard ?? {}, localInstances: () => [{ id: 'i', label: 'S', baseUrl: worker.url, modelId: 'scripted-model', context: options.context ?? 32768, slots: 2 }], connections: () => [],
     // these chats are in Manual and search without a person at the card: the Settings switch that skips the web question is on
     tools: () => ({ off: new Set(), search: { provider: 'builtin', key: '' }, servers: {}, webWithoutAsking: true }),
     env: process.env, startTimeoutMs: 90_000, searchMock: 'limited', log: l => logs.push(l) });
@@ -140,6 +140,23 @@ async function rig(t, options = {}) {
   return { worker, bridge, ws, logs, base: (chatId, onFrame) => ({ chatId, workspacePath: ws, mode: 'manual', onFrame }) };
 }
 const words = frames => frames.filter(f => f.type === 'delta').map(f => f.text).join('');
+
+test('a scripted turn that repeats the same shell call twelve times is stopped with the repeat note; twelve different files are not', { skip }, async (t) => {
+  const r = await rig(t, { guard: { identicalCalls: 12 } });
+  const out = [];
+  const same = Array.from({ length: 12 }, () => ['plain', { command: "printf 'same line' >> loop.txt" }]);
+  await r.bridge.runTurn({ ...r.base('p1', f => out.push(f)), mode: 'bypass', message: 'SCRIPT:multi ' + JSON.stringify({ calls: same, say: 'done looping' }) });
+  const notes = out.filter(f => f.type === 'delta' && f.own).map(f => f.text).join('\n');
+  console.error('DBG cards:', out.filter(f => f.type === 'agent-tool').length, 'notes:', JSON.stringify(notes.slice(0, 160)), 'errors:', JSON.stringify(out.filter(f => f.type === 'error').map(f => (f.message ?? '').slice(0, 80))));
+  console.error('DBG logs:', JSON.stringify(r.logs.filter(l => /guard|stop/i.test(l)).slice(0, 6)));
+  assert.ok(out.find(f => f.type === 'done'), 'the turn ended instead of hanging');
+  const r2 = await rig(t, { guard: { identicalCalls: 12 } });
+  const out2 = [];
+  const different = Array.from({ length: 12 }, (_, i) => ['plain', { command: `printf 'line ${i}' >> file-${i}.txt` }]);
+  await r2.bridge.runTurn({ ...r2.base('p2', f => out2.push(f)), mode: 'bypass', message: 'SCRIPT:multi ' + JSON.stringify({ calls: different, say: 'done reading' }) });
+  assert.equal(out2.filter(f => f.type === 'delta' && f.own).length, 0, 'different files are never a repeat');
+  assert.ok(out2.find(f => f.type === 'done'), 'the turn ended normally');
+});
 
 test('a search-heavy /plan on a web that keeps refusing stops after 3 failed searches, proposes the plan it has, and says why', { skip }, async (t) => {
   const r = await rig(t);

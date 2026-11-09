@@ -130,7 +130,7 @@ export function isAutoContinueSplice(payloadText) {
   const t = String(payloadText ?? '');
   return t.includes('"Continue"') || t.includes('继续。你上一轮') || t.includes('宿主在你上一轮运行期间重启');
 }
-export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = null, gate = true, localInstances, connections, tools = () => undefined, defaultLocalId = () => null, skillsDir = () => null, projectInstructions = () => true, onGoal = () => {}, onPlan = () => {}, onQueue = () => {}, proxyBase = null, searchMock = null, expertSampling = () => null, engineProgress = () => null, engineGraceMs = 30 * 60_000, stallMs = 4 * 60_000, stallToolMs = 20 * 60_000, env = process.env, nodePath = process.execPath, log = () => {}, startTimeoutMs = 120_000, sessionReadyMs = 60_000, sessionRetryMs = 1_500 }) {
+export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = null, gate = true, localInstances, connections, tools = () => undefined, defaultLocalId = () => null, skillsDir = () => null, projectInstructions = () => true, agentGuard = () => ({}), onGoal = () => {}, onPlan = () => {}, onQueue = () => {}, proxyBase = null, searchMock = null, expertSampling = () => null, engineProgress = () => null, engineGraceMs = 30 * 60_000, stallMs = 4 * 60_000, stallToolMs = 20 * 60_000, env = process.env, nodePath = process.execPath, log = () => {}, startTimeoutMs = 120_000, sessionReadyMs = 60_000, sessionRetryMs = 1_500 }) {
   const root = join(dataDir, 'agent');
   const home = join(root, 'home');
   const sessionsFile = join(root, 'sessions.json');
@@ -464,7 +464,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     }
 
     const projector = new TurnProjector({ policy: MODE_PRESETS[appliedMode].approval, window: route.contextWindow });
-    if (!goal) guard = new TurnGuard({ plan: !!planTask, contextMax: route.kind === 'local' ? route.contextWindow : 0 });   // a saved connection's window is often only assumed: never judged by a guess
+    if (!goal) { const guardLimits = agentGuard(); guard = new TurnGuard({ plan: !!planTask, contextMax: route.kind === 'local' ? route.contextWindow : 0, limits: { identicalCalls: guardLimits.identicalCalls, compactFailures: guardLimits.compactFailures } }); }   // a saved connection's window is often only assumed: never judged by a guess
     projector.onStatus = update => { if (!turn?.parentOpen && turn?.children.size && [...turn.children.values()].some(h => !h.done) && update.phase === 'waiting') return; reporter.set(update); };
     const turn = {
       sessionId, projector, route, requestId, live: false, lastSeq: -1,
@@ -554,8 +554,10 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
 
 ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
       }
-      if (!noteReason && !cutEnd && guard && !failure && !turn.stopping && !turn.goalRun) {
-        noteReason = guard.silent({ ended: projector.ended, wrote: projector.emittedAny === true, acted: projector.tools.size > 0, contextTokens: projector.contextTokens });
+      // A guard that tripped mid-turn (a loop, failed searches) already has its reason, even when the stop is still in flight;
+      // only a turn that ends by itself gets the end-of-turn reasons (out of room, no words).
+      if (!noteReason && !cutEnd && guard && !failure && !turn.goalRun) {
+        noteReason = turn.guard ?? guard.silent({ ended: projector.ended, wrote: projector.emittedAny === true, acted: projector.tools.size > 0, contextTokens: projector.contextTokens });
       }
       if (noteReason && !extra.some(f => f.type === 'plan' && f.event === 'proposed')) { const note = guardNote(noteReason); if (note) extra.push(note); }
       for (const f of extra) emit(f);

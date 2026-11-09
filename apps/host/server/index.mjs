@@ -21,6 +21,7 @@ import { memoryContextSection } from './memory-context.mjs';
 import { projectInstructions, projectInstructionsSection } from './project-instructions.mjs';
 import { officeSkills } from './agent/plugins/office-skills.mjs';
 import { featuresView, sanitizeFeatures } from './feature-flags.mjs';
+import { guardSettingsView, sanitizeGuardSettings } from './agent/guard-settings.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
@@ -43,7 +44,7 @@ import { findBrowser, findPlaywrightMcp } from './agent/browser-probe.mjs';
  */
 import http from 'node:http';
 import { homedir } from 'node:os';
-import { statfsSync, cpSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { statfsSync, cpSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
 import { execFile } from 'node:child_process';
@@ -211,6 +212,7 @@ async function pictureRefusal(connection, model) {
 }
 const agent = createAgentBridge({
   tools: () => agentTools.profileView(),
+  agentGuard: () => guardSettingsView(store.get().agentGuard),
   skillsDir: () => AGENT_SKILLS,
   projectInstructions: () => features().projectInstructions,
   agentsDirs: () => features().agents ? [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')] : [],
@@ -437,16 +439,21 @@ for the choice being made.`,
   const extra = [];
   // The person's native skill-pack folders, read-only: whatever they already keep for other agents shows up here too (symlinks included - statSync follows them).
   const feat = features();
+  // Every agent CLI's skill farm on this Mac: claude, codex, kimi, zcode, opencode, the DeepSeek
+  // persona presets and cc-switch (where most of them are symlinked anyway). The same pack reached
+  // through two farms is one skill, so the seen-set keys on the resolved real path, not the farm.
   const nativeSkillDirs = [['created', CREATED_SKILLS, 'my-'], ['workspace', join(WORKSPACE, 'skills'), 'ws-'],
-    ...(feat.skillsNative ? [['native', join(homedir(), '.kimi-code', 'skills'), 'ns-'], ['native', join(homedir(), '.agents', 'skills'), 'na-'], ['native', join(homedir(), '.cc-switch', 'skills'), 'nc-']] : [])].filter(([, d]) => existsSync(d));
+    ...(feat.skillsNative ? [['native', join(homedir(), '.kimi-code', 'skills'), 'ns-'], ['native', join(homedir(), '.agents', 'skills'), 'na-'], ['native', join(homedir(), '.cc-switch', 'skills'), 'nc-'], ['native', join(homedir(), '.claude', 'skills'), 'ncl-'], ['native', join(homedir(), '.codex', 'skills'), 'ncx-'], ['native', join(homedir(), '.zcode', 'skills'), 'nz-'], ['native', join(homedir(), '.opencode', 'skills'), 'noc-'], ['native', join(homedir(), '.config', 'opencode', 'skills'), 'noco-'], ['native', join(homedir(), '.dsh', '.agent-presets', 'petro-agent', 'skills'), 'ndp-']] : [])].filter(([, d]) => existsSync(d));
   const seenNative = new Set();
   for (const [source, dir, prefix] of nativeSkillDirs) {
     if (!existsSync(dir) || !statSync(dir).isDirectory()) continue;
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
+      let real = full;
+      try { real = realpathSync(full); } catch { continue; }
       const id = `${prefix}${name}`;
-      if (seenNative.has(id)) continue;
-      seenNative.add(id);
+      if (seenNative.has(real)) continue;
+      seenNative.add(real);
       try { if (!statSync(full).isDirectory()) continue; } catch { continue; }
       let text = '', sizeKb = 1;
       const md = join(full, 'SKILL.md');
@@ -2229,6 +2236,11 @@ async function api(req, res, path, method, url) {
   }
   if (path === '/api/hooks' && method === 'GET') return json(res, 200, hooksOnDisk());
   if (path === '/api/features' && method === 'GET') return json(res, 200, featuresView(store.get().features));
+  if (path === '/api/agent-guard' && method === 'GET') return json(res, 200, guardSettingsView(store.get().agentGuard));
+  if (path === '/api/agent-guard' && method === 'PUT') {
+    try { const saved = sanitizeGuardSettings(await readBody(req)); store.update({ agentGuard: saved }); return json(res, 200, guardSettingsView(saved)); }
+    catch (e) { return error(res, 400, e.message); }
+  }
   if (path === '/api/features' && method === 'PUT') {
     try { const saved = sanitizeFeatures(await readBody(req)); store.update({ features: saved }); try { rescanSkills(); } catch (e) { console.warn('skills · could not rescan after a feature change:', e.message); } return json(res, 200, featuresView(saved)); }
     catch (e) { return error(res, 400, e.message); }

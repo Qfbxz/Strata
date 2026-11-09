@@ -19,6 +19,7 @@ export const GUARD_LIMITS = Object.freeze({
   searchesPlan: 10,
   searchesTurn: 25,
   planRewrites: 4,
+  identicalCalls: 12,
   contextFraction: 0.93,
   /** A turn that ends with no words at all and a context this full is "out of room", not "nothing to say". */
   contextEmptyFraction: 0.85,
@@ -34,6 +35,7 @@ const NOTES = {
   rewrites: 'I kept rewriting the plan, so I stopped here with the latest version. Tell me what to change, or approve it.',
   context: 'I ran out of room in this chat, so I stopped. Strata is summarising the older messages to make space. Say “continue” to go on, or start a new chat.',
   empty: 'I stopped without writing an answer. Send your message again, or say “continue”.',
+  repeat: 'The assistant kept repeating the same operation, so I stopped it. Adjust the request and tell me to continue.',
 };
 export const GUARD_NOTES = Object.freeze({ ...NOTES });
 
@@ -49,17 +51,31 @@ export class TurnGuard {
    */
   constructor({ plan = false, contextMax = 0, limits = {} } = {}) {
     this.plan = plan; this.contextMax = Number(contextMax) || 0;
-    this.limits = { ...GUARD_LIMITS, ...limits };
+    this.limits = { ...GUARD_LIMITS, ...Object.fromEntries(Object.entries(limits ?? {}).filter(([, v]) => v !== undefined)) };
     this.seen = new Set();
     this.searches = 0; this.failedInARow = 0; this.failedTotal = 0;
     this.rewrites = 0; this.written = '';
-    this.reason = null;
+    this.lastCall = ''; this.identical = 0;
+    this.reason = null; this.lastFiredAt = -1;
   }
 
   #fire(reason) { this.reason ??= reason; return this.reason; }
 
   /** A tool card frame (`agent-tool`). Counts a search once, when it has finished. Returns the reason to stop, or null. */
   card(tool) {
+    // The same tool with the same arguments, again and again, is a loop the model will not leave on its own (HARNESS_ROADMAP H1).
+    // A card without arguments cannot be told from its twins, so it is not counted here; the search rules below still are.
+    if (!this.reason && tool && ['done', 'error', 'denied'].includes(tool.state) && tool.args && typeof tool.args === 'object' && Object.keys(tool.args).length) {
+      let args = '';
+      try { args = JSON.stringify(tool.args); } catch { args = String(tool.args); }
+      const sig = `${tool.name} ${args}`;
+      if (sig === this.lastCall) this.identical += 1; else { this.lastCall = sig; this.identical = 1; }
+      const allowed = Math.max(0, Math.floor(this.limits.identicalCalls));
+      if (allowed > 0 && this.identical >= allowed) {
+        this.lastFiredAt = this.identical;
+        return this.#fire('repeat');
+      }
+    }
     if (this.reason || !tool || !SEARCH_TOOLS.has(tool.name)) return this.reason;
     const done = tool.state === 'done' || tool.state === 'error' || tool.state === 'denied';
     if (!done || this.seen.has(tool.id)) return this.reason;
