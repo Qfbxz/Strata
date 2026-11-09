@@ -168,6 +168,8 @@
 
 - **【GET 路由全量冒烟 + 收口】（2026-11-09 晚）**：从 `index.mjs` 抽出全部 **50 条 GET 路由**，在临时宿主（8794、种子 profile）逐条实打：**无 5xx**；唯一 >4s 的是 `/api/engine/first-run`（10.5s 后 200，属首次安装卡片的一次性引擎探测，仅 Setup 页调用）。连同本轮各项：设置审计与两处修复、七开关接线（skillsNative/agents/projectInstructions）、UI 门禁全绿（audit/contrast/measure/motion/check）、找回控件（设置搜索、重置外观、Contrast、聊天归档）、分支数徽标、flow 选择器清理、打包件端到端 —— 显式需求清单在 HANDOVER 内均有实测证据。
 
+- **【死代码清理 + 找回不可达的“性能测量”】（2026-11-09 晚）**：删除 4 个无引用整文件：`screens/Tuning.tsx`（旧调参页；路由 `tuning` 早已指向 ModelRun）、`components/AutoTune.tsx`（只被旧调参页使用的伪进度动画）、`app/ContextPanel.tsx`（被 composer 的 telemetry chip 取代）、`components/NativeMonitor.tsx`（无屏引用）。同时发现 `NativeBenchmark` 对话框、服务端 `benchmark` 操作与 `/api/native/benchmark` 报告全在，却没有任何入口——且 owner 测试明确要求 Engine→Diagnostics 只保留一个按钮。处置：把对话框抽成独立 `NativeBenchmark.tsx`，挂到 Models 页的模型操作行（有 ready 实例才可点）；Diagnostics 保持单按钮。**实测**：Models 页按钮存在、无模型时禁用、无 page error；owner 测试 `ui4-fixes` 全过；tsc 0 错；npm 全量 **1753 测/1641 过/0 败/112 跳**。dist 已同步进在役 App。
+
 ---
 
 
