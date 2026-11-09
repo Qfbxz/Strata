@@ -184,6 +184,8 @@
 
 - **【H1 同参数强终止兜底落地（TDD，be5f0232）】（2026-11-10 凌晨）**：turn-guard 新增「同一工具+同一参数连续调用」计数，第 12 次（可设，`agentGuard.identicalCalls`，0=关）终止该 turn 并出人话卡片；新句 `s9078` 已进九语言目录。桥接层修复一处真缺陷：mid-turn 触发的护栏（含既有的 searches-failed）此前被 `!turn.stopping` 门挡住、停止中的 turn 不出注记 → 现在 trip 时的原因确定性地成为 turn 结束注记。脚本化验收：12 次相同 shell 调用以 repeat 注记结束（不再挂死），12 个不同文件不误伤（带内置 Harness 实跑）。**RED**：3 条新测试按预期失败（495cf87b）；**GREEN**：护栏测试 14/14 + 全量 1755 测/1641 过/1 已知环境抖动。设置项：`agentGuard` 段（guard-settings.mjs 校验）+ GET/PUT `/api/agent-guard`。
 
+- **【H2 压缩熔断落地（TDD，bcb3201b）】（2026-11-10 凌晨）**：新模块 `compact-breaker.mjs`（按 chat 记连败，成功即清零，`agentGuard.compactFailures` 设阈值默认 3、0=关）；桥接的自动 summarize 路径接上熔断——连败达阈值后下一次自动压缩被跳过，改出一张错误卡片（`COMPACT_BREAKER`，复用已译的 compactFailed 句），消息原样发送、会话保持可用；手动 `/compact` 不受门控且成功时清零计数。**RED**：模块缺失测试红（3/3）；**GREEN**：单元 3/3 + 护栏测试 17 过。随批：audit clean、dist 重建并同步进在役 App。
+
 ---
 
 
