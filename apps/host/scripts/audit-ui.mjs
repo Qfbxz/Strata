@@ -117,7 +117,7 @@ const ELEVATION_ALLOWED = new Set([
  * press or type into; a surface is something content sits on, and those stay on
  * the kit's 8/14/20/24 scale.
  */
-const CAPSULE_CONTROLS = ['.st-btn', '.st-input', '.st-tab', '.navitem', '.navsession', '.slashmenu__item', '.treerow'];
+const CAPSULE_CONTROLS = ['.st-btn', '.st-input', '.st-tab', '.navitem', '.navsession', '.slashmenu__item'];
 
 /** Literal colours that are deliberate and documented. */
 const DOCUMENTED_LITERALS = ['#05261b', '#12c68e', '#0a7a55'];

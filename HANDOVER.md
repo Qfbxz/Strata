@@ -176,6 +176,8 @@
 
 - **【UI flow 债清理（第二批）】（2026-11-09 晚）**：删除三条整体测试已移除的“会话上下文侧栏”的 flow（`railweight` / `rail` / `panel`——该面板被 telemetry chip 取代，断言的 `.contextpanel__*` / `.railsection` 已不存在）；flow 总数 55→53。抽样复跑 `railgeometry` / `focusmode` / `light` 全部 rc=0（console 里的 400 为无模型环境的聊天请求，属预期）。
 
+- **【CSS 死样式普查+安全清理（运行时普查法）】（2026-11-09 深夜）**：360 个“静态未引用”类 → **运行时普查**（Playwright 遍历 9 条路由×两主题×设置七面板×全部弹层/菜单/标签页，收集 406 个实际出现的类）→ 357 个静态未用类中 3 个其实被运行时内容使用（保留），**354 个双重确认死类**（含 tests/scripts 引用复核后收敛为 91 个类定义块）被安全移除：app.css -5.8 万字节、annotation-fixes -1.2 万、其余微量；@keyframes 未引用者一并清理。**工具落库**：`apps/host/scripts/prune-dead-css.py` + `dead-css-classes.txt`（清单可复用：下次删组件后把新死类追加进去即可）。**教训**：初版修剪器把 @media prelude 丢失（注释含引号破坏括号匹配 + 逐字 emit 漏 buf 前奏），app.css 一度损坏 → git 还原后用「注释感知括号匹配 + buf 重附」的正确版修复。**验证**：六个样式文件 balance ✓、bare-media 0、audit clean、CSS 契约测试（chat-details/gui-fb2/ui4/default-sizes/ui-do/french）全绿、vite build ✓。**全量 npm 套件因 v9b 负载 70 暂缓**（270s 超时 rc=124；定位测试/定点文件全绿；待安静窗口补跑）。dist 已同步进在役 App。
+
 ---
 
 

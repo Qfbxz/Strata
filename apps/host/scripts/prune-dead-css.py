@@ -100,7 +100,7 @@ def process(text, i, end, stats):
     return '\n'.join(out)
 
 targets=['app.css','annotation-fixes.css','model-run.css','board.css','onboarding.css','liquid.css']
-base=pathlib.Path('apps/host/src/styles')
+base=pathlib.Path(__file__).resolve().parents[1] / 'src' / 'styles'
 for name in targets:
     p=base/name
     before=p.read_text()

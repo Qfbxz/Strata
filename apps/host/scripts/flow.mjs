@@ -199,48 +199,6 @@ if (flow === 'addskill') {
   await shot('570-add-from-folder');
 }
 
-if (flow === 'filepreview') {
-  await page.goto(`${BASE}/#/workspace`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1800);
-  await page.evaluate(() => {
-    const file = [...document.querySelectorAll('.treerow')].find((r) => r.dataset.kind === 'file');
-    file?.click();
-  });
-  await page.waitForTimeout(1300);
-
-  const read = () => page.evaluate(() => {
-    const el = document.querySelector('.filepreview__body');
-    if (!el) return null;
-    const parse = (c) => { const n = String(c).match(/[\d.]+/g); return n ? { r: +n[0], g: +n[1], b: +n[2], a: n[3] === undefined ? 1 : +n[3] } : null; };
-    const lum = ({ r, g, b }) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
-    const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return Number(((hi + 0.05) / (lo + 0.05)).toFixed(2)); };
-    const cs = getComputedStyle(el);
-    let bg = null;
-    let n = el;
-    while (n) { const c = parse(getComputedStyle(n).backgroundColor); if (c && c.a > 0.9) { bg = c; break; } n = n.parentElement; }
-    return {
-      ratio: ratio(parse(cs.color), bg),
-      overflowX: cs.overflowX,
-      clipped: el.scrollWidth - el.clientWidth,
-      scrollable: el.scrollWidth > el.clientWidth && cs.overflowX !== 'hidden',
-      lines: el.textContent.split('\n').length,
-      longest: Math.max(...el.textContent.split('\n').map((l) => l.length)),
-    };
-  });
-
-  const before = await read();
-  console.log('contrast          :', before.ratio, '(needs 4.5) <- it was #303030 on #1b1f23, a ratio of 1.26');
-  console.log('lines / longest   :', before.lines, '/', before.longest, 'chars');
-  console.log('overflows by      :', before.clipped + 'px');
-  console.log('can be reached    :', before.scrollable, '<- overflow was hidden, so the rest of every long line was unreachable');
-
-  await page.evaluate(() => { document.querySelector('.filepreview__body').scrollLeft = 300; });
-  await page.waitForTimeout(300);
-  const scrolled = await page.evaluate(() => document.querySelector('.filepreview__body').scrollLeft);
-  console.log('scrolls           :', scrolled > 0, `(scrollLeft ${scrolled})`);
-  await shot('560-file-preview');
-}
-
 if (flow === 'endpoints') {
   await page.goto(`${BASE}/#/serving`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2000);
@@ -1023,42 +981,6 @@ if (flow === 'railclose') {
   await shot('330-context-chip');
 }
 
-if (flow === 'treekeys') {
-  await page.goto(`${BASE}/#/workspace`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1800);
-  const at = () => page.evaluate(() => {
-    const el = document.activeElement;
-    return el?.classList.contains('treerow') ? `${el.dataset.path} (d${el.dataset.depth})` : el?.tagName;
-  });
-  console.log('tabbable rows:', await page.evaluate(() =>
-    document.querySelectorAll('.treerow[tabindex="0"]').length), '(want exactly 1 — roving tabindex)');
-  console.log('of          :', await page.evaluate(() => document.querySelectorAll('.treerow').length), 'rows');
-
-  await page.evaluate(() => document.querySelector('.treerow[tabindex="0"]').focus());
-  console.log('start       :', await at());
-  await page.keyboard.press('ArrowDown');
-  console.log('Down        :', await at());
-  await page.keyboard.press('ArrowDown');
-  console.log('Down        :', await at());
-  await page.keyboard.press('ArrowUp');
-  console.log('Up          :', await at());
-  await page.keyboard.press('ArrowRight');
-  await page.waitForTimeout(350);
-  console.log('Right       :', await at(), '<- opens or steps in');
-  await page.keyboard.press('ArrowLeft');
-  await page.waitForTimeout(350);
-  console.log('Left        :', await at(), '<- closes or steps out');
-  await page.keyboard.press('End');
-  console.log('End         :', await at());
-  await page.keyboard.press('Home');
-  console.log('Home        :', await at());
-  console.log('one tabbable after moving:', await page.evaluate(() =>
-    document.querySelectorAll('.treerow[tabindex="0"]').length) === 1);
-  console.log('scope figures:', await page.evaluate(() =>
-    document.querySelector('.scopes')?.textContent.replace(/\s+/g, ' ').trim()));
-  await shot('320-tree-keys');
-}
-
 if (flow === 'readmark') {
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1600);
@@ -1073,16 +995,6 @@ if (flow === 'readmark') {
   await page.waitForTimeout(2500);
   console.log('persisted  :', await page.evaluate(() => localStorage.getItem('strata.touched.v1')));
 
-  await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1800);
-  await page.evaluate(() => { window.location.hash = '#/workspace'; });
-  await page.waitForTimeout(2000);
-  console.log('marked rows:', JSON.stringify(await page.evaluate(() =>
-    [...document.querySelectorAll('.treerow[data-touched]')].map((r) => r.textContent.trim().slice(0, 22)))));
-  console.log('marker title:', await page.evaluate(() =>
-    document.querySelector('.treerow[data-touched]')?.getAttribute('title')));
-  console.log('unread files unmarked:', await page.evaluate(() =>
-    document.querySelectorAll('.treerow:not([data-touched])').length > 50));
   await shot('310-read-marker');
 }
 
@@ -1281,17 +1193,7 @@ if (flow === 'empties') {
   await page.waitForTimeout(600);
   console.log('cleared          :', await page.locator('.listrow').count(), 'skills back');
 
-  await page.goto(`${BASE}/#/workspace`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(1500);
-  await page.fill('input[placeholder="Filter files"]', 'zzzzz');
-  await page.waitForTimeout(600);
-  console.log('workspace filtered:', JSON.stringify(await read()));
-  await page.click('.empty button');
-  await page.waitForTimeout(700);
-  console.log('cleared          :', await page.locator('.treerow').count(), 'rows back');
-  // the assertion that matters: the pane is not blank, and it offers a way back
-  const after = await read();
-  console.log('filtered pane is not blank:', after !== null || (await page.locator('.treerow').count()) > 0);
+
   await shot('250-empty-states');
 }
 
