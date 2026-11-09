@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readdir } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -45,13 +45,18 @@ test('the native skill-pack switch hides every native folder, and turning it bac
     for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc'])
       assert.ok(first.includes(id), `${id} lists while the switch is on`);
 
+    const agentFolder = () => readdir(join(home, 'data', 'agent', 'skills-live')).catch(() => []);
+    assert.ok((await agentFolder()).includes('ns-pack-ns'), 'the agent folder carries the native pack while the switch is on');
+
     assert.equal((await host.call('/api/features', 'PUT', { skillsNative: false })).status, 200);
+    assert.ok(!(await agentFolder()).includes('ns-pack-ns'), 'the agent folder drops the native pack at once, without another page read');
     const off = await ids();
     for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc'])
       assert.ok(!off.includes(id), `${id} is gone while the switch is off`);
     assert.ok(off.length > 0, 'the bundled and app skills stay listed');
 
     assert.equal((await host.call('/api/features', 'PUT', { skillsNative: true })).status, 200);
+    assert.ok((await agentFolder()).includes('ns-pack-ns'), 'the agent folder carries it again');
     const again = await ids();
     for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc'])
       assert.ok(again.includes(id), `${id} comes back when the switch is on again`);

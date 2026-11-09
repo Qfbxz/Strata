@@ -150,6 +150,8 @@
 
 - **【真断链修复：Settings 的「Native skill packs」开关只关掉三分之一】（2026-11-09 晚，设置穷尽审查续）**：七个功能开关逐一核对到消费点（agents→agentsOnDisk/scanner、hooks→turnHookEvent、memory→memoryContextSection 注入直聊、projectInstructions→CLAUDE.md/AGENTS.md、branchChip/checkpoints→两个 chip 组件读 /api/features、skillsNative→技能目录列举），五处完好、一处真断：`skillsNative` 的列举把 `~/.kimi-code/skills` 与 `~/.agents/skills` **写在开关外面**（无条件并入），开关实际只控制 `~/.cc-switch/skills`；旁边还有一行 `...(feat.skillsNative ? [] : [])` 死代码。修复：三个 native 目录统一放进开关分支，删死代码。**回归测试** `tests/skills-native-toggle.test.mjs`：临时 HOME 造三个 native 包——开关关时三个 id 全消失且内置技能仍在，再开全部回来；修复前该测试第一条断言即红（复现），修复后绿。**验证**：npm 全量套件 **1752 测/1640 过/0 败/112 跳**。已热部署进在役 App 的 `Resources/host/server/index.mjs`（cmp 字节一致，下次启动生效）。
 
+- **【同一开关缺陷的第二处：agents 开关对 agent 聊天无效 + 切换后派生状态不刷新】（2026-11-09 晚）**：`agents` 开关原先只挡 `/api/agents` 的目录列举，而 agent 桥的 persona 插件拿到的是**无门控**的 `agentsDirs` 闭包——关掉开关后 agent 聊天仍从 `data/agents`、`workspace/agents` 载入人设。修复：`agentsDirs: () => features().agents ? [data/agents, workspace/agents] : []`。同时把 GET /api/skills 的重扫逻辑提成 `rescanSkills()`，并在 `PUT /api/features` 之后调用——此前切换开关，agent 的 `skills-live` 物化目录要等下一次技能页读取或重启才更新；现在切换即同步。测试扩展：`skills-native-toggle` 新增两条断言（开关关时 agent 物化目录立刻不含 `ns-pack-ns`，开时立刻回来）。**验证**：npm 全量 **1752 测/1640 过/0 败/112 跳**（首次整跑出现 1 例断言红，孤立复跑即绿——已知的并行加载抖动）。已热部署 `index.mjs` 进在役 App（cmp 字节一致，下次启动生效）。
+
 ---
 
 

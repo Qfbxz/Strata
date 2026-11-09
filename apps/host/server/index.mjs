@@ -212,7 +212,7 @@ async function pictureRefusal(connection, model) {
 const agent = createAgentBridge({
   tools: () => agentTools.profileView(),
   skillsDir: () => AGENT_SKILLS,
-  agentsDirs: () => [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')],
+  agentsDirs: () => features().agents ? [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')] : [],
   onGoal: (chatId, goal) => hub.send('goal', { chatId, goal }),
   // The person's Response settings (thinking budget, Expert sampling) reach the agent's model through this host's own forwarding endpoint.
   proxyBase: `http://127.0.0.1:${PORT}/api/internal/agent-llm`,
@@ -503,6 +503,19 @@ function syncAgentSkills() {
   try { materializeSkills(AGENT_SKILLS, skillState.filter(s => !s.onlyIn)); } catch (e) { console.warn('skills · could not write the agent skills folder:', e.message); }
 }
 syncAgentSkills();
+
+/** Re-scan the folders and carry the person's switches and usage counts across; the agent's folder follows at once. */
+function rescanSkills() {
+  const known = new Map(skillState.map((s) => [s.id, s]));
+  skillState = skills().map((s) => {
+    const before = known.get(s.id);
+    return before
+      ? { ...s, enabled: before.enabled, onlyIn: before.onlyIn ?? null, useCount: before.useCount, lastUsedAt: before.lastUsedAt }
+      : { ...s, onlyIn: null, useCount: 0, lastUsedAt: null };
+  });
+  syncAgentSkills();
+  return skillState;
+}
 
 /** Whether a skill applies, given where the reader is. */
 /**
@@ -1837,15 +1850,7 @@ async function api(req, res, path, method, url) {
        button a promise the host did not keep. Enabled state and usage counts
        are carried across, since they belong to the skill's identity rather than
        to the scan. */
-    const known = new Map(skillState.map((s) => [s.id, s]));
-    skillState = skills().map((s) => {
-      const before = known.get(s.id);
-      return before
-        ? { ...s, enabled: before.enabled, onlyIn: before.onlyIn ?? null, useCount: before.useCount, lastUsedAt: before.lastUsedAt }
-        : { ...s, onlyIn: null, useCount: 0, lastUsedAt: null };
-    });
-    syncAgentSkills();
-    return json(res, 200, skillState);
+    return json(res, 200, rescanSkills());
   }
   // A skill written in the app: a name, what it is for, and the instructions. Saved as a folder the agent can read; no restart.
   if (path === '/api/skills' && method === 'POST') {
@@ -2224,7 +2229,7 @@ async function api(req, res, path, method, url) {
   if (path === '/api/hooks' && method === 'GET') return json(res, 200, hooksOnDisk());
   if (path === '/api/features' && method === 'GET') return json(res, 200, featuresView(store.get().features));
   if (path === '/api/features' && method === 'PUT') {
-    try { const saved = sanitizeFeatures(await readBody(req)); store.update({ features: saved }); return json(res, 200, featuresView(saved)); }
+    try { const saved = sanitizeFeatures(await readBody(req)); store.update({ features: saved }); try { rescanSkills(); } catch (e) { console.warn('skills · could not rescan after a feature change:', e.message); } return json(res, 200, featuresView(saved)); }
     catch (e) { return error(res, 400, e.message); }
   }
   if (path === '/api/chat/helper' && method === 'POST') {
