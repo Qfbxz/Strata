@@ -457,6 +457,19 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
         emit({ type: 'error', message: text, key: FIT_TEXT.tooLarge, values, code: 'CONTEXT_MESSAGE_TOO_LARGE', tokens: fit.tokens, window: fit.window });
         return { error: text };
       }
+      if (fit) {
+        // The context_remaining tool (H4) reads this snapshot while the turn runs: the numbers the host itself budgeted with
+        // (profile.mjs 算术：reply + headroom kept aside, the rest is room), now with the measured pressure of this chat.
+        try {
+          mkdirSync(root, { recursive: true });
+          const replyBudget = localOutputBudget(fit.window);
+          const headroom = compactionHeadroom(fit.window, replyBudget);
+          const snapshot = { window: fit.window, pressure: fit.pressure, reply: replyBudget, headroom, room: Math.max(0, fit.window - fit.pressure - replyBudget - headroom), compactAt: Math.floor(Math.min(fit.window * 0.8, fit.window - fit.pressure - replyBudget - headroom)), at: new Date().toISOString() };
+          const tmpSnapshot = `${root}/context-budget.json.tmp`;
+          writeFileSync(tmpSnapshot, JSON.stringify(snapshot, null, 1));
+          renameSync(tmpSnapshot, join(root, 'context-budget.json'));
+        } catch { /* the tool answers "not known yet" without a snapshot; a write must never break a turn */ }
+      }
       if (fit?.action === 'summarize' && breaker.blocked(sessionId)) {
         // H2: automatic summarizing keeps failing for this chat. One plain card, and the message is sent as it is: the chat stays usable.
         reporter.clear();

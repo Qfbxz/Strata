@@ -140,7 +140,8 @@ test('profile: the person\'s instruction and command tools are the app\'s own to
     tools.addCustom({ name: 'Remote', about: 'a', kind: 'server', address: 'https://r.example/mcp' });
     const e = entriesOf(buildProfile({ local: [], connections: [], tools: tools.profileView() }));
     const rows = e.flatMap(x => x.insert ?? []).filter(r => r.name === '@deepseek-ai/dsh-mcp-client');
-    assert.deepEqual(rows.map(r => r.config.serverName).sort(), ['custom-remote', 'strata-commands', 'strata-instructions']);
+    // strata-context is H4's own server: the context_remaining tool reads the budget snapshot the host writes per turn.
+    assert.deepEqual(rows.map(r => r.config.serverName).sort(), ['custom-remote', 'strata-commands', 'strata-context', 'strata-instructions']);
     const own = rows.find(r => r.config.serverName === 'strata-commands').config;
     assert.deepEqual([own.command, own.args[0], own.args[1]], [process.execPath, CUSTOM_TOOLS_SCRIPT, 'commands']);
   } finally { cleanup(dir); }

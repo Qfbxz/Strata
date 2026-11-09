@@ -18,7 +18,7 @@
  * the profile file, a prompt, or a log.
  */
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { standardPreset } from './preset.mjs';
@@ -337,7 +337,11 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
   // The browser: Playwright's tool server on the person's own Chrome or Edge, in a separate empty profile (what the Harness's own browser provider does). Every action asks in Manual.
   const browserRows = tools.browserEnabled && tools.browserPath && tools.browserCli
     ? [{ id: 'mcp-browser', name: '@deepseek-ai/dsh-mcp-client', config: { serverName: 'browser', transport: 'stdio', command: process.execPath, args: [tools.browserCli, '--browser', 'chromium', '--isolated', ...(process.env.STRATA_BROWSER_HEADLESS === '1' ? ['--headless'] : []), '--executable-path', tools.browserPath] } }] : [];
-  const ownRows = [...own('instructions', tools.hasInstructionTools), ...own('commands', tools.hasCommandTools), ...browserRows];
+  // The context_remaining tool (H4): the host writes the budget it executes into context-budget.json beside the tools file; the
+  // server re-reads it on every call, so the model asks mid-turn and gets the numbers of the turn that is running.
+  const ctxFile = tools.toolFile ? join(dirname(tools.toolFile), 'context-budget.json') : null;
+  const ctxRow = ctxFile ? [{ id: 'mcp-strata-context', name: '@deepseek-ai/dsh-mcp-client', config: { serverName: 'strata-context', transport: 'stdio', command: process.execPath, args: [CUSTOM_TOOLS_SCRIPT, 'context', ctxFile] } }] : [];
+  const ownRows = [...own('instructions', tools.hasInstructionTools), ...own('commands', tools.hasCommandTools), ...ctxRow, ...browserRows];
   // Web search: DuckDuckGo with no key unless the person chose a keyed service AND saved its key (then that one; never a half-set-up one).
   const searchOn = !tools.off.has('search');
   const keyed = ['exa', 'perplexity', 'deepseek'].includes(tools.search.provider) && tools.search.key ? tools.search.provider : null;
