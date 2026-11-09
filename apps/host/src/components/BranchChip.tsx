@@ -41,6 +41,10 @@ export function BranchChip({ chatId, onOpenWorkspace }: {
         fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=status`).then(r => r.json()).then(d => {
             if (alive) setBranch((String(d.out ?? '').match(/^## ([^\s.]+)/) || [])[1] ?? '');
         }).catch(() => { /* not a repository: no chip */ });
+        // The badge on the chip counts the branches before the manager is opened (the owner's "branch count" ask).
+        fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=branches`).then(r => r.json()).then(d => {
+            if (alive) setCount(parseBranches('', String(d.out ?? '')).rows.length);
+        }).catch(() => { /* not a repository: the chip stays without a badge */ });
         return () => { alive = false; };
     }, [chatId]);
 
@@ -49,7 +53,7 @@ export function BranchChip({ chatId, onOpenWorkspace }: {
         setOpen(true); setProblem(''); setRows([]);
         fetch(`/api/workspace-git?chat=${encodeURIComponent(chatId)}&op=branches`).then(r => r.json()).then(d => {
             const parsed = parseBranches(branch, String(d.out ?? ''));
-            setRows(parsed.rows); setCurrent(parsed.current);
+            setRows(parsed.rows); setCurrent(parsed.current); setCount(parsed.rows.length);
         }).catch(e => setProblem(e.message));
     }
     function switchTo(name: string) {
