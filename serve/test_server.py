@@ -99,6 +99,16 @@ class MaxTokens(unittest.TestCase):
         self.assertEqual(s2, 200)
         self.assertEqual(b["input_tokens"], n_in)
 
+    def test_openai_count_tokens_reads_the_same_prompt_the_chat_route_would(self):
+        # E1 (HARNESS_ROADMAP 阶段三): the OpenAI side gets its own count endpoint, so OpenAI-protocol agents
+        # (opencode, codex) can ask how many tokens their prompt would read without running the model.
+        msgs = [{"role": "user", "content": "how many tokens is this?"}]
+        s, b = self.post("/v1/chat/completions/count_tokens", {"model": "m", "messages": msgs})
+        self.assertEqual(s, 200)
+        s2, _, n_in, _ = self.call("openai", "how many tokens is this?", max_tokens=8)
+        self.assertEqual(s2, 200)
+        self.assertEqual(b["input_tokens"], n_in)
+
     def test_request_line_parses_the_engine_summary(self):
         line = ("strata serve: prompt 1200 tokens = 1000 reused + 200 read in 50 ms (4000.0 tok/s), 30 generated in "
                 "300 ms (100.0 tok/s), drafts accepted 20 of 28, 2 checkpoints")
