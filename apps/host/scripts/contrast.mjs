@@ -136,7 +136,7 @@ const PROBE = () => {
  * require is a probe people learn to ignore — and then it catches nothing.
  */
 async function nonText(theme) {
-  const page = await browser.newPage({ viewport: { width: 1512, height: 1110 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1110 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const rows = [];
@@ -222,7 +222,7 @@ const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] }
 let failures = 0;
 
 async function measure(theme, hoverSelector, view) {
-  const page = await browser.newPage({ viewport: { width: 1512, height: 1110 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1110 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
@@ -314,7 +314,7 @@ for (const theme of ['light', 'dark']) {
  * the white specular token.
  */
 async function fillVsPage(theme) {
-  const page = await browser.newPage({ viewport: { width: 1512, height: 1110 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1110 } });
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1300);
   if (theme === 'dark') {

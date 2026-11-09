@@ -49,7 +49,7 @@ const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] }
  * cannot see the difference.
  */
 async function canDiscriminate() {
-  const page = await browser.newPage({ viewport: { width: 1512, height: 700 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 700 } });
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
   await page.click('button.nav-new');
@@ -125,7 +125,7 @@ const stats = (xs) => {
 };
 
 async function makeTranscript() {
-  const page = await browser.newPage({ viewport: { width: 1512, height: 700 } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 700 } });
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1500);
   await page.click('button.nav-new');

@@ -5994,6 +5994,7 @@ button.menu__item:disabled { opacity: .5; cursor: default; }
 .subagent-transcript { margin-top: 8px; border-top: 1px solid var(--st-line-soft); padding-top: 8px; max-height: 320px; overflow: auto; display: flex; flex-direction: column; gap: 7px; }
 .subagent-tr__a { font-size: 13px; line-height: var(--lh-chat, 1.72); white-space: pre-wrap; word-break: break-word; }
 .subagent-tr__t { font-size: 12px; color: var(--st-ink-muted); font-family: var(--st-font-mono, ui-monospace, monospace); }
+.subagent-tr__u { font-size: 13px; line-height: var(--lh-chat, 1.72); white-space: pre-wrap; word-break: break-word; color: var(--st-ink); background: var(--st-surface-2); border-radius: var(--st-r-sm); padding: 6px 8px; }
 .context-ring { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.5; }
 .context-ring__track { opacity: 0.25; }
 .context-ring__fill { transition: stroke-dasharray var(--st-t-local) var(--st-ease-enter); }
@@ -7625,16 +7626,16 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 .wspanel__head strong { font-size: var(--st-fs-sm); }
 .wspanel__tabs { display: flex; gap: 4px; flex: 1; }
 .wspanel__tabs button { border: 0; background: none; color: var(--st-ink-muted); padding: 3px 8px; border-radius: 6px; cursor: pointer; }
-.wspanel__tabs button[aria-selected='true'] { background: var(--st-surface-raised, rgba(128,128,128,.12)); color: var(--st-ink); }
+.wspanel__tabs button[aria-selected='true'] { background: var(--st-surface-2); color: var(--st-ink); }
 .wspanel__close { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; }
 .wspanel__body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 .wspanel__crumb { display: flex; align-items: center; gap: 4px; padding: 6px 12px; color: var(--st-ink-muted); flex-wrap: wrap; }
-.wspanel__crumb button { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; padding: 2px 4px; border-radius: 4px; }
-.wspanel__crumb button[aria-pressed='true'] { background: var(--st-surface-raised, rgba(128,128,128,.12)); color: var(--st-ink); }
+.wspanel__crumb button { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; padding: 2px 4px; border-radius: var(--st-r-sm); }
+.wspanel__crumb button[aria-pressed='true'] { background: var(--st-surface-2); color: var(--st-ink); }
 .wspanel__split { display: flex; flex: 1; overflow: hidden; }
 .wspanel__tree { width: 42%; overflow: auto; border-right: 1px solid var(--st-line, rgba(128,128,128,.18)); }
 .wspanel__row { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; color: var(--st-ink); text-align: left; padding: 4px 10px; cursor: pointer; font-size: var(--st-fs-sm); }
-.wspanel__row:hover { background: var(--st-surface-raised, rgba(128,128,128,.1)); }
+.wspanel__row:hover { background: var(--st-surface-2); }
 .wspanel__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wspanel__view { flex: 1; overflow: auto; padding: 8px 12px; }
 .wspanel__filehead { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -7647,14 +7648,14 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 .chat-photo-card { position: relative; flex: 0 0 auto; width: 72px; }
 .chat-photo-card__img { display: block; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; border: 1px solid var(--st-line, rgba(128,128,128,.25)); }
 .chat-photo-card__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.chat-photo-card__name { display: block; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--st-ink-muted); margin-top: 3px; }
-.chat-photo-card__x { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: rgba(0,0,0,.62); color: #fff; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; opacity: 0; transition: opacity .12s ease-in-out; padding: 0; }
+.chat-photo-card__name { display: block; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--st-fs-xs); color: var(--st-ink-muted); margin-top: 3px; }
+.chat-photo-card__x { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: var(--st-code-bg); color: var(--st-code-ink); font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; opacity: 0; transition: opacity .12s ease-in-out; padding: 0; }
 .chat-photo-card:hover .chat-photo-card__x, .chat-photo-card__x:focus-visible { opacity: 1; }
-.attach-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--st-line, rgba(128,128,128,.25)); background: var(--st-surface-raised, rgba(128,128,128,.08)); font-size: var(--st-fs-xs); }
+.attach-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--st-line, rgba(128,128,128,.25)); background: var(--st-surface-2); font-size: var(--st-fs-xs); }
 .attach-chip button { border: 0; background: none; color: var(--st-ink-muted); cursor: pointer; padding: 0 0 0 4px; }
 .chat-attachments { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
 
-.wspanel__branch { color: var(--st-ink); background: var(--st-surface-raised, rgba(128,128,128,.12)); border-radius: 6px; padding: 2px 8px; }
+.wspanel__branch { color: var(--st-ink); background: var(--st-surface-2); border-radius: 6px; padding: 2px 8px; }
 
 /* Composer branch chip: the ⑂ glyph and the branch name, beside the project chip. */
 .branchchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--st-line); border-radius: var(--st-r-md); background: var(--st-surface); font-size: 12px; line-height: 1.2; cursor: pointer; }
@@ -7663,14 +7664,18 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 
 /* The chat's helpers as a chip row at the top of the conversation. */
 .sdock { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; }
-.sdock__label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--st-muted, var(--st-line)); }
+.sdock__label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--st-ink-muted); }
 .sdock__chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid var(--st-line); border-radius: 999px; background: var(--st-surface); }
 .sdock__chip[data-target] { border-color: var(--st-accent); }
 .sdock__pick { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; font: inherit; padding: 0; }
 .sdock__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .sdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--st-accent); }
-.sdock__meta, .sdock__tok { font-size: 11px; color: var(--st-muted, var(--st-line)); }
+.sdock__meta, .sdock__tok { font-size: 11px; color: var(--st-ink-muted); }
 .sdock__folder { background: none; border: none; cursor: pointer; font-size: 13px; padding: 0 2px; color: inherit; }
+
+/* The feature switches on the Settings page (agents, hooks, memory, project instructions, skills, branch chip, checkpoints). */
+.feature-flags__grid { display: grid; gap: 8px; }
+.feature-flags__row { display: flex; align-items: center; gap: 10px; }
 
 /* The composer's helper-target strip. */
 .helper-target { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--st-accent); border-radius: var(--st-r-md); background: var(--st-surface); font-size: 13px; }
@@ -7685,7 +7690,7 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 
 
 /* Branch manager rows in the chip dialog and the workspace panel's switch strip. */
-.branchchip__count { font-size: 10px; color: var(--st-muted, var(--st-line)); border: 1px solid var(--st-line); border-radius: 999px; padding: 0 5px; }
+.branchchip__count { font-size: var(--st-fs-xs); color: var(--st-ink-muted); border: 1px solid var(--st-line); border-radius: 999px; padding: 0 5px; }
 .branchmgr__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .branchmgr__row[data-current] { border-color: var(--st-accent); }
 .wspanel__branchswitch { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 0; }

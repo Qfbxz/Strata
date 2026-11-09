@@ -52,7 +52,7 @@ if (!executablePath) {
 }
 
 const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] });
-const page = await browser.newPage({ viewport: { width: 1512, height: 1110 } });
+const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1110 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 

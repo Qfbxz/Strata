@@ -17,7 +17,7 @@ const shots = resolve('.shots');
 mkdirSync(shots, { recursive: true });
 
 const browser = await chromium.launch({ executablePath, args: ['--no-sandbox', '--disable-gpu'] });
-const page = await browser.newPage({ viewport: { width: 1512, height: 1110 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1110 }, deviceScaleFactor: 1 });
 
 const problems = [];
 
@@ -564,7 +564,7 @@ if (flow === 'rowweight') {
 
 if (flow === 'dismissal') {
   // Needs a transcript with room to scroll, or "scroll" tests nothing.
-  const tall = await browser.newPage({ viewport: { width: 1512, height: 560 }, deviceScaleFactor: 1 });
+  const tall = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 560 }, deviceScaleFactor: 1 });
   await tall.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await tall.waitForTimeout(1500);
   await tall.click('text=New session');
@@ -709,7 +709,7 @@ if (flow === 'skillscope') {
 }
 
 if (flow === 'turnnav') {
-  const tall = await browser.newPage({ viewport: { width: 1512, height: 640 }, deviceScaleFactor: 1 });
+  const tall = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 640 }, deviceScaleFactor: 1 });
   await tall.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await tall.waitForTimeout(1500);
   await tall.click('text=New session');
@@ -929,7 +929,7 @@ if (flow === 'skillgroups') {
 }
 
 if (flow === 'overlayresize') {
-  const wide = await browser.newPage({ viewport: { width: 1512, height: 1000 }, deviceScaleFactor: 1 });
+  const wide = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1000 }, deviceScaleFactor: 1 });
   await wide.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await wide.waitForTimeout(1500);
   await wide.click('text=New session');
@@ -960,7 +960,7 @@ if (flow === 'overlayresize') {
 }
 
 if (flow === 'completioncue') {
-  const short = await browser.newPage({ viewport: { width: 1512, height: 520 }, deviceScaleFactor: 1 });
+  const short = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 520 }, deviceScaleFactor: 1 });
   await short.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await short.waitForTimeout(1500);
   await short.click('text=New session');
@@ -1164,7 +1164,7 @@ if (flow === 'settingsreset') {
 }
 
 if (flow === 'jumplatest') {
-  const short = await browser.newPage({ viewport: { width: 1512, height: 520 }, deviceScaleFactor: 1 });
+  const short = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 520 }, deviceScaleFactor: 1 });
   await short.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await short.waitForTimeout(1500);
   await short.click('text=New session');

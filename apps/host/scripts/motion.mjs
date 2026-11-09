@@ -53,6 +53,7 @@ async function clip(browser, name, script) {
 
   const t0 = Date.now();
   const context = await browser.newContext({
+    locale: 'en-US',
     viewport: { width: W, height: H },
     recordVideo: { dir, size: { width: W, height: H } },
   });
@@ -177,7 +178,7 @@ for (const [name, script] of Object.entries(clips)) {
  * the entrance first and only then plays the exit.
  */
 async function reversesMidFlight(label, open, close, readState) {
-  const page = await browser.newPage({ viewport: { width: W, height: H } });
+  const page = await browser.newPage({ locale: 'en-US', viewport: { width: W, height: H } });
   await page.goto(`${BASE}/#/chat`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(1200);
   await open(page);
@@ -229,7 +230,7 @@ try {
    * everything on the screen.
    */
   async function loopBudget(route, theme) {
-    const page = await browser.newPage({ viewport: { width: 1512, height: 1110 } });
+    const page = await browser.newPage({ locale: 'en-US', viewport: { width: 1512, height: 1110 } });
     await page.goto(`${BASE}/#/${route}`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
     if (theme === 'dark') {
