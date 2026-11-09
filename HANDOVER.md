@@ -148,6 +148,8 @@
 
 - **【UI 质量门一键全绿（measure 去掉模型依赖）】（2026-11-09 晚）**：`npm run check`（typecheck→audit→contrast→measure→luminance）本机 **rc=0**。measure 此前依赖“已加载模型的对话”里出现 assistant 气泡，无模型机器上必然超时 → 增补 `ensureParagraph()`：真实回复缺失时，在同一 `.chat__inner` 注入一条 `.st-msg--assistant` 合成段落（测的仍是同一套 CSS 与容器宽度，不是硬编码数字）；真实回复存在时一律跳过，保真度不变。实测 10/16/22px × normal/focus 六组均 **68 chars/line PASS**（舒适带 45–75）；contrast 全配对 PASS、luminance 九屏 ok、audit clean。
 
+- **【真断链修复：Settings 的「Native skill packs」开关只关掉三分之一】（2026-11-09 晚，设置穷尽审查续）**：七个功能开关逐一核对到消费点（agents→agentsOnDisk/scanner、hooks→turnHookEvent、memory→memoryContextSection 注入直聊、projectInstructions→CLAUDE.md/AGENTS.md、branchChip/checkpoints→两个 chip 组件读 /api/features、skillsNative→技能目录列举），五处完好、一处真断：`skillsNative` 的列举把 `~/.kimi-code/skills` 与 `~/.agents/skills` **写在开关外面**（无条件并入），开关实际只控制 `~/.cc-switch/skills`；旁边还有一行 `...(feat.skillsNative ? [] : [])` 死代码。修复：三个 native 目录统一放进开关分支，删死代码。**回归测试** `tests/skills-native-toggle.test.mjs`：临时 HOME 造三个 native 包——开关关时三个 id 全消失且内置技能仍在，再开全部回来；修复前该测试第一条断言即红（复现），修复后绿。**验证**：npm 全量套件 **1752 测/1640 过/0 败/112 跳**。已热部署进在役 App 的 `Resources/host/server/index.mjs`（cmp 字节一致，下次启动生效）。
+
 ---
 
 

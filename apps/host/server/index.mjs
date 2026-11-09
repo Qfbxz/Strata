@@ -437,9 +437,6 @@ for the choice being made.`,
   // The person's native skill-pack folders, read-only: whatever they already keep for other agents shows up here too (symlinks included - statSync follows them).
   const feat = features();
   const nativeSkillDirs = [['created', CREATED_SKILLS, 'my-'], ['workspace', join(WORKSPACE, 'skills'), 'ws-'],
-    ...(feat.skillsNative ? [] : []),
-    ['native', join(homedir(), '.kimi-code', 'skills'), 'ns-'],
-    ['native', join(homedir(), '.agents', 'skills'), 'na-'],
     ...(feat.skillsNative ? [['native', join(homedir(), '.kimi-code', 'skills'), 'ns-'], ['native', join(homedir(), '.agents', 'skills'), 'na-'], ['native', join(homedir(), '.cc-switch', 'skills'), 'nc-']] : [])].filter(([, d]) => existsSync(d));
   const seenNative = new Set();
   for (const [source, dir, prefix] of nativeSkillDirs) {
