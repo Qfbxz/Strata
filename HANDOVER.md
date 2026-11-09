@@ -170,6 +170,8 @@
 
 - **【死代码清理 + 找回不可达的“性能测量”】（2026-11-09 晚）**：删除 4 个无引用整文件：`screens/Tuning.tsx`（旧调参页；路由 `tuning` 早已指向 ModelRun）、`components/AutoTune.tsx`（只被旧调参页使用的伪进度动画）、`app/ContextPanel.tsx`（被 composer 的 telemetry chip 取代）、`components/NativeMonitor.tsx`（无屏引用）。同时发现 `NativeBenchmark` 对话框、服务端 `benchmark` 操作与 `/api/native/benchmark` 报告全在，却没有任何入口——且 owner 测试明确要求 Engine→Diagnostics 只保留一个按钮。处置：把对话框抽成独立 `NativeBenchmark.tsx`，挂到 Models 页的模型操作行（有 ready 实例才可点）；Diagnostics 保持单按钮。**实测**：Models 页按钮存在、无模型时禁用、无 page error；owner 测试 `ui4-fixes` 全过；tsc 0 错；npm 全量 **1753 测/1641 过/0 败/112 跳**。dist 已同步进在役 App。
 
+- **【死代码清理（第二批）】（2026-11-09 晚）**：移除 `lib/use-elapsed.ts`（进度卡已无时钟；同文件测试还断言“no clock sentence”，属遗留）及其断言块、`lib/tuning-controls.ts` 与测试（拨盘组件已删）、`ui.tsx` 的 7 个未用组件基元 + `StepDef` 类型（Panel/PanelHead/Pill/Steps/Metric/MetricGrid/PreviewBadge）、`EngineExperience` 的 6 个未用导出（ProfileChoice/Dial/TuningDials/WorkloadChoice/ExperienceDetails/PerformancePreview/MemoryBudget）——该文件现只留 ModelRun 仍在用的 SpeedPair + DemoTest。**验证**：tsc 0 错、audit clean、npm 全量 **1750 测/1638 过/0 败/112 跳**。dist 已同步进在役 App。
+
 ---
 
 

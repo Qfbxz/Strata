@@ -188,13 +188,6 @@ test('#4802 / GUI-FB2 item 3: the progress card shows the step and the numbers o
   assert.match(css, /\.native-progress__stop \{[^}]*border: 0; background: transparent;/);
 });
 
-test('#4802 the elapsed time is counted from the job start and never goes below zero', async () => {
-  const hook = src('lib/use-elapsed.ts');
-  assert.match(hook, /Math\.max\(0, now - start\)/);
-  assert.match(hook, /setInterval\(\(\) => setNow\(Date\.now\(\)\), 1000\)/);
-  assert.match(hook, /return \(\) => clearInterval\(timer\)/);
-});
-
 test('#4802 the progress card has no new sentence of its own: Stop and Stopping are translated', async () => {
   const { tr, setTranslationLanguage } = await withI18n('approvals.ts');
   for (const l of languages.slice(1)) {

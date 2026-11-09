@@ -63,53 +63,6 @@ export function IconBtn({ name, title, onClick, disabled, active, size = 19, }: 
       <Icon name={name} size={size}/>
     </button>);
 }
-/* ------------------------------------------------------------------- panel */
-export function Panel({ children, className, pad, }: {
-    children: ReactNode;
-    className?: string;
-    pad?: boolean;
-    accent?: boolean;
-}) {
-    return <section className={cx('st-card', !pad && 'st-card--flush', className)}>{tr(children)}</section>;
-}
-export function PanelHead({ title, sub, right, icon, }: {
-    title: ReactNode;
-    sub?: ReactNode;
-    right?: ReactNode;
-    icon?: IconName;
-}) {
-    return (<header className="st-card__head">
-      {tr(icon ? <Icon name={icon} size={18} className="st-card__headicon"/> : null)}
-      <div className="col" style={{ minWidth: 0, flex: 1 }}>
-        {/* A real h3 so the document has an outline below the h2 section heads;
-            styled exactly as before. */}
-        <h3 className="h4">{tr(title)}</h3>
-        {tr(sub ? <div className="small muted">{tr(sub)}</div> : null)}
-      </div>
-      {tr(right)}
-    </header>);
-}
-/* -------------------------------------------------------------------- pill */
-export function Pill({ children, tone = 'plain', dot, badge, className, }: {
-    children: ReactNode;
-    tone?: 'plain' | 'accent' | 'info' | 'warn' | 'danger';
-    dot?: boolean;
-    /** `badge` renders the 24px badge treatment instead of the 30px status pill. */
-    badge?: boolean;
-    className?: string;
-}) {
-    const toneClass = {
-        plain: undefined,
-        accent: badge ? 'st-badge--generating' : 'st-pill--accent',
-        info: badge ? 'st-badge--reading' : 'st-pill--info',
-        warn: badge ? 'st-badge--queued' : 'st-pill--warn',
-        danger: badge ? 'st-badge--error' : 'st-pill--danger',
-    }[tone];
-    return (<span className={cx(badge ? 'st-badge' : 'st-pill', toneClass, className)}>
-      {tr(dot && !badge ? <span className="st-pill__dot"/> : null)}
-      {tr(children)}
-    </span>);
-}
 /* --------------------------------------------------------------------- bar */
 export function Bar({ value, tone = 'accent', size, indeterminate, label = 'Progress', }: {
     value: number;
@@ -155,29 +108,6 @@ export function Seg<T extends string>({ value, options, onChange, ariaLabel, pan
           {tr(o.icon ? <Icon name={o.icon}/> : null)}{tr(o.label)}
         </button>)))}
     </div>);
-}
-/* ------------------------------------------------------------------- steps */
-export interface StepDef {
-    n: number;
-    label: string;
-}
-export function Steps({ steps, current }: {
-    steps: StepDef[];
-    current: number;
-}) {
-    return (<div className="setup-progress"><p className="steps-current small">{tr("Step ")}{tr(current)}{tr(" of ")}{tr(steps.length)} · {tr(steps.find(s => s.n === current)?.label)}</p><div className="steps" role="list" aria-label={tr("Setup progress")}>
-      {tr(steps.map((s) => {
-            const state = s.n < current ? 'done' : s.n === current ? 'active' : 'todo';
-            return (<div key={s.n} className="step" data-state={state} role="listitem" 
-            /* Omitted rather than "false" when not current: the attribute is
-               supposed to mark one thing, and a query for it should find one. */
-            aria-current={state === 'active' ? 'step' : undefined}>
-            <span className="step__n">{tr(s.n)}</span>
-            <span>·</span>
-            <span>{tr(s.label)}</span>
-          </div>);
-        }))}
-    </div></div>);
 }
 /* ------------------------------------------------------------------ fields */
 const FieldContext = createContext<{
@@ -492,46 +422,6 @@ export function Toasts() {
     </div>);
 }
 /* ------------------------------------------------------------------ metric */
-/**
- * A metric tile: the kit's `.st-metric` inside a card, which is how the design
- * reference lays out every number in the app.
- */
-export function Metric({ label, value, unit, sub, icon, spark, compact, children, }: {
-    label: string;
-    value: ReactNode;
-    unit?: string;
-    sub?: ReactNode;
-    icon?: IconName;
-    spark?: ReactNode;
-    /** Text values read better a step down from the kit's 32px stat size. */
-    compact?: boolean;
-    children?: ReactNode;
-}) {
-    return (<section className="st-card">
-      <div className="st-metric">
-        <div className="st-metric__label">
-          {tr(icon ? <Icon name={icon} size={18}/> : null)}
-          {tr(label)}
-        </div>
-        <div className={cx('st-metric__value', compact && 'st-metric__value--text')}>
-          {tr(value)}
-          {tr(unit ? <span className="st-metric__unit">{tr(unit)}</span> : null)}
-        </div>
-        {tr(sub ? <div className="spec__sub">{tr(sub)}</div> : null)}
-        {tr(children)}
-        {tr(spark ? <div className="st-metric__spark">{tr(spark)}</div> : null)}
-      </div>
-    </section>);
-}
-/** A row of metric tiles. */
-export function MetricGrid({ children, min = 200 }: {
-    children: ReactNode;
-    min?: number;
-}) {
-    return (<div className="metricgrid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))` }}>
-      {tr(children)}
-    </div>);
-}
 /** Shared, announced error with a cause and a concrete recovery action. */
 export function ErrorNotice({ message, next, action, onRetry, detail, secondary }: {
     message: string;
@@ -552,4 +442,3 @@ export function ErrorNotice({ message, next, action, onRetry, detail, secondary 
     // the JSON and showed an object to the person.
     return <div className="error-notice" role="alert"><Icon name="error" size={18}/><div><strong>{tr(plain.message)}</strong>{tr(nextStep ? <p>{tr(nextStep)}</p> : null)}{tr(raw ? <details className="error-detail"><summary className="small">{tr("Details")}</summary><pre className="small muted">{raw}</pre></details> : null)}</div>{tr(onRetry ? (secondary ? <div className="row"><Btn size="sm" onClick={onRetry}>{tr(action ?? 'Try again')}</Btn><Btn size="sm" variant="ghost" onClick={secondary.onClick}>{tr(secondary.label)}</Btn></div> : <Btn size="sm" onClick={onRetry}>{tr(action ?? 'Try again')}</Btn>) : null)}</div>;
 }
-export function PreviewBadge() { const demo = useStore(s => s.library?.mode === 'simulated'); return demo ? <span className="preview-badge">{tr("Preview build")}</span> : null; }
