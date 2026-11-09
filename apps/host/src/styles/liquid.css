@@ -57,10 +57,10 @@ body {
   background-attachment: fixed;
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  body {
+@media (prefers-reduced-transparency: reduce) {body {
     background-image: none;
   }
+
 }
 [data-transparency='opaque'] body {
   background-image: none;
@@ -85,9 +85,11 @@ body {
   backdrop-filter: var(--st-material-thick);
   border-right: 1px solid var(--st-hairline);
 }
+
 .nav__top {
   border-bottom: 1px solid var(--st-hairline);
 }
+
 .nav__foot {
   background: transparent;
   border-top: 1px solid var(--st-hairline);
@@ -113,20 +115,24 @@ body {
     color var(--st-t-control) var(--st-ease-standard),
     box-shadow var(--st-t-control) var(--st-ease-standard);
 }
+
 .navitem:hover,
 .navsession:hover,
 .ws__name:hover {
   background: var(--st-fill-hover);
 }
+
 .navitem:active,
 .navsession:active {
   background: var(--st-fill-press);
 }
+
 .navitem[aria-current='page'] {
   background: color-mix(in srgb, var(--st-accent) 10%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-accent) 16%, transparent);
   color: var(--st-ink);
 }
+
 .navsession[aria-current='page'],
 .navsession[aria-current='true'] {
   background: color-mix(in srgb, var(--st-accent) 8%, transparent);
@@ -143,6 +149,7 @@ body {
 .ws-view {
   text-decoration: none;
 }
+
 .navitem:hover,
 .navsession:hover,
 .ws__name:hover,
@@ -157,6 +164,7 @@ body {
   background: color-mix(in srgb, var(--st-ink) 4%, transparent);
   box-shadow: inset 0 0 0 1px var(--st-hairline);
 }
+
 .enginechip:hover {
   background: color-mix(in srgb, var(--st-ink) 7%, transparent);
 }
@@ -176,6 +184,7 @@ body {
   letter-spacing: 0.01em;
   color: var(--st-ink-muted);
 }
+
 .task-tree .navsessions .ws__empty,
 .ws .navsessions .ws__empty {
   padding-left: 26px;
@@ -189,6 +198,7 @@ body {
   width: 36px;
   height: 36px;
 }
+
 .nav__top .nav__collapse {
   border-radius: var(--st-r-pill);
 }
@@ -206,13 +216,16 @@ body {
   -webkit-backdrop-filter: var(--st-material-thin);
   backdrop-filter: var(--st-material-thin);
 }
+
 .dialog-surface {
   box-shadow: var(--st-sh-pop), inset 0 1px 0 var(--st-specular);
   animation: st-enter var(--st-t-local) var(--st-ease-enter);
 }
+
 .dialog-head {
   border-bottom: 1px solid var(--st-hairline);
 }
+
 .dialog-actions {
   border-top: 1px solid var(--st-hairline);
 }
@@ -226,10 +239,12 @@ body {
 .field__control:has(> .stack) {
   width: min(100%, 380px);
 }
+
 .field__control > .stack {
   width: 100%;
   align-items: flex-end;
 }
+
 .field__control .row {
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -244,6 +259,7 @@ body {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-accent) 15%, transparent);
   color: var(--st-ink);
 }
+
 .settings-dialog .settingsindex__item {
   transition:
     background-color var(--st-t-control) var(--st-ease-standard),
@@ -261,9 +277,11 @@ body {
   border-color: color-mix(in srgb, var(--st-danger) 26%, transparent);
   border-radius: var(--st-r-md);
 }
+
 .error-notice > svg {
   color: var(--st-danger-text);
 }
+
 .error-notice details > summary {
   color: var(--st-ink-muted);
 }
@@ -280,21 +298,26 @@ body {
 .main__head {
   border-bottom-color: var(--st-hairline);
 }
+
 *::-webkit-scrollbar-thumb {
   background-color: color-mix(in srgb, var(--st-ink) 14%, transparent);
   border: 3px solid transparent;
   background-clip: padding-box;
   border-radius: 12px;
 }
+
 *::-webkit-scrollbar-thumb:hover {
   background-color: color-mix(in srgb, var(--st-ink) 26%, transparent);
 }
+
 * {
   scrollbar-color: color-mix(in srgb, var(--st-ink) 20%, transparent) transparent;
 }
+
 [data-theme='dark'] *::-webkit-scrollbar-thumb {
   background-color: color-mix(in srgb, var(--st-ink) 16%, transparent);
 }
+
 [data-theme='dark'] * {
   scrollbar-color: color-mix(in srgb, var(--st-ink) 22%, transparent) transparent;
 }
@@ -356,6 +379,7 @@ body {
   flex-wrap: wrap;
   gap: 4px 8px;
 }
+
 .model-files__actions .other-models {
   font-weight: 500;
 }
@@ -391,18 +415,22 @@ body {
     background-color var(--st-t-control) var(--st-ease-standard),
     box-shadow var(--st-t-control) var(--st-ease-standard);
 }
+
 .nav-new.st-btn--primary:hover:not(:disabled) {
   background: var(--st-accent-surface-hover);
 }
+
 .nav-new.st-btn--primary:active:not(:disabled) {
   background: color-mix(in srgb, var(--st-accent) 36%, var(--st-surface));
 }
+
 [data-theme='dark'] .nav-new.st-btn--primary {
   background: color-mix(in srgb, var(--st-accent) 22%, var(--st-surface));
   border-color: color-mix(in srgb, var(--st-accent) 30%, transparent);
   color: var(--st-accent-surface-ink);
   box-shadow: inset 0 1px 0 var(--st-specular-soft);
 }
+
 [data-theme='dark'] .nav-new.st-btn--primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--st-accent) 30%, var(--st-surface));
 }
@@ -432,18 +460,22 @@ body {
   border: 1px solid var(--st-hairline-strong);
   background: color-mix(in srgb, var(--st-ink) 10%, var(--st-surface));
 }
+
 .st-toggle::after {
   background: var(--st-surface);
   border: 1px solid var(--st-hairline);
   box-shadow: var(--st-sh-card);
 }
+
 .st-toggle[aria-checked='true'] {
   background: var(--st-accent);
   border-color: color-mix(in srgb, var(--st-accent) 72%, var(--st-ink));
 }
+
 .st-toggle[aria-checked='true']::after {
   background: var(--st-surface);
 }
+
 [data-theme='dark'] .st-toggle::after,
 [data-theme='dark'] .st-toggle[aria-checked='true']::after {
   background: var(--st-ink);
@@ -462,6 +494,7 @@ body {
 .empty {
   gap: 14px;
 }
+
 .empty__icon {
   width: 56px;
   height: 56px;
@@ -470,6 +503,7 @@ body {
   background: color-mix(in srgb, var(--st-accent) 7%, var(--st-surface));
   color: var(--st-accent-text);
 }
+
 .section-toolbar > .st-input:not(.tasks-search) {
   width: 236px;
 }
@@ -485,6 +519,7 @@ body {
   min-height: clamp(360px, calc(100dvh - 240px), 900px);
   gap: 18px;
 }
+
 .tasks-empty__art {
   display: grid;
   place-items: center;
@@ -496,13 +531,16 @@ body {
   background: color-mix(in srgb, var(--st-accent) 7%, var(--st-surface));
   color: var(--st-accent-text);
 }
+
 .tasks-empty h2,
 .tasks-empty p {
   margin: 0;
 }
+
 .tasks-empty p {
   font-size: var(--st-fs-sm);
 }
+
 .tasks-empty .st-btn {
   margin-top: 6px;
 }
@@ -522,16 +560,20 @@ body {
 .chat__inner > .st-msg--user:not(:first-child) {
   margin-top: 10px;
 }
+
 .st-code {
   border: 1px solid color-mix(in srgb, var(--st-code-ink) 12%, transparent);
 }
+
 [data-theme='dark'] {
   --st-code-bg: color-mix(in srgb, var(--st-surface) 78%, var(--st-bg));
 }
+
 .st-code__head {
   min-height: 40px;
   padding: 4px 6px 4px 14px;
 }
+
 .st-code .st-btn--icon {
   width: 28px;
   height: 28px;
@@ -545,6 +587,7 @@ body {
   border-left: 0;
   padding-left: 0;
 }
+
 .rz[open] {
   border-left: 2px solid var(--st-hairline);
   padding-left: 12px;
@@ -561,9 +604,11 @@ body {
   font-size: var(--st-fs-md);
   letter-spacing: -0.01em;
 }
+
 /* One title step for the chat's "New conversation" and every screen header
    (Tasks, Skills, Monitor, Serving, Model, Engine): --st-fs-md, 600. */
 .main__head .main__title { font-weight: 600; }
+
 .chat-model-badge.chat-model-picker,
 .chat-agents {
   height: 30px;
@@ -578,6 +623,7 @@ body {
     border-color var(--st-t-micro) var(--st-ease-standard),
     color var(--st-t-micro) var(--st-ease-standard);
 }
+
 .chat-model-badge.chat-model-picker:hover,
 .chat-model-badge.chat-model-picker[aria-expanded='true'],
 .chat-agents:hover,
@@ -601,10 +647,12 @@ body {
     background-color var(--st-t-micro) var(--st-ease-standard),
     color var(--st-t-micro) var(--st-ease-standard);
 }
+
 .composer-add {
   width: calc(36px * var(--st-ui-scale));
   height: calc(36px * var(--st-ui-scale));
 }
+
 /* Attach and dictate are peers in the same bar: the add button had a filled
    circle and the microphone was a bare glyph, so one looked like a tool and the
    other like an ornament. Both are 36px circles now. */
@@ -613,26 +661,32 @@ body {
   height: calc(36px * var(--st-ui-scale));
   background: var(--st-surface-2);
 }
+
 .composer .st-composer__bar > .st-btn--icon:hover:not(:disabled) {
   background: color-mix(in srgb, var(--st-ink) 8%, var(--st-surface));
   color: var(--st-ink);
 }
+
 .composer-mic {
   width: calc(36px * var(--st-ui-scale));
   height: calc(36px * var(--st-ui-scale));
   border-radius: var(--st-r-pill);
   background: var(--st-surface-2);
 }
+
 .composer-mic:hover,
 .composer-mic[aria-pressed='true'] {
   background: color-mix(in srgb, var(--st-ink) 8%, var(--st-surface));
 }
+
 .composer-mic[aria-pressed='true'] {
   color: var(--st-accent-text);
 }
+
 .composer__inner .st-btn--primary {
   height: calc(36px * var(--st-ui-scale));
 }
+
 .folderchip__pick {
   border-radius: var(--st-r-pill);
 }
@@ -654,15 +708,19 @@ body {
 .ws__row {
   position: relative;
 }
+
 .ws__row.is-active {
   background: transparent;
 }
+
 .ws__row.is-active .ws__name {
   color: var(--st-ink);
 }
+
 .ws__row.is-active .ws__name .st-icon {
   color: var(--st-accent-text);
 }
+
 .ws__row > .st-btn--icon {
   position: absolute;
   top: 50%;
@@ -674,9 +732,11 @@ body {
   pointer-events: none;
   transition: opacity var(--st-t-micro) var(--st-ease-standard);
 }
+
 .ws__row > .st-btn--icon:nth-last-child(2) {
   right: 30px;
 }
+
 .ws__row:hover > .st-btn--icon,
 .ws__row:focus-within > .st-btn--icon {
   opacity: 1;
@@ -686,10 +746,12 @@ body {
 .ws__session {
   position: relative;
 }
+
 .ws__session .navsession {
   position: relative;
   padding-right: 22px;
 }
+
 .ws__session .navsession__time {
   width: auto;
   min-width: 0;
@@ -698,6 +760,7 @@ body {
   white-space: nowrap;
   transition: opacity var(--st-t-micro) var(--st-ease-standard);
 }
+
 /* The unread dot takes a gutter of its own at the right edge, so every
    timestamp ends on the same line whether or not its chat is unread. */
 .ws__session .navsession__unread {
@@ -708,6 +771,7 @@ body {
   translate: 0 -50%;
   transition: opacity var(--st-t-micro) var(--st-ease-standard);
 }
+
 /* A chat that has a turn running: a small ring turns BEFORE the chat's name (GUI feedback 2, item 6). It is an SVG circle, not a bordered box: a border-radius
    on a 12px box at 90% interface size lands on fractional pixels and the turning corners looked square; a stroked circle with round caps stays round at
    any size and any angle. The unread dot keeps the gutter at the right. Reduced motion holds it still (a quarter arc). */
@@ -719,6 +783,7 @@ body {
   height: 14px;
   color: var(--st-info);
 }
+
 .ws__session .navsession__working svg {
   display: block;
   width: 100%;
@@ -728,30 +793,36 @@ body {
   animation: st-spin 1.1s linear infinite;
   will-change: transform;
 }
+
 .navsession__track,
 .navsession__arc {
   fill: none;
   stroke-width: 2;
 }
+
 .navsession__track {
   stroke: color-mix(in srgb, var(--st-info) 22%, transparent);
 }
+
 .navsession__arc {
   stroke: currentColor;
   stroke-linecap: round;
   stroke-dasharray: 26 74;
 }
+
 .navsession[data-working] .navsession__title {
   color: var(--st-ink);
 }
-@media (prefers-reduced-motion: reduce) {
-  .ws__session .navsession__working svg {
+
+@media (prefers-reduced-motion: reduce) {.ws__session .navsession__working svg {
     animation: none;
   }
+
 }
 html[data-motion='reduced'] .ws__session .navsession__working svg {
   animation: none;
 }
+
 .ws__session .session-overflow {
   position: absolute;
   top: 50%;
@@ -763,11 +834,13 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   pointer-events: none;
   transition: opacity var(--st-t-micro) var(--st-ease-standard);
 }
+
 .ws__session:hover .session-overflow,
 .ws__session:focus-within .session-overflow {
   opacity: 1;
   pointer-events: auto;
 }
+
 .ws__session:hover .navsession__time,
 .ws__session:hover .navsession__unread {
   opacity: 0;
@@ -784,7 +857,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   backdrop-filter: var(--st-material-thin) !important;
 }
 
-
 /* ------------------------------------------------- 20. the palette foot ----
    The palette explained nothing about what to do once a row was highlighted:
    Enter and Escape were only in the muscle memory of people who already use
@@ -796,6 +868,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   overflow-y: auto;
   padding: 8px;
 }
+
 .palette__foot {
   flex: none;
   display: flex;
@@ -806,15 +879,16 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   color: var(--st-ink-muted);
   font-size: var(--st-fs-xs);
 }
+
 .palette__hint {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
+
 .modal__head {
   border-bottom-color: var(--st-hairline);
 }
-
 
 /* ------------------------------------------------ 21. focus mode, actually --
    Focus mode exists to leave the conversation alone. Its own note says the bar
@@ -829,13 +903,13 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .app[data-focus='true'] .chat-toolbar {
   display: none;
 }
+
 .app[data-focus='true'] .composer-add,
 .app[data-focus='true'] .composer-mic,
 .app[data-focus='true'] .composer-choice,
 .app[data-focus='true'] .folderchip {
   display: none;
 }
-
 
 /* ---------------------------------------------- 22. the screen header ------
    The header row of a screen had 42px buttons beside the 40px family picker on
@@ -846,7 +920,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   height: calc(40px * var(--st-ui-scale));
 }
 
-
 /* ----------------------------------------------------- 23. soft seams ------
    Form rows were divided by a full-strength soft line, which in a settings card
    reads as a stack of boxes. The row is still separated, but by the same
@@ -854,7 +927,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .field {
   border-top-color: var(--st-hairline);
 }
-
 
 /* ------------------------------------------- 24. one checkbox, everywhere ---
    The Models screen carried its own checkbox rules (17px, 4px radius, white
@@ -870,6 +942,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   border-radius: 6px;
   background: var(--st-surface);
 }
+
 .native-image-reading input[type='checkbox']::after,
 .native-gpu-options input[type='checkbox']::after {
   width: 9px;
@@ -880,12 +953,12 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   border-right: 0;
   transform: rotate(-45deg);
 }
+
 .native-image-reading input[type='checkbox']:checked,
 .native-gpu-options input[type='checkbox']:checked {
   background: var(--st-accent);
   border-color: var(--st-accent);
 }
-
 
 /* ------------------------------------------- 25. expert hints, readable ----
    The expert toggles carried their explanation at 11px — the smallest text in
@@ -896,12 +969,12 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   font-size: var(--st-fs-sm);
   line-height: 1.5;
 }
+
 .native-image-reading label > span > small {
   display: block;
   max-width: 68ch;
   line-height: 1.55;
 }
-
 
 /* ---------------------------------------- 26. secondary actions, one shape --
    The Storage tab's two headings carried bordered 34px buttons ("Change
@@ -913,12 +986,12 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   border-color: transparent;
   color: var(--st-ink-muted);
 }
+
 .storage-directory__heading .st-btn:hover:not(:disabled) {
   background: var(--st-fill-hover);
   border-color: transparent;
   color: var(--st-ink);
 }
-
 
 /* ------------------------------------------------ 27. the settings pane ----
    Two details in the panels that do not use the generic field rows:
@@ -931,10 +1004,10 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .settings-models__intro {
   max-width: 68ch;
 }
+
 .settings-tools .settings-section > h2 {
   font-size: var(--st-fs-lg);
 }
-
 
 /* ---------------------------------------------- 28. the deliverable card ---
    The file-type badge ("MD", "TS") was a white chip with a hairline, sitting a
@@ -946,13 +1019,14 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   background: color-mix(in srgb, var(--st-ink) 6%, var(--st-surface));
   color: var(--st-ink-soft);
 }
+
 .fcard__open {
   border-radius: var(--st-r-pill) 0 0 var(--st-r-pill);
 }
+
 .fcard__more {
   border-radius: 0 var(--st-r-pill) var(--st-r-pill) 0;
 }
-
 
 /* The activity line is a disclosure trigger with no pointer feedback at all:
    it looked like a caption. On hover the sentence and its chevron take the ink
@@ -962,7 +1036,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .act__line:hover:not(:disabled) .act__chev {
   color: var(--st-ink);
 }
-
 
 /* ------------------------------------------- 29. empty states in settings --
    The Models panel's empty state drew a bare 26px glyph inside its dashed card,
@@ -979,7 +1052,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   color: var(--st-accent-text);
 }
 
-
 /* ------------------------------------------- 30. two hover fills, one wash --
    The edited-files rows and the Monitor tables hovered to an opaque grey
    (--st-surface-2) while every other row in the app answers with a translucent
@@ -988,10 +1060,10 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .edited__row:hover:not(:disabled) {
   background: var(--st-fill-hover);
 }
+
 .st-table tbody tr:hover td {
   background: var(--st-fill-hover);
 }
-
 
 /* The slash menu's selected row was an opaque surface-2 band on a material
    surface. Selection is a wash here too: 7% ink, so it darkens whatever the
@@ -999,7 +1071,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .slashmenu__item[data-active='true'] {
   background: color-mix(in srgb, var(--st-ink) 7%, transparent);
 }
-
 
 /* ------------------------------------------------ 31. hover that eases ----
    The file cards' Open halves and the edited-file rows swapped their hover fill
@@ -1012,15 +1083,14 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     background-color var(--st-t-micro) var(--st-ease-standard),
     color var(--st-t-micro) var(--st-ease-standard);
 }
-@media (prefers-reduced-motion: reduce) {
-  .fcard__open,
+
+@media (prefers-reduced-motion: reduce) {.fcard__open,
   .fcard__more,
   .edited__row {
     transition: none;
   }
+
 }
-
-
 /* ------------------------------------- 32. the same ease for every row ------
    Rows and menu items swapped their hover fill instantly; the file cards now ease
    (pass 77). The table cells, menu items and palette rows take the same micro
@@ -1032,15 +1102,14 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     background-color var(--st-t-micro) var(--st-ease-standard),
     color var(--st-t-micro) var(--st-ease-standard);
 }
-@media (prefers-reduced-motion: reduce) {
-  .menu__item,
+
+@media (prefers-reduced-motion: reduce) {.menu__item,
   .palette__row,
   .st-table tbody td {
     transition: none;
   }
+
 }
-
-
 /* ------------------------------------------- 33. a menu row's second line ----
    The chat model picker draws each row as <span><strong>name</strong>
    <small>GPU 1</small></span>, but the small was inline: the menu read
@@ -1054,7 +1123,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   font-weight: 400;
 }
 
-
 /* The picker's rows are menuitemradio; the current model now carries the same
    check the mode menu uses, pushed to the row's trailing edge. */
 .menu__check {
@@ -1062,7 +1130,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   flex: none;
   color: var(--st-accent-text);
 }
-
 
 /* The composer menus' group headings (“Reasoning effort”, “Thinking budget”)
    were 12px regular muted — body-sized text introducing 15px rows. They take the
@@ -1075,7 +1142,6 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   color: var(--st-ink-muted);
 }
 
-
 /* Provider rows carried their icon as a bare 20px glyph while identity rows
    elsewhere sit in a small tinted tile. The tile is drawn on the svg's padding
    box, so the component markup is untouched. */
@@ -1087,14 +1153,12 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   color: var(--st-ink-soft);
 }
 
-
 /* The task board's columns were top-aligned at their content height, so an
    empty board showed four cards of three different heights. A board reads as
    columns: they share the row's height and their empty states line up. */
 .board {
   align-items: stretch;
 }
-
 
 /* The dashboard's “Favorite model” is the only stat that can be longer than its
    tile. Values are single-line ellipsed; the model may use two lines at a hyphen
@@ -1124,6 +1188,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   --st-press-scale: 0.97;
   --st-panel-shift: 28px;
 }
+
 .st-btn {
   transition:
     background-color var(--st-t-control) var(--st-ease-standard),
@@ -1132,13 +1197,14 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     box-shadow var(--st-t-control) var(--st-ease-standard),
     transform var(--st-t-micro) var(--st-ease-standard);
 }
+
 .st-btn:not(:disabled):active {
   transform: scale(var(--st-press-scale));
 }
-@media (prefers-reduced-motion: reduce) {
-  :root { --st-press-scale: 1; --st-panel-shift: 0px; }
-}
 
+@media (prefers-reduced-motion: reduce) {:root { --st-press-scale: 1; --st-panel-shift: 0px; }
+
+}
 /* Reasoning ("Thought for 38s"): the summary is a control (hover wash, press),
    the chevron turns, and the passage grows open and fades in — it used to jump.
    The rule that marks the passage belongs to the body, so the line above it
@@ -1153,30 +1219,36 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     background-color var(--st-t-control) var(--st-ease-standard),
     transform var(--st-t-micro) var(--st-ease-standard);
 }
+
 .rz > summary:hover {
   background: var(--st-fill-hover);
 }
+
 .rz > summary:active {
   background: var(--st-fill-press);
   transform: scale(var(--st-press-scale));
 }
+
 .rz > summary:focus-visible {
   box-shadow: inset 0 0 0 1px var(--st-ink-muted);
 }
+
 .rz__chev {
   transition: transform var(--st-t-local) var(--st-ease-standard);
 }
+
 .rz[open] {
   border-left: 0;
   padding-left: 0;
 }
+
 .rz__body {
   margin-left: 2px;
   padding-left: 12px;
   border-left: 2px solid var(--st-hairline);
 }
-@supports (interpolate-size: allow-keywords) {
-  .rz::details-content {
+
+@supports (interpolate-size: allow-keywords) {.rz::details-content {
     block-size: 0;
     opacity: 0;
     overflow: hidden;
@@ -1185,12 +1257,13 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
       block-size var(--st-t-surface) var(--st-ease-standard),
       opacity var(--st-t-local) var(--st-ease-standard);
   }
-  .rz[open]::details-content {
+
+.rz[open]::details-content {
     block-size: auto;
     opacity: 1;
   }
-}
 
+}
 /* Code blocks: a block is a figure inside the answer, so it gets room before and
    after, and it is lighter than the text around it — a 34px bar, 10px of padding,
    code at the reading step below the body (12px minimum at the default size: pass 37's
@@ -1198,24 +1271,30 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .st-bubble .st-code {
   margin: 16px 0 20px;
 }
+
 .st-bubble .st-code:first-child {
   margin-top: 0;
 }
+
 .st-bubble .st-code:last-child {
   margin-bottom: 0;
 }
+
 .st-code__head {
   min-height: 34px;
   padding-block: 2px;
 }
+
 .st-code pre {
   padding: 10px 14px;
   line-height: 1.5;
 }
+
 .st-code .st-btn--icon {
   width: 28px;
   height: 28px;
 }
+
 .st-code .st-btn--icon[data-open] {
   color: var(--st-accent);
   background: color-mix(in srgb, var(--st-code-ink) 10%, transparent);
@@ -1232,6 +1311,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 .chatsplit .artifact-panel {
   animation: st-panel-in var(--st-t-choreo) var(--st-ease-enter) both;
 }
+
 .chatsplit .artifact-panel[data-leaving] {
   position: absolute;
   inset: 0 0 0 auto;
@@ -1240,10 +1320,12 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   pointer-events: none;
   animation: st-panel-out var(--st-t-choreo) var(--st-ease-exit) both;
 }
+
 .artifact-content {
   animation: st-enter var(--st-t-control) var(--st-ease-enter) both;
   --st-from-y: 4px;
 }
+
 @keyframes st-panel-in {
   from {
     opacity: 0;
@@ -1254,6 +1336,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     transform: none;
   }
 }
+
 @keyframes st-panel-out {
   from {
     opacity: 1;
@@ -1264,6 +1347,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     transform: translateX(var(--st-panel-shift));
   }
 }
+
 .st-code__actions {
   display: inline-flex;
   align-items: center;
@@ -1281,38 +1365,42 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   font-weight: 600;
   color: var(--st-ink-muted);
 }
+
 .pc-free {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
+
 .pc-free .pc-meter__track i {
   width: 100%;
   transform-origin: left center;
   transition: transform var(--st-t-surface) var(--st-ease-standard);
 }
+
 .pc-meter[data-low] .pc-meter__track i {
   background: var(--st-warn);
 }
-
 
 /* -------------------------------------------- 27. GUI feedback 2 (11-02) ----
    Item 2: a checkbox's tick is white on the accent fill in light mode (it was the dark ink: a black tick on green); dark mode keeps the dark ink on its
    lighter green. Item 4: a checkbox that is locked while a load runs keeps its tick at nearly full strength, so a locked "on" still reads as on. */
 :root { --st-check-ink: #ffffff; }
+
 [data-theme='dark'] { --st-check-ink: var(--st-accent-ink); }
-@media not (forced-colors: active) {
-  input[type='checkbox']:checked::after,
+
+@media not (forced-colors: active) {input[type='checkbox']:checked::after,
   .native-image-reading input[type='checkbox']::after,
   .native-gpu-options input[type='checkbox']::after {
     border-color: var(--st-check-ink);
   }
-  input[type='checkbox']:disabled:checked,
+
+input[type='checkbox']:disabled:checked,
   .native-image-reading input[type='checkbox']:disabled:checked {
     opacity: 0.8;
   }
-}
 
+}
 /* Item 8: a run that made many files is one compact block: the two folders, then a count that opens the list. Same border, radius and hover wash as the
    "Edited files" block it stands in for; the list scrolls inside the block so a long run never pushes the chat down. */
 .fsum {
@@ -1322,11 +1410,13 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   background: var(--st-surface);
   overflow: hidden;
 }
+
 .fsum__places {
   list-style: none;
   margin: 0;
   padding: 0;
 }
+
 .fsum__places li {
   display: flex;
   align-items: center;
@@ -1335,17 +1425,21 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   padding: 10px 12px 10px 16px;
   font-size: var(--st-fs-sm);
 }
+
 .fsum__places li + li {
   border-top: 1px solid var(--st-line-soft);
 }
+
 .fsum__places .st-icon {
   flex: none;
   color: var(--st-icon);
 }
+
 .fsum__label {
   flex: none;
   color: var(--st-ink-muted);
 }
+
 .fsum__name {
   flex: 1 1 auto;
   min-width: 0;
@@ -1355,6 +1449,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   font-weight: 600;
   color: var(--st-ink);
 }
+
 .fsum__open {
   flex: none;
   height: 28px;
@@ -1367,9 +1462,11 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   cursor: pointer;
   transition: background-color var(--st-t-micro) var(--st-ease-standard);
 }
+
 .fsum__open:hover {
   background: var(--st-fill-hover);
 }
+
 .fsum__toggle {
   display: flex;
   align-items: center;
@@ -1386,33 +1483,41 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   cursor: pointer;
   transition: background-color var(--st-t-micro) var(--st-ease-standard);
 }
+
 .fsum__toggle:first-child {
   border-top: 0;
 }
+
 .fsum__toggle:hover {
   background: var(--st-fill-hover);
 }
+
 .fsum__toggle > span:not(.pm) {
   font-variant-numeric: tabular-nums;
 }
+
 .fsum__toggle .pm {
   margin-left: auto;
 }
+
 .fsum__chev {
   flex: none;
   color: var(--st-icon);
   transform: rotate(-90deg);
   transition: transform var(--st-t-local) var(--st-ease-standard);
 }
+
 .fsum__toggle[aria-expanded='true'] .fsum__chev {
   transform: none;
 }
+
 .fsum__open:focus-visible,
 .fsum__toggle:focus-visible,
 .fsum__file:focus-visible {
   outline: 2px solid var(--st-accent);
   outline-offset: -2px;
 }
+
 .fsum__list {
   list-style: none;
   margin: 0;
@@ -1422,6 +1527,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   overscroll-behavior: contain;
   border-top: 1px solid var(--st-line-soft);
 }
+
 .fsum__file {
   display: flex;
   align-items: baseline;
@@ -1437,9 +1543,11 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   text-align: left;
   cursor: pointer;
 }
+
 .fsum__file:hover {
   background: var(--st-fill-hover);
 }
+
 .fsum__type {
   flex: none;
   min-width: 34px;
@@ -1447,6 +1555,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   font-size: var(--st-fs-xs);
   font-weight: 700;
 }
+
 .fsum__fname {
   flex: 0 1 auto;
   min-width: 0;
@@ -1454,6 +1563,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .fsum__dir {
   flex: 1 1 0;
   min-width: 0;
@@ -1463,6 +1573,7 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   color: var(--st-ink-muted);
   font-size: var(--st-fs-xs);
 }
+
 .fsum__size {
   flex: none;
   margin-left: auto;
@@ -1470,10 +1581,11 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   font-size: var(--st-fs-xs);
   font-variant-numeric: tabular-nums;
 }
-@media (prefers-reduced-motion: reduce) {
-  .fsum__chev,
+
+@media (prefers-reduced-motion: reduce) {.fsum__chev,
   .fsum__open,
   .fsum__toggle {
     transition: none;
   }
+
 }
