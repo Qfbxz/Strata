@@ -17,9 +17,6 @@ import { DX_ADAPTERS_SCRIPT, parseDxAdapters, windowsOtherGpus } from './windows
 let cached = null;
 let cachedAt = 0;
 
-export function invalidate() {
-  cached = null;
-}
 
 /**
  * The last detected hardware, synchronously.

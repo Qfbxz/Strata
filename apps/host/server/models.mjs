@@ -329,11 +329,6 @@ async function simulateLoad(v, hooks) {
   return library();
 }
 
-export function loadedVariant() {
-  const engine = supervisor.status();
-  const id = REAL ? (engine.running ? engine.modelId : null) : getStore().loaded;
-  return id ? variant(id) : null;
-}
 
 export function runtimeState(id) {
   return runtime.get(id)?.state ?? 'available';
@@ -343,9 +338,6 @@ export function directoryBusy() {
   return downloads.size > 0 || [...runtime.values()].some(r => ['loading', 'downloading'].includes(r.state)) || supervisor.status().status === 'starting';
 }
 
-export function newDownloadId() {
-  return uid('dl');
-}
 
 export { footprint, CONTEXT_TOKENS };
 

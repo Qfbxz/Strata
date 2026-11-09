@@ -289,14 +289,7 @@ export function setContext(parts) {
     state.contextParts.system + state.contextParts.tools + state.contextParts.messages;
 }
 
-export function resetContext() {
-  state.context.usedTokens = 0;
-  state.contextParts = { system: 0, tools: 0, messages: 0 };
-}
 
-export function setExpertCache(used, total = 64) {
-  state.expertCache = { used, total };
-}
 
 export async function setModel(id) {
   state.variantId = id;
@@ -402,6 +395,3 @@ export function queueWaiting(n) {
   state.queue.waiting = n;
 }
 
-export function currentOutputTps() {
-  return state.target.outputTps;
-}

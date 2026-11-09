@@ -180,6 +180,8 @@
 
 - **【夜间链条按 launchd 计划点火（2026-11-09 23:25:06）】**：`strata-nightchain-1109` 准时启动并写下“夜班启动 / 现场记录”；预检因 v9b 负载 25（≥5）未过，按脚本设计进入 10 分钟一轮、最长 4 小时的等待窗口（“安全第一”），并非故障。已完成标记仍在（mlx20b/dspark_dl/f16/install-app），待偿的 batch/ds_lane/contig/suite 相会在安静窗口自动续跑。
 
+- **【服务端死函数清理（第四批）】（2026-11-09 深夜）**：移除 8 个零引用的服务端导出：`monitor.mjs` 的 resetContext/setExpertCache/currentOutputTps、`hardware.mjs` 的 invalidate、`models.mjs` 的 loadedVariant/newDownloadId、`catalog.mjs` 的 modelFile、`supervisor.mjs` 的 currentPort。插件目录（plugins/*、custom-tools-mcp、dsh-infinite-gen-4/scripts）虽无 JS import，但由 Harness 按路径加载，**不动**。**验证**：node --check 全过；覆盖这五个模块的 9 个测试文件 59/59 全绿；npm 全量 **1750 测/1638 过/0 败/112 跳**。
+
 ---
 
 

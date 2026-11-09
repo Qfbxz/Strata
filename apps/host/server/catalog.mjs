@@ -42,11 +42,6 @@ export function downloadUrl(v) {
   return `https://huggingface.co/${v.source.repo}/resolve/main/${encodeURIComponent(v.source.file)}?download=true`;
 }
 
-/** Local path a variant's weights live at. */
-export function modelFile(v) {
-  return `${v.id}/${v.source.file}`;
-}
-
 /**
  * Memory footprint at a given context: weights + KV cache + runtime overhead.
  * KV grows linearly with context, which is why context length is the first

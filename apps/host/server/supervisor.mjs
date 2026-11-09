@@ -407,9 +407,6 @@ export function status() {
   };
 }
 
-export function currentPort() {
-  return state.port;
-}
 
 export function isRunning() {
   return state.status === 'running';
