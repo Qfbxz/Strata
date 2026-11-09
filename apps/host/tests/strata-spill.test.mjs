@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { apply, collectText, spillDecision } from '../server/agent/plugins/strata-spill.mjs';
+import { apply, collectText, spillDecision, spillMarker } from '../server/agent/plugins/strata-spill.mjs';
 
 const cleanup = dir => { try { rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch { /* best effort */ } };
 
@@ -184,4 +184,27 @@ test('a plugin without a spill folder registers nothing', () => {
   apply(ctx, {});
   apply(ctx, { spillDir: '' });
   assert.equal(handlers.length, 0, 'no folder, no handler');
+});
+
+
+test('the spill marker reports the engine token count when one was measured, chars only otherwise', () => {
+  const withTokens = spillMarker({ chars: 20480, tokens: 5120, path: '/tmp/x.txt' });
+  assert.match(withTokens, /5,?120 tokens/, 'the measured token count rides in the marker');
+  assert.match(withTokens, /20,?480 chars/);
+  assert.match(withTokens, /\/tmp\/x\.txt/);
+  const without = spillMarker({ chars: 20480, tokens: null, path: '/tmp/x.txt' });
+  assert.doesNotMatch(without, /tokens/, 'no count, no claim');
+  assert.match(without, /20,?480 chars/);
+});
+
+test('apply reports the measured tokens in the replacement when a counter is provided, and falls back to chars when it is not', async () => {
+  const calls = [];
+  const ctx = { on: (event, handler) => { handlers[event] = handler; } };
+  const handlers = {};
+  const big = { content: [{ type: 'text', text: 'x'.repeat(20000) }] };
+  const run = (countImpl) => apply(ctx, { spillDir: '/tmp/spill-test', thresholdChars: 8192, callId: 'call-1', countImpl })(null, structuredClone(big), async () => ({ kind: 'accept', content: big.content }));
+  const counted = await run(async (text) => 5120);
+  assert.match(JSON.stringify(counted), /~5,?120 tokens/, 'the marker carries the measured tokens');
+  const plain = await run(async () => null);
+  assert.doesNotMatch(JSON.stringify(plain), /~5,?120 tokens/, 'no count: chars only');
 });
