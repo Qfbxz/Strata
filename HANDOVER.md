@@ -166,6 +166,8 @@
 
 - **【真缺口：分支数徽标从未更新（用户明确要求的“分支数”）】（2026-11-09 晚）**：`BranchChip` 自挂载起 `count` 只被重置为 0、从未被赋值——分支名正常显示，但 `branchchip__count` 徽标与 “N branches total” 永远不出现。修复：挂载时用 `op=branches` 预取并 `parseBranches` 计数（打开管理器时同步刷新）。**实测**（临时 chat + 指向本仓库的对白文件夹，Playwright）：chip 显示 `⑂ main 3`、徽标 `3`，管理器列出 3 行；`npm run check` rc=0；全量套件 1753 测/1641 过/0 败/112 跳。dist 已同步进在役 App。
 
+- **【GET 路由全量冒烟 + 收口】（2026-11-09 晚）**：从 `index.mjs` 抽出全部 **50 条 GET 路由**，在临时宿主（8794、种子 profile）逐条实打：**无 5xx**；唯一 >4s 的是 `/api/engine/first-run`（10.5s 后 200，属首次安装卡片的一次性引擎探测，仅 Setup 页调用）。连同本轮各项：设置审计与两处修复、七开关接线（skillsNative/agents/projectInstructions）、UI 门禁全绿（audit/contrast/measure/motion/check）、找回控件（设置搜索、重置外观、Contrast、聊天归档）、分支数徽标、flow 选择器清理、打包件端到端 —— 显式需求清单在 HANDOVER 内均有实测证据。
+
 ---
 
 
