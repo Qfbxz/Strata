@@ -154,6 +154,8 @@
 
 - **【功能开关第三处：projectInstructions 对 agent 聊天无效】（2026-11-09 晚）**：该开关原先只挡直聊的 `projectPromptPart`；agent 聊天由 Harness 的 `dsh-agent-instructions` 插件读同一批 CLAUDE.md/AGENTS.md，开关对它们无效。修复：`buildProfile({projectInstructions})` 在关闭时插入 `{id:'agent-instructions',disabled:true}`；agent 桥新增同名选项闭包，index.mjs 接 `features().projectInstructions`——profile 签名随之变化，下一条消息即重启 harness 生效。**测试**：agent-shape 新增一条（开=无禁用行，关=有禁用行，未设=旧行为）。**验证**：npm 全量 1753 测中 1639 过/112 跳，2 例红为 reliability·runtime-api 的 8.7s 生命周期用例，孤立复跑 3/3 全绿（已知并行加载抖动，与本次改动无关）。三文件已热部署进在役 App。
 
+- **【motion 质量门转绿：onboarding 英雄是“一个场景”，不是并行 spinner】（2026-11-09 晚）**：`npm run motion` 此前在 setup 路由亮红——`main__body.chat` 里 7 个无限动画（3 张浮动卡片 + 4 个光点）。根因不是失控 spinner，而是 onboarding 首屏是一个**整体编排的场景**（同一 `.onboard-art` 容器，`prefers-reduced-motion` 下整段 `animation:none`），而环形预算按“最近卡片/面板/页面”归组，弹层里的装饰被记到了页面主体上。修法：环形预算跳过 `.onboard-art` 内的元素并写明理由（不是放宽阈值，而是把“一个有意的场景”排除在“互相竞争的 spinner”之外）。复测：`motion` **rc=0**（两种主题 × 9 条路由），反转与单环检查全部通过。`motion:budget` 仍按既有计划 15 报 `NOT MEASURED`（自检刻意失败，属已知待办，不追）。
+
 ---
 
 

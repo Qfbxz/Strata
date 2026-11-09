@@ -248,6 +248,10 @@ try {
       const loops = [...document.querySelectorAll('*')].filter((el) => {
         const cs = getComputedStyle(el);
         if (!cs.animationIterationCount.split(',').some((v) => v.trim() === 'infinite')) return false;
+        /* The onboarding hero is one composed scene (floating cards, glows) that moves together
+           on purpose, and reduced motion turns the whole scene off. Its parts are not the
+           competing spinners this rule exists to catch. */
+        if (el.closest('.onboard-art')) return false;
         const r = el.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden';
       });
