@@ -151,7 +151,7 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
     // DFlash2 with the converted pack (the selector as Q4_0 rows) takes 175 MiB less graphics memory: the fit says the true number (Control's `selq4`, strata_control/drafting.py vram_gb).
     const fitDrafter = nowDrafter === 'dflash2' && native?.capabilities?.dflash2Selq4 === true ? 'dflash2_selq4' : nowDrafter;
     const draftingWords: Record<string, string> = { auto: 'Auto (recommended)', mtp: 'MTP', dflash2: 'DFlash2', off: 'Off' };
-    const values = useMemo(() => ({ family: selectedSize?.sourceFamily, model: selectedSize?.model, context, vision: selectedSize?.images ? vision : 'no', kv, low_ram: lowRam, resourceProfile, ...(cardsGpus.length > 1 ? { gpus: cardsGpus.join(',') } : cardsGpus.length === 1 ? { gpu: cardsGpus[0] } : {}), loadAfter: true, multiple: expert && multiple }), [selectedSize?.sourceFamily, selectedSize?.model, context, vision, kv, lowRam, resourceProfile, cardsGpus.join(','), expert, multiple]);
+    const values = useMemo(() => ({ family: selectedSize?.sourceFamily, model: selectedSize?.model, context, vision: selectedSize?.images ? vision : 'no', kv, low_ram: lowRam, resourceProfile, ...(draftingChoices && !draftingChoices.disabled ? { drafting } : {}), ...(cardsGpus.length > 1 ? { gpus: cardsGpus.join(',') } : cardsGpus.length === 1 ? { gpu: cardsGpus[0] } : {}), loadAfter: true, multiple: expert && multiple }), [selectedSize?.sourceFamily, selectedSize?.model, context, vision, kv, lowRam, resourceProfile, drafting, draftingChoices?.disabled, cardsGpus.join(','), expert, multiple]);
     const downloadValues = { ...values, ...(draftingChoices && !draftingChoices.disabled ? { drafting } : {}), vision: selectedSize?.images && vision !== 'no' ? 'yes' : 'no', loadVision: selectedSize?.images ? vision : 'no', ...(noReader ? { visionUnavailable: true } : {}), ...(contextPicked ? { contextChosen: true } : {}) };
     useEffect(() => { if (!native?.catalog || family)
         return; const current = native.instances.find(i => i.id === native.defaultId); const rec = native.catalog.recommendation ?? { family: null, model: null }; const loadedFamily = families.find(f => f.sizes.some(s => s.id === current?.model)); const have = new Set((native.installed?.models ?? []).filter(m => m.ready).map(m => m.model)); const installedFamily = families.find(f => f.sizes.some(s => have.has(s.id))); const f = loadedFamily ?? installedFamily ?? families.find(f => f.family === rec.family || f.sizes.some(s => s.sourceFamily === rec.family)) ?? families[0]; if (f) {
@@ -254,14 +254,36 @@ export function NativeModels({ onOtherModels, onReady, onImport, onConnectEngine
     // A model that is not in the catalog loads straight from its run config: the load operation takes the
     // config tag, so the version picker is not on this path (it only knows catalog sizes).
     const loadUnlisted = (model: string) => void perform(() => nativeAction<NativeJob>('operations', { kind: 'load', args: { model, resourceProfile, vision: 'no', multiple: expert && multiple } }));
+    // A saved setup restores every choice the Models page offers and the preset stored; a key an older preset lacks keeps the current choice.
+    const applyPreset = (v: Record<string, any>) => {
+        const f = families.find(f => f.family === v.family || f.sizes.some(s => s.sourceFamily === v.family));
+        if (!f)
+            return;
+        const target = f.sizes.find(s => s.model === v.model && (s.sourceFamily === v.family || f.family === v.family)) ?? f.sizes[0];
+        presetPending.current = true;
+        setFamily(f.family);
+        setSize(target?.id ?? '');
+        setContext(v.context ?? 32768);
+        setVision(v.vision ?? 'no');
+        setKv(v.kv ?? 'int8');
+        setLowRam(v.low_ram ?? 'auto');
+        if (v.resourceProfile === 'work' || v.resourceProfile === 'performance')
+            setResourceProfile(v.resourceProfile);
+        const draftingFor = target ? draftingChoiceBox(target.sourceFamily ?? f.family, native?.capabilities?.dflash2) : null;
+        if (typeof v.drafting === 'string' && draftingFor && !draftingFor.disabled && draftingFor.values.includes(v.drafting))
+            setDrafting(v.drafting);
+        if (typeof v.multiple === 'boolean') { setMultiple(v.multiple); if (v.multiple) setExpert(true); }
+        const gpus = typeof v.gpus === 'string' ? v.gpus.split(',').map(Number).filter(Number.isFinite) : v.gpu !== undefined && v.gpu !== null && Number.isFinite(Number(v.gpu)) ? [Number(v.gpu)] : [];
+        if (gpus.length && roleCards.length > 1)
+            changeRoles(fromLegacy(gpus, roleCards, 'as_given'));
+    };
     return <Screen plainHeader title={<span className="sr-only">{tr("Models")}</span>} titleDetail={<FamilySwitch families={families} selected={selectedFamily?.family} onPick={f => { setFamily(f.family); setSize((f.sizes.find(s => native?.installed?.models.some(m => m.model === s.id && m.ready)) ?? f.sizes[0])?.id ?? ''); setVision('yes'); setError(''); }}/>} actions={<Btn icon="sliders" aria-pressed={expert} aria-expanded={expert} aria-controls="native-expert-settings" onClick={() => { setExpert(v => !v); setMultiple(false); }}>{tr(expert ? 'Close expert mode' : 'Expert mode')}</Btn>}>
   <div className="native-model-layout native-model-layout--fit">
    <div className="stack">
     {tr(native?.instances.length && expert ? <section className="st-card native-running"><h2 className="h4">{tr(native.instances.length === 1 ? 'Loaded model' : 'Loaded models')}</h2>{tr(native.instances.map(i => <div key={i.id}><span><strong>{tr(i.label)}</strong><small>{tr(i.gpus.length ? i.gpus.map((g, n) => `GPU ${g + 1}${i.gpus.length > 1 && n === i.gpus.length - 1 ? ' (Main)' : ''}`).join(' + ') : 'Automatic GPU')} · {tr(i.status === 'ready' ? i.phase : i.status)}{tr(native.defaultId === i.id ? ' · Chat default' : '')}</small>{tr(i.error ? <small className="inline-error">{tr(plainFailureText(i.error).message)}</small> : null)}</span>{tr(expert && multiple && native.defaultId !== i.id ? <Btn size="sm" variant="ghost" onClick={() => void loadedAction(`instances/${i.id}/default`)}>{tr("Use in chat")}</Btn> : null)}<Btn size="sm" disabled={pending || !!active} onClick={() => void loadedAction(`instances/${i.id}/unload`)}>{tr("Unload")}</Btn></div>))}{tr(loadedError ? <ErrorNotice message={loadedError} next={tr("Stop or answer the chat that is still using this model, then try again.")}/> : null)}</section> : null)}
     <section className="st-card native-choice">{tr(selectedFamily && (!selectedSize || selectedSize.needsNewerEngine) ? <><h2 className="h3">{tr("This model needs a newer engine.")}</h2><p className="small muted">{tr("Update your engine or import a local GGUF for this model.")}</p><Btn onClick={() => { setSettingsSection('Engine'); go('settings'); }}>{tr("Update engine")}</Btn><Btn variant="ghost" onClick={onImport ?? onOtherModels}>{tr("Use a local GGUF\u2026")}</Btn></> : null)}{tr(!selectedFamily && !listPending ? <><h2 className="h3">{tr("Set up Strata")}</h2><p className="small muted">{tr("Connect your local installation to choose an optimized model.")}</p><Btn variant="primary" onClick={onConnectEngine ?? (() => { setSettingsSection('Engine'); go('settings'); })}>{tr("Connect engine")}</Btn>{tr(native?.error ? <p className="small inline-error">{tr(native.error)}</p> : null)}<Btn variant="ghost" onClick={onOtherModels}>{tr("Other local models")}</Btn></> : null)}
      {tr(selectedSize ? <>
-      <div className="native-choice__head"><span className="native-choice__label">{tr("Version")}</span><span className="native-choice__tools"><NativePresets values={values} onApply={v => { const f = families.find(f => f.family === v.family || f.sizes.some(s => s.sourceFamily === v.family)); if (!f)
-        return; presetPending.current = true; setFamily(f.family); setSize(f.sizes.find(s => s.model === v.model && (s.sourceFamily === v.family || f.family === v.family))?.id ?? ''); setContext(v.context ?? 32768); setVision(v.vision ?? 'no'); setKv(v.kv ?? 'int8'); setLowRam(v.low_ram ?? 'auto'); }}/><Btn icon="models" size="sm" variant="ghost" onClick={() => setManage(true)}>{tr("Manage models")}</Btn></span></div>
+      <div className="native-choice__head"><span className="native-choice__label">{tr("Version")}</span><span className="native-choice__tools"><NativePresets values={values} onApply={applyPreset}/><Btn icon="models" size="sm" variant="ghost" onClick={() => setManage(true)}>{tr("Manage models")}</Btn></span></div>
       <div className="native-version"><VersionPicker pick={native?.catalog?.recommendation} versions={selectedFamily?.sizes ?? []} details={expert} selectedId={selectedSize.id} hardware={fitHardware} cache={{ context, kv, drafter: fitDrafter }} downloaded={readyIds} onSelect={id => { const f = families.find(f => f.sizes.some(s => s.id === id)); if (f) { setFamily(f.family); setSize(id); setError(''); } }} onOwnGguf={() => (onImport ?? onOtherModels)()}/></div>
       {tr(fitState === 'ssd' ? <p className="small muted native-spill-note"><Icon name="disk" size={16}/>{tr("SSD streaming · will run slower")}</p> : fitState === 'no' ? <p className="small muted native-spill-note"><Icon name="warning" size={16}/>{tr("Doesn't fit")}</p> : null)}
       {tr(selectedSize?.multi_file && deepseekContextNote(context) ? <p className="small muted native-spill-note"><Icon name="info" size={16}/>{tr(deepseekContextNote(context))}</p> : null)}

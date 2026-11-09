@@ -4,7 +4,10 @@ import {validateNativeSettings,validateMcpServers,publicMcpServers,publicNativeE
 import {validateChatImages} from '../server/chat-images.mjs';
 test('native settings reject invalid ranges and unmanaged network arguments',()=>{
  assert.deepEqual(validateNativeSettings({parallel:2,layer_split:'16,32',reasoning_budget_tokens:null,sampling:{temperature:.7}}),{parallel:2,layer_split:'16,32',reasoning_budget_tokens:null,sampling:{temperature:.7}});
- for(const value of [{parallel:0},{parallel:1.2},{layer_split:'32,16'},{layer_split:'48'},{exe:'/tmp/program'},{args:['--host','0.0.0.0']},{env:{HOME:'/tmp'}},{sampling:{top_p:2}},{anthropic_thinking:'always'}])assert.throws(()=>validateNativeSettings(value));
+ // The Speed projection switch beside the sampling numbers: a boolean, off by default, and the only sampling key that is not a number.
+ assert.deepEqual(validateNativeSettings({sampling:{experimental_speed_projection:true}}),{sampling:{experimental_speed_projection:true}});
+ assert.deepEqual(validateNativeSettings({sampling:{experimental_speed_projection:false}}),{sampling:{experimental_speed_projection:false}});
+ for(const value of [{parallel:0},{parallel:1.2},{layer_split:'32,16'},{layer_split:'48'},{exe:'/tmp/program'},{args:['--host','0.0.0.0']},{env:{HOME:'/tmp'}},{sampling:{top_p:2}},{sampling:{experimental_speed_projection:'on'}},{anthropic_thinking:'always'}])assert.throws(()=>validateNativeSettings(value));
 });
 test('MCP secrets round trip masked values and reject malformed transport settings',()=>{
  const previous={files:{command:'node',args:['server.mjs'],env:{API_KEY:'private-key'},disabled:false},remote:{url:'https://example.test/mcp',headers:{Authorization:'Bearer private'}}};
