@@ -188,6 +188,8 @@
 
 - **【H3 spill 附 token 计数落地（TDD，02d726b3+951e…)】（2026-11-10 凌晨）**：spill 标记现为 `spilled N chars (~M tokens), full: path`——计数走引擎自己的 `/v1/messages/count_tokens`（profile 把 countUrl/model/keyEnv 随 spill 配置下发，键按 `keyEnv` 环境变量名引用、值不进配置）；2 秒超时、任何失败（旧引擎/忙/无计数 URL）都优雅降级为纯字符数，spill 本身永不失败。**RED**：spillMarker 未导出测试红（02d726b3）；**GREEN**：12/12（含计数器注入 5120 tokens 进标记、null 降级、共享大对象污染的测试自身 bug 也已修）。profile 已接 countUrl/model/keyEnv（默认本地路由）。
 
+- **【H4 context_remaining 工具落地（TDD，分批）】（2026-11-10 凌晨）**：`custom-tools-mcp.mjs` 新增 `context` 模式：`context_remaining` 工具（readOnlyHint，无审批）读宿主写的 `context-budget.json` 快照（每次调用重读文件，新回合的数字即现值）；桥接在每回合 fitCheck 实测后把宿主实际执行的预算（window/pressure/reply/headroom/room/compactAt，profile.mjs 同一算术）原子写入该快照；profile 把第三个自有 MCP server（strata-context）挂进 profile。快照缺失时如实说“budget is not known yet”。**RED**：context 模式不存在（usage 退出）；**GREEN**：3/3（list 只含 context_remaining+readOnlyHint、call 带全部六个数字、改快照后答案跟着变、空快照说不知道）。**契约更新**：profile 测试的服务器名单加入 strata-context（H4 是路线图明确的工作包）。服务端 5 个清理文件与全部改动已同步进在役 App（cmp 逐字节一致）。
+
 ---
 
 
