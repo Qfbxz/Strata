@@ -57,7 +57,8 @@ body {
   background-attachment: fixed;
 }
 
-@media (prefers-reduced-transparency: reduce) {body {
+@media (prefers-reduced-transparency: reduce) {
+  body {
     background-image: none;
   }
 
@@ -814,7 +815,8 @@ body {
   color: var(--st-ink);
 }
 
-@media (prefers-reduced-motion: reduce) {.ws__session .navsession__working svg {
+@media (prefers-reduced-motion: reduce) {
+  .ws__session .navsession__working svg {
     animation: none;
   }
 
@@ -1084,7 +1086,8 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     color var(--st-t-micro) var(--st-ease-standard);
 }
 
-@media (prefers-reduced-motion: reduce) {.fcard__open,
+@media (prefers-reduced-motion: reduce) {
+  .fcard__open,
   .fcard__more,
   .edited__row {
     transition: none;
@@ -1103,7 +1106,8 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
     color var(--st-t-micro) var(--st-ease-standard);
 }
 
-@media (prefers-reduced-motion: reduce) {.menu__item,
+@media (prefers-reduced-motion: reduce) {
+  .menu__item,
   .palette__row,
   .st-table tbody td {
     transition: none;
@@ -1202,7 +1206,8 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   transform: scale(var(--st-press-scale));
 }
 
-@media (prefers-reduced-motion: reduce) {:root { --st-press-scale: 1; --st-panel-shift: 0px; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --st-press-scale: 1; --st-panel-shift: 0px; }
 
 }
 /* Reasoning ("Thought for 38s"): the summary is a control (hover wash, press),
@@ -1248,7 +1253,8 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
   border-left: 2px solid var(--st-hairline);
 }
 
-@supports (interpolate-size: allow-keywords) {.rz::details-content {
+@supports (interpolate-size: allow-keywords) {
+  .rz::details-content {
     block-size: 0;
     opacity: 0;
     overflow: hidden;
@@ -1389,7 +1395,8 @@ html[data-motion='reduced'] .ws__session .navsession__working svg {
 
 [data-theme='dark'] { --st-check-ink: var(--st-accent-ink); }
 
-@media not (forced-colors: active) {input[type='checkbox']:checked::after,
+@media not (forced-colors: active) {
+  input[type='checkbox']:checked::after,
   .native-image-reading input[type='checkbox']::after,
   .native-gpu-options input[type='checkbox']::after {
     border-color: var(--st-check-ink);
@@ -1582,7 +1589,8 @@ input[type='checkbox']:disabled:checked,
   font-variant-numeric: tabular-nums;
 }
 
-@media (prefers-reduced-motion: reduce) {.fsum__chev,
+@media (prefers-reduced-motion: reduce) {
+  .fsum__chev,
   .fsum__open,
   .fsum__toggle {
     transition: none;

@@ -10,10 +10,10 @@
 
 .board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
 
-@container (max-width: 1080px) {.board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container (max-width: 1080px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 }
-@container (max-width: 560px) {.board { grid-template-columns: minmax(0, 1fr); }
+@container (max-width: 560px) { .board { grid-template-columns: minmax(0, 1fr); }
 
 }
 .bcol { background: var(--st-surface-2); border: 1px solid var(--st-line-soft); border-radius: var(--st-r-lg); padding: 12px 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -80,7 +80,7 @@
 
 @keyframes board-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(270%); } }
 
-@media (prefers-reduced-motion: reduce) {.bcard__bar i { animation: none; width: 100%; opacity: 0.45; }
+@media (prefers-reduced-motion: reduce) { .bcard__bar i { animation: none; width: 100%; opacity: 0.45; }
 
 }
 html[data-motion='reduced'] .bcard__bar i { animation: none; width: 100%; opacity: 0.45; }

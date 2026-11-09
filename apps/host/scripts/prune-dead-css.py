@@ -78,7 +78,11 @@ def process(text, i, end, stats):
                 name=prelude.split(None,1)[0].lower() if prelude else ''
                 if name in ('media','supports','layer','container'):
                     inner=process(text, body_start, j-1, stats)
-                    if inner.strip(): out.append('@'+prelude+' {'+inner+'\n}')
+                    if inner.strip():
+                        # keep the author's spacing between the brace and the first rule
+                        original=body
+                        lead=original[:len(original)-len(original.lstrip())]
+                        out.append('@'+prelude+' {'+lead+inner+'\n}')
                     else: stats['dropped']+=1
                 elif name=='keyframes':
                     kfname=prelude.split(None,1)[1].strip() if len(prelude.split(None,1))>1 else 'anon'
