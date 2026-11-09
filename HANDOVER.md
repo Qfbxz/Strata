@@ -190,6 +190,8 @@
 
 - **【H4 context_remaining 工具落地（TDD，分批）】（2026-11-10 凌晨）**：`custom-tools-mcp.mjs` 新增 `context` 模式：`context_remaining` 工具（readOnlyHint，无审批）读宿主写的 `context-budget.json` 快照（每次调用重读文件，新回合的数字即现值）；桥接在每回合 fitCheck 实测后把宿主实际执行的预算（window/pressure/reply/headroom/room/compactAt，profile.mjs 同一算术）原子写入该快照；profile 把第三个自有 MCP server（strata-context）挂进 profile。快照缺失时如实说“budget is not known yet”。**RED**：context 模式不存在（usage 退出）；**GREEN**：3/3（list 只含 context_remaining+readOnlyHint、call 带全部六个数字、改快照后答案跟着变、空快照说不知道）。**契约更新**：profile 测试的服务器名单加入 strata-context（H4 是路线图明确的工作包）。服务端 5 个清理文件与全部改动已同步进在役 App（cmp 逐字节一致）。
 
+- **【E1 OpenAI 侧计数端点落地（TDD）】（2026-11-10 凌晨）**：`POST /v1/chat/completions/count_tokens`——与 Anthropic 侧同构（openai_to_messages 渲染 + encode_prompt，model 不运行），require_messages 与真路由同样 400；OpenAI 协议 harness（opencode/codex）从此拿得到真计数。`connect --check` 增加第三项「count endpoint」（E1 验收），三线（opencode/codex/claude-code）全部 3/3 过。**RED**：404!=200（eb45a52c）；**GREEN**：serve 全量 374 测 OK + terminal 121 测 OK。
+
 ---
 
 
