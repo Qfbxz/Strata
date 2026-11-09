@@ -152,6 +152,8 @@
 
 - **【同一开关缺陷的第二处：agents 开关对 agent 聊天无效 + 切换后派生状态不刷新】（2026-11-09 晚）**：`agents` 开关原先只挡 `/api/agents` 的目录列举，而 agent 桥的 persona 插件拿到的是**无门控**的 `agentsDirs` 闭包——关掉开关后 agent 聊天仍从 `data/agents`、`workspace/agents` 载入人设。修复：`agentsDirs: () => features().agents ? [data/agents, workspace/agents] : []`。同时把 GET /api/skills 的重扫逻辑提成 `rescanSkills()`，并在 `PUT /api/features` 之后调用——此前切换开关，agent 的 `skills-live` 物化目录要等下一次技能页读取或重启才更新；现在切换即同步。测试扩展：`skills-native-toggle` 新增两条断言（开关关时 agent 物化目录立刻不含 `ns-pack-ns`，开时立刻回来）。**验证**：npm 全量 **1752 测/1640 过/0 败/112 跳**（首次整跑出现 1 例断言红，孤立复跑即绿——已知的并行加载抖动）。已热部署 `index.mjs` 进在役 App（cmp 字节一致，下次启动生效）。
 
+- **【功能开关第三处：projectInstructions 对 agent 聊天无效】（2026-11-09 晚）**：该开关原先只挡直聊的 `projectPromptPart`；agent 聊天由 Harness 的 `dsh-agent-instructions` 插件读同一批 CLAUDE.md/AGENTS.md，开关对它们无效。修复：`buildProfile({projectInstructions})` 在关闭时插入 `{id:'agent-instructions',disabled:true}`；agent 桥新增同名选项闭包，index.mjs 接 `features().projectInstructions`——profile 签名随之变化，下一条消息即重启 harness 生效。**测试**：agent-shape 新增一条（开=无禁用行，关=有禁用行，未设=旧行为）。**验证**：npm 全量 1753 测中 1639 过/112 跳，2 例红为 reliability·runtime-api 的 8.7s 生命周期用例，孤立复跑 3/3 全绿（已知并行加载抖动，与本次改动无关）。三文件已热部署进在役 App。
+
 ---
 
 

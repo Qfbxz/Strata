@@ -130,7 +130,7 @@ export function isAutoContinueSplice(payloadText) {
   const t = String(payloadText ?? '');
   return t.includes('"Continue"') || t.includes('继续。你上一轮') || t.includes('宿主在你上一轮运行期间重启');
 }
-export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = null, gate = true, localInstances, connections, tools = () => undefined, defaultLocalId = () => null, skillsDir = () => null, onGoal = () => {}, onPlan = () => {}, onQueue = () => {}, proxyBase = null, searchMock = null, expertSampling = () => null, engineProgress = () => null, engineGraceMs = 30 * 60_000, stallMs = 4 * 60_000, stallToolMs = 20 * 60_000, env = process.env, nodePath = process.execPath, log = () => {}, startTimeoutMs = 120_000, sessionReadyMs = 60_000, sessionRetryMs = 1_500 }) {
+export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = null, gate = true, localInstances, connections, tools = () => undefined, defaultLocalId = () => null, skillsDir = () => null, projectInstructions = () => true, onGoal = () => {}, onPlan = () => {}, onQueue = () => {}, proxyBase = null, searchMock = null, expertSampling = () => null, engineProgress = () => null, engineGraceMs = 30 * 60_000, stallMs = 4 * 60_000, stallToolMs = 20 * 60_000, env = process.env, nodePath = process.execPath, log = () => {}, startTimeoutMs = 120_000, sessionReadyMs = 60_000, sessionRetryMs = 1_500 }) {
   const root = join(dataDir, 'agent');
   const home = join(root, 'home');
   const sessionsFile = join(root, 'sessions.json');
@@ -190,7 +190,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
   /** The agent's profile now, plus where its shaped routes really lead (read by the forwarding endpoint). */
   let shapeTargets = {};
   function buildProfileNow() {
-    const profile = buildProfile({ local: localInstances(), connections: connections(), gate, tools: tools(), skillsDir: skillsDir(), proxyBase, searchMock, defaultLocalId: defaultLocalId() });
+    const profile = buildProfile({ local: localInstances(), connections: connections(), gate, tools: tools(), skillsDir: skillsDir(), projectInstructions: projectInstructions(), proxyBase, searchMock, defaultLocalId: defaultLocalId() });
     shapeTargets = profile.shapeTargets ?? {};
     return profile;
   }

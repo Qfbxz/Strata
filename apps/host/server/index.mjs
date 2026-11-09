@@ -212,6 +212,7 @@ async function pictureRefusal(connection, model) {
 const agent = createAgentBridge({
   tools: () => agentTools.profileView(),
   skillsDir: () => AGENT_SKILLS,
+  projectInstructions: () => features().projectInstructions,
   agentsDirs: () => features().agents ? [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')] : [],
   onGoal: (chatId, goal) => hub.send('goal', { chatId, goal }),
   // The person's Response settings (thinking budget, Expert sampling) reach the agent's model through this host's own forwarding endpoint.

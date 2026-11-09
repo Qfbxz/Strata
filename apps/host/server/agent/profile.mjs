@@ -226,7 +226,7 @@ export function outputBudget(context, maxOutput = null) {
 /** What a local model, or an OpenAI-style server on this network, takes for the thinking level (see the comment where a local route is built). */
 const THINKING_COMPAT = { supportsStore: false, thinkingFormat: 'chat-template', chatTemplateKwargs: { enable_thinking: { $var: 'thinking.enabled' }, reasoning_effort: { $var: 'thinking.effort', omitWhenOff: true } } };
 
-export function buildProfile({ local = [], connections = [], gate = true, tools = NO_TOOLS_SETTINGS, skillsDir = null, proxyBase = null, searchMock = null, defaultLocalId = null, agentsDirs = () => [] }) {
+export function buildProfile({ local = [], connections = [], gate = true, tools = NO_TOOLS_SETTINGS, skillsDir = null, proxyBase = null, searchMock = null, defaultLocalId = null, agentsDirs = () => [], projectInstructions = true }) {
   const providers = {};
   const env = {};
   const routes = [];
@@ -383,6 +383,8 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { id: 'preset-standard', name: '@deepseek-ai/dsh-agent-preset', config: standardPreset({ off: tools.off, search: searchOn, skillsDir, compaction }) },
     // Strata names its chats itself; the Harness's own title request would be an extra model call on
     // every first prompt (and, for an API route, an unrequested one).
+    // The person's Settings switch covers agent chats too: without it the Harness would still read CLAUDE.md and AGENTS.md.
+    ...(projectInstructions ? [] : [{ id: 'agent-instructions', disabled: true }]),
     { id: 'session-title-llm', disabled: true },
     // Office documents are not previewed in the app (the converter is not shipped): do not try to start it.
     { id: 'office-to-pdf', disabled: true },

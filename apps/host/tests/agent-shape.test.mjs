@@ -140,3 +140,10 @@ test('a model server on this network gets picture input unless its own model lis
   const build = vision => JSON.parse(buildProfile({ local: [], connections: [{ id: 'own', name: 'Own', baseUrl: 'http://127.0.0.1:18798/v1', protocol: 'openai-chat', apiKey: '', models: [{ id: 'm', contextMax: 32768, vision }] }] }).patch.slice(buildProfile({ local: [], connections: [] }).patch.indexOf('['))).find(e => e.id === 'llm-pi-ai').config.providers['api-own'].models[0].input;
   assert.deepEqual(build(true), ['text', 'image']); assert.deepEqual(build(false), ['text']); assert.deepEqual(build(undefined), ['text', 'image'], 'pictures are on by default');
 });
+
+test('the project-instructions switch disables the Harness plugin that reads CLAUDE.md and AGENTS.md', () => {
+  const rows = (flag) => JSON.parse(buildProfile(flag === undefined ? {} : { projectInstructions: flag }).patch.slice(buildProfile({}).patch.indexOf('[')));
+  assert.ok(!rows(true).some(r => r.id === 'agent-instructions'), 'on: the preset plugin keeps reading them');
+  assert.ok(rows(false).some(r => r.id === 'agent-instructions' && r.disabled === true), 'off: one edit row disables it for agent chats');
+  assert.ok(!rows(undefined).some(r => r.id === 'agent-instructions' && r.disabled === true), 'unset keeps the old behaviour');
+});
