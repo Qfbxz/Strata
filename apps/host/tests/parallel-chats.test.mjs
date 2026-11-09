@@ -45,7 +45,7 @@ test('two chats in one folder: each turn reports only the files its own tools wr
     assert.deepEqual(reportedB.map(d => d.path), ['b-1.txt', 'b-2.txt']);
     assert.deepEqual(sweptA.map(d => d.path), [], 'chat A is not given chat B\'s files, nor a file whose writer cannot be told');
     assert.deepEqual(sweptB.map(d => d.path), [], 'and the other way round');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a chat working alone still gets the files its scripts made (nothing changes without a second chat)', () => {
@@ -63,7 +63,7 @@ test('a chat working alone still gets the files its scripts made (nothing change
     writeFileSync(join(dir, 'later.js'), 'y\n');
     assert.deepEqual(B.sweep().map(d => d.path), ['later.js']);
     claims.end(dir, 'chat-B');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a chat that is stopped or fails still lets go of the folder, and another folder is never affected', () => {
@@ -81,7 +81,7 @@ test('a chat that is stopped or fails still lets go of the folder, and another f
     claims.end(two, 'chat-B');
     assert.equal(claims.ownerOf(one, 'a.js'), null);
     assert.equal(claims.overlapped(one, 'chat-A'), false);
-  } finally { rmSync(one, { recursive: true, force: true }); rmSync(two, { recursive: true, force: true }); }
+  } finally { rmSync(one, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); rmSync(two, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a file both chats wrote with their file tools is reported to each chat that wrote it', () => {
@@ -93,7 +93,7 @@ test('a file both chats wrote with their file tools is reported to each chat tha
     A.snapshot(); claims.begin(dir, 'chat-A'); B.snapshot(); claims.begin(dir, 'chat-B');
     assert.equal(tool(dir, A, 'shared.md', 'A').status, 'created');
     assert.ok(tool(dir, B, 'shared.md', 'B-longer-marker'), 'the second chat\'s own write is its own deliverable');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 /* ---------------------------------------------------------------- app side: messages and tool cards of two live chats */
@@ -201,5 +201,5 @@ test('two live chats in one workspace keep their messages, tool cards and saved 
   await chatStore.remove(other.id);
   await store.applyChatChange(other.id, null, true);
   assert.ok(!store.useStore((s) => s.sessions).some((s) => s.id === other.id), 'a chat the other window deleted goes here too');
-  } finally { fakeHost.restore(); rmSync(hostDir, { recursive: true, force: true }); }
+  } finally { fakeHost.restore(); rmSync(hostDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
