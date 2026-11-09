@@ -1038,20 +1038,18 @@ if (flow === 'railclose') {
   await page.waitForTimeout(7000);
   await page.keyboard.press('Enter').catch(() => {});
   await page.waitForTimeout(3500);
-  await page.click('button[title="Conversation context"]');
+  // The context rail became the telemetry chip beside the composer; the chip is the way in now.
+  await page.locator('.telemetry__chip').last().click();
   await page.waitForTimeout(700);
-  console.log('header     :', JSON.stringify(await page.evaluate(() => {
-    const head = document.querySelector('.contextpanel__head');
-    const btn = head?.querySelector('button');
-    return { closeTitle: btn?.getAttribute('title'), buttonText: btn?.textContent.trim() };
+  console.log('context chip:', JSON.stringify(await page.evaluate(() => {
+    const chips = [...document.querySelectorAll('.telemetry__chip')];
+    const last = chips[chips.length - 1];
+    const pop = document.querySelector('.popover, [role="dialog"]');
+    return { label: last?.getAttribute('aria-label'), expanded: last?.getAttribute('aria-expanded'), popover: !!pop };
   })));
-  console.log('sections   :', await page.evaluate(() =>
-    document.querySelectorAll('.contextpanel__sections .railsection').length));
-  await page.click('.contextpanel__head button');
-  await page.waitForTimeout(800);
-  console.log('rail dismissed:', await page.evaluate(() =>
-    getComputedStyle(document.querySelector('.contextpanel')).visibility === 'hidden'));
-  await shot('330-rail-close');
+  await page.locator('.telemetry__chip').last().click();
+  await page.waitForTimeout(500);
+  await shot('330-context-chip');
 }
 
 if (flow === 'treekeys') {

@@ -162,6 +162,8 @@
 
 - **【UI flow 债清理（第一批）】（2026-11-09 晚）**：`flow.mjs` 里 20 处 `text=New session` 与 1 处 `input[placeholder="Search conversations"]` 指向早已不存在的控件（侧栏按钮现为 `button.nav-new`，搜索占位为 “Search chats…”）→ 全部改为现行选择器；archive flow 的会话菜单改用可发现的 `.session-overflow` 按钮（右键上下文菜单会被浮动菜单的“点外关闭”同帧收起）。archive flow 实测：归档后该行离开列表、未被删除；`privacy/settingsreset/settingssearch` 仍全绿。余下 flow 仍有长尾旧选择器（例：rail 流程停在 `button[title="Conversation context"]`），下一批逐条修。
 
+- **【打包件端到端复核 + railclose flow 跟齐现状】（2026-11-09 晚）**：直接启动在役 App 的 `Resources/host`（临时 HOME/STRATA_HOME，端口 8797）实测：`/api/features` 七键默认全 true；临时 native 技能包 `ns-pack-x` 在开关 on 时列出、off 时消失、再 on 恢复（技能开关修复在打包件里成立）；`/` 指向本次部署的 `index-CEnpRrEG.js`；`/api/engine/export` 返回 200。另：`railclose` flow 原点击的 “Conversation context” 侧栏已被 composer 处的 telemetry chip 取代 → flow 改为点最后一个 `.telemetry__chip` 并核对展开态；该 chip 需要至少一条回复才渲染（无模型环境下不出现，属环境限制）。
+
 ---
 
 
