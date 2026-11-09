@@ -119,7 +119,6 @@ export function estimate(v: ModelVariant | undefined, hw: Hardware | null, confi
 export const FIT_TEXT = { comfortable: 'Comfortable fit · estimated', tight: 'Memory may be tight', 'too-large': 'Exceeds memory budget', unknown: 'Fit unknown', unsupported: 'Context not supported' };
 export function speedText(range: Range | null) { return range ? `${Math.round(range.low).toLocaleString(localeTag())}–${Math.round(range.high).toLocaleString(localeTag())}` : 'Not estimated'; }
 export function durationText(tokens: number, range: Range | null) { return range ? `${(tokens / range.high).toFixed(1)}–${(tokens / range.low).toFixed(1)} s` : 'Not estimated'; }
-export function sourceText(e: Experience) { return e.source === 'demo' ? 'Illustrative estimate' : e.source === 'estimated' ? 'Estimated' : e.source === 'measured' ? 'Measured' : 'Unavailable'; }
 export interface Recommendation {
     unavailableReason?: 'hardware' | 'fit';
     profile: Profile;

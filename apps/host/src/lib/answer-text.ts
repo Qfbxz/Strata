@@ -30,4 +30,3 @@ export function tidyAnswer(text: string): string {
 }
 
 /** True when `tidyAnswer` would change nothing, so a caller can skip a copy. */
-export const isTidy = (text: string) => tidyAnswer(text) === text;

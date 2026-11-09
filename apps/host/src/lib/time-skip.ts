@@ -195,10 +195,6 @@ function realResultState(job: TimeSkipJob, chosen?: TimeSkipVersion) {
  * The panel uses this to offer Compare instead of claiming a result. It is deliberately not the same
  * question as "is the run finished".
  */
-export function timeSkipNeedsReview(run: TimeSkipRun): boolean {
-  return Boolean(run.job?.needsUserReview);
-}
-
 /** The job's own check outcomes for a checkpoint, for the details table. */
 export function timeSkipCheckOutcomes(run: TimeSkipRun): { id: string; outcome: string }[] {
   const job = run.job;

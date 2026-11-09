@@ -18,6 +18,4 @@ export function useKept<T>(key: string, initial: T): [T, Dispatch<SetStateAction
   return [value, set];
 }
 
-export const keptValue = <T,>(key: string): T | undefined => kept.get(key) as T | undefined;
 /** Forget everything kept (tests, and a changed installation). */
-export const forgetKept = () => kept.clear();

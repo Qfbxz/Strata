@@ -6,7 +6,7 @@ import { validWhileBusy, type WhileBusy } from './while-busy';
 import { addToQuotes, type Quote } from './quotes';
 import { readAsk, type AgentAnswer, type AgentAsk } from './agent-ask';
 import { plainFailure, plainFailureText } from './plain-errors';
-import { showcaseMessages, SHOWCASE_AGENTS } from './chat-showcase';
+import { SHOWCASE_AGENTS } from './chat-showcase';
 import { settleAgents, updateAgent } from './agents';
 import { LOOP_USAGE, parseLoop, type LoopCommand } from './loop';
 import { LoopScheduler } from './loop-runner';
@@ -17,7 +17,7 @@ import { tidyAnswer } from './answer-text';
 import { appendText, mergeDeliverable, readDeliverable, readGroup, readSkills, upsertGroup } from './deliverables';
 import { applyPlanFrame, applyQueueFrame, planApprove, queueMessage } from './plan';
 import { forkFields, isForkJob, TIME_SKIP_DURATION, timeSkipPrompt, timeSkipTabId, withTimeSkipResult, type TimeSkipFile, type TimeSkipJob, type TimeSkipRun, type TimeSkipVersion } from './time-skip';
-import { PREVIEW_EXAMPLES, type PreviewArtifact } from './artifacts';
+import { type PreviewArtifact } from './artifacts';
 import { lifecyclePolicy } from './lifecycle';
 import { newestServingState } from './serving-state';
 import { photoData, uploadChatPhotos, photoHistorySlots, pendingChatPhotos, takeChatPhotos } from './chat-photos';
@@ -970,15 +970,6 @@ export async function bootstrap() {
 
 /* ------------------------------------------------------------- reads/writes */
 
-export async function refreshHardware() {
-  set((s) => ({ busy: { ...s.busy, hardware: true } }));
-  try {
-    set({ hardware: await api.get<Hardware>('/api/hardware?reprobe=1') });
-  } finally {
-    set((s) => ({ busy: { ...s.busy, hardware: false } }));
-  }
-}
-
 function modelFits(id: string) {
   const model = state.library?.variants.find(v => v.id === id);
   if (state.library?.mode === 'real' && model && state.hardware && state.engine && ['too-large', 'unsupported'].includes(estimate(model, state.hardware, execution(Object.fromEntries(state.engine.expert.map(p => [p.id, p.value])), contextTokens(state.engine.beginner.contextLength))).fit)) {
@@ -1079,17 +1070,6 @@ export async function removeVariant(id: string) {
   } catch (e) { pushToast('error', 'Remove failed', e instanceof Error ? e.message : String(e)); return false; }
 }
 
-export async function waitForInstalled(id: string) {
-  const deadline = Date.now() + 60 * 60 * 1000;
-  while (Date.now() < deadline) {
-    const v = state.library?.variants.find(v => v.id === id);
-    if (v && ['installed', 'loaded'].includes(v.state)) return;
-    if (!v || ['available', 'error'].includes(v.state)) throw new Error(v?.error ?? 'Download cancelled.');
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  throw new Error('Download timed out. Try again from Models.');
-}
-
 export async function saveEngine(patch: Partial<EngineConfig> | Record<string, unknown>, silent = false, requireIdle = false) {
   if (requireIdle) {
     const status = lifecycleStatus();
@@ -1132,11 +1112,6 @@ export function dismissActionError() {
   set({ actionError: null });
 }
 
-export async function resetEngine() {
-  set({ engine: await api.post<EngineConfig>('/api/engine/reset') });
-  pushToast('info', 'Back to recommended', 'Every value returned to the safe default.');
-}
-
 /**
  * Checks an engine config — the saved one by default, or a draft to preview what
  * a change would do before committing to it.
@@ -1147,10 +1122,6 @@ export async function validateEngine(draft?: unknown) {
     issues: { level: 'warn' | 'error'; message: string }[];
     predicted?: EngineConfig['predicted'];
   }>('/api/engine/validate', draft ?? {});
-}
-
-export async function exportEngine() {
-  return api.get<Record<string, unknown>>('/api/engine/export');
 }
 
 export async function setCloudflare(body: {action: 'start' | 'stop' | 'prepare'; mode?: 'quick' | 'domain'; hostname?: string; token?: string}) {
@@ -1187,10 +1158,6 @@ export async function completeSetup() {
   set({ setup });
 }
 
-export async function setSkills(skills: Skill[]) {
-  set({ skills });
-}
-
 /**
  * Re-reads the skill list from the host.
  *
@@ -1213,17 +1180,6 @@ export async function toggleSkill(id: string, enabled: boolean) {
 
 export async function editSkill(id: string, patch: Pick<Skill, 'name' | 'description' | 'body' | 'triggers' | 'enabled' | 'onlyIn'>) {
   set({ skills: await api.patch<Skill[]>(`/api/skills/${encodeURIComponent(id)}`, patch) });
-}
-
-/**
- * Narrows a skill to the workspace you are in, or widens it again.
- *
- * Passing null clears the narrowing. The host resolves `onlyIn` against the
- * workspace the request came from, so the answer depends on where the reader
- * is rather than on a single global switch.
- */
-export async function scopeSkill(id: string, workspaceId: string | null) {
-  set({ skills: await api.patch<Skill[]>(`/api/skills/${encodeURIComponent(id)}`, { onlyIn: workspaceId }) });
 }
 
 /* ---------------------------------------------------------------- sessions */
@@ -1378,12 +1334,6 @@ export function setPreviewTabClosed(sessionId:string|undefined, artifactId:strin
   if(!sessionId)return;
   patchSession(sessionId,s=>({...s,closedPreviews:closed?[...new Set([...(s.closedPreviews??[]),artifactId])]:(s.closedPreviews??[]).filter(id=>id!==artifactId),previewOpen:selected??undefined}));
 }
-export function createChatShowcase() {
-  const session=newSession();const at=new Date().toISOString();
-  patchSession(session.id,s=>({...s,title:'Chat showcase · code, tools & media',showcase:true,statsAvailable:true,tokensIn:28000000,tokensOut:4000000,messages:showcaseMessages(at),agents:SHOWCASE_AGENTS,showcaseAgentStates:true}));
-  go('chat',session.id);
-}
-
 /** A visible example for checking the subagent interface in the design build. */
 export function createSubagentExample() {
   const session = newSession(); const now = Date.now();
@@ -1394,16 +1344,6 @@ export function createSubagentExample() {
       {id:'example-copy',name:'Copy review',description:'Labels and descriptions reviewed.',status:'completed',durationMs:18000,tokens:4200,updatedAt:now},
     ], messages: [{id:uid('m'),role:'assistant',at:new Date(now).toISOString(),example:true,content:'Open the subagent count above to inspect this example run. Each row shows status, token usage and elapsed time.'}]
   }));
-  go('chat', session.id);
-}
-
-export function createPreviewExamples() {
-  const session = newSession();
-  const at = new Date().toISOString();
-  patchSession(session.id, s => ({ ...s, title: 'Design review · six previews', previewOpen:'sample-website', messages: [
-    { id:uid('m'), role:'user', at, content:'Open six different output types so I can iterate on the preview design.' },
-    { id:uid('m'), role:'assistant', at, demo:true, content:'Here is a design-review workspace for Fieldnotes: a website, PDF, Markdown brief, cover image, TypeScript file and release table.\n\nAll six are loaded in the panel on the right. Switch tabs to explore each view while keeping this conversation in place.', artifacts:PREVIEW_EXAMPLES },
-  ] }));
   go('chat', session.id);
 }
 
@@ -1864,7 +1804,6 @@ const loopScheduler = new LoopScheduler({
   track: (sessionId, loop) => patchSession(sessionId, s => ({ ...s, loop })),
 });
 
-export function loopIsRunning(sessionId: string | null): boolean { return loopScheduler.isRunning(sessionId); }
 
 /* ------------------------------------------------------------- task board */
 
