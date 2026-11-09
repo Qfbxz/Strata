@@ -79,7 +79,7 @@ test('a typed path must be an absolute existing directory', async () => {
     await assert.rejects(typedFolder('relative/dir', { isAbsolute }), /full path/);
     await assert.rejects(typedFolder(join(dir, 'missing'), { isAbsolute }), /does not exist/);
     await assert.rejects(typedFolder(join(dir, 'file.txt'), { isAbsolute }), /not a file/);
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('the model page takes a folder or one .gguf file, with or without quotes around the path', async () => {
@@ -96,7 +96,7 @@ test('the model page takes a folder or one .gguf file, with or without quotes ar
     await assert.rejects(typedFolder(join(dir, 'missing.gguf'), only), /does not exist/);
     // the other pickers still refuse a file
     await assert.rejects(typedFolder(join(dir, 'model-00001-of-00002.gguf'), { isAbsolute }), /not a file/);
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 async function startHost() {
@@ -137,8 +137,8 @@ test('the host accepts a typed folder path for the picker and for adding a skill
     assert.ok((await r.json()).added);
   } finally {
     child.kill();
-    await rm(skill, { recursive: true, force: true });
-    await rm(home, { recursive: true, force: true }).catch(() => {});
+    await rm(skill, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {});
   }
 });
 
@@ -174,9 +174,9 @@ test('symlinked skill packs land as real files: add copies through the link, sca
     assert.match(await readFile(join(home, 'skills', 'own-pack', 'SKILL.md'), 'utf8'), /Notes elsewhere/);
   } finally {
     child.kill();
-    await rm(farm, { recursive: true, force: true });
-    await rm(outside, { recursive: true, force: true });
-    await rm(home, { recursive: true, force: true }).catch(() => {});
+    await rm(farm, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    await rm(outside, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {});
   }
 });
 

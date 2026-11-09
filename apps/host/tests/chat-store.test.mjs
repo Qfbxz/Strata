@@ -40,7 +40,7 @@ test('more than 10 MB of chats: every chat is saved whole, listed, and read back
       }
     }
     assert.equal((await readChat(store, 'a')).rev, 3, 'rev counts the saves');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('the files: one per chat, a version field, an index, no stray temporary files', async () => {
@@ -59,7 +59,7 @@ test('the files: one per chat, a version field, an index, no stray temporary fil
       assert.equal(statSync(join(dir, 'chats', 's_one.json')).mode & 0o777, 0o600, 'the chat file is owner-only');
       assert.equal(statSync(join(dir, 'chats', 'index.json')).mode & 0o777, 0o600);
     }
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a crash in the middle of a write loses nothing older: the chat keeps its last whole version, the half file is removed at the next start', async () => {
@@ -80,7 +80,7 @@ test('a crash in the middle of a write loses nothing older: the chat keeps its l
     const back = await readChat(store, 's_x');
     assert.equal(back.rev, 1);
     assert.equal(JSON.stringify(back.session), text(first), 'the older version is whole');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a full disk: the save is refused with a disk-full error, the older version stays, and the next save works when there is room', async () => {
@@ -98,7 +98,7 @@ test('a full disk: the save is refused with a disk-full error, the older version
     const v3 = chat('s_d', 9, 100);
     assert.equal((await store.save('s_d', text(v3))).rev, 2, 'the failed save did not use a revision');
     assert.equal(JSON.stringify((await readChat(store, 's_d')).session), text(v3));
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a refused write (permission) is reported as such and changes nothing', async () => {
@@ -109,7 +109,7 @@ test('a refused write (permission) is reported as such and changes nothing', asy
     assert.equal(store.list().chats.length, 0);
     assert.equal(storeFailure(Object.assign(new Error('x'), { code: 'EPERM' })).code, 'permission');
     assert.equal(storeFailure(Object.assign(new Error('x'), { code: 'ENOSPC' })).code, 'disk-full');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('two windows: each saves its own chats and neither removes the other\'s; the same chat saved from an older copy keeps the displaced version', async () => {
@@ -131,7 +131,7 @@ test('two windows: each saves its own chats and neither removes the other\'s; th
     assert.equal(kept.length, 1);
     assert.equal(JSON.parse(readFileSync(join(dir, 'chats', 'conflicts', kept[0]), 'utf8')).session.messages.length, 6, 'window A\'s version is kept');
     assert.ok(b1.rev === 1 && (await readChat(store, 's_b')).rev === 1, 'the other chat is untouched');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('saves of one host never overlap, in any order they arrive', async () => {
@@ -142,7 +142,7 @@ test('saves of one host never overlap, in any order they arrive', async () => {
     assert.deepEqual(done.map((d) => d.rev).sort((a, b) => a - b), Array.from({ length: 30 }, (_, i) => Math.floor(i / 3) + 1).sort((a, b) => a - b));
     assert.equal(store.list().chats.length, 3);
     for (const c of store.list().chats) JSON.parse(await store.read(c.id));   // every file is whole JSON
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('the index is rebuilt from the files when it is lost, damaged or behind; an unreadable chat file is reported and left alone', async () => {
@@ -159,7 +159,7 @@ test('the index is rebuilt from the files when it is lost, damaged or behind; an
     assert.equal(readFileSync(join(dir, 'chats', 's_bad.json'), 'utf8').startsWith('{"v":1'), true, 'left as it is');
     rmSync(join(dir, 'chats', 'index.json'));   // lost
     assert.equal(createChatStore({ dir }).list().chats.length, 2);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a chat is refused when it does not match its id or is not JSON; delete removes the file and tolerates a chat that is gone', async () => {
@@ -174,7 +174,7 @@ test('a chat is refused when it does not match its id or is not JSON; delete rem
     assert.deepEqual(await store.remove('s_a'), { id: 's_a', removed: false });
     assert.ok(!existsSync(join(dir, 'chats', 's_a.json')));
     assert.equal(createChatStore({ dir }).list().chats.length, 0);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('import: only chats the host does not have are taken, the ones it has are left alone, a bad one is reported', async () => {
@@ -187,5 +187,5 @@ test('import: only chats the host does not have are taken, the ones it has are l
     assert.deepEqual(result.skipped, ['s_have']);
     assert.equal(result.failed.length, 2);
     assert.equal((await readChat(store, 's_have')).session.title, 'on the host');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });

@@ -23,7 +23,7 @@ const MLX_DRAFT = {
 
 test('an MLX connection saves with no key and re-saving stays one entry', t => {
   const directory = mkdtempSync(join(tmpdir(), 'strata-mlx-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const service = createModelProviders({ directory });
   const saved = service.save(MLX_DRAFT).connections[0];
   assert.equal(saved.kind, 'custom');
@@ -37,7 +37,7 @@ test('an MLX connection saves with no key and re-saving stays one entry', t => {
 
 test('the Harness profile gives the MLX connection the own-server treatment', t => {
   const directory = mkdtempSync(join(tmpdir(), 'strata-mlx-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const service = createModelProviders({ directory });
   const saved = service.save(MLX_DRAFT).connections[0];
   const profile = buildProfile({ local: [], connections: [{ ...saved, apiKey: '' }], gate: false });
@@ -69,7 +69,7 @@ test('the Harness profile gives the MLX connection the own-server treatment', t 
  * worker (run `python3 tools/mlx_bridge.py --check` first). Skipped otherwise, never faked. */
 test('a chat completion really reaches the mlx-bridge and answers', { skip: !process.env.MLX_BRIDGE_E2E }, async t => {
   const directory = mkdtempSync(join(tmpdir(), 'strata-mlx-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const service = createModelProviders({ directory });
   const saved = service.save({ ...MLX_DRAFT, models: [{ id: process.env.MLX_BRIDGE_MODEL || 'Qwen2.5-0.5B-MLX-4bit' }] }).connections[0];
   const frames = [];
@@ -87,7 +87,7 @@ test("the owner's auto-continue plugin rides in every profile patch", async () =
   const { resolve } = await import('node:path');
   const dir = mkdtempSync(join(tmpdir(), 'strata-ig-'));
   t_after(dir);
-  function t_after(d) { process.on('exit', () => rmSync(d, { recursive: true, force: true })); }
+  function t_after(d) { process.on('exit', () => rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })); }
   const service = createModelProviders({ directory: dir });
   const profile = buildProfile({ local: [], connections: [], gate: false });
   assert.match(profile.patch, /dsh-infinite-gen-4/, "the patch inserts the infinite-generation plugin");

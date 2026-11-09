@@ -10,7 +10,7 @@ import { assertPrivate } from './helpers/assert-private.mjs';
 
 test('connections persist, redact keys, retain unchanged keys, and validate endpoints/models', async t => {
   const directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const service = createModelProviders({ directory });
   const draft = { kind: 'custom', name: 'Other PC', baseUrl: 'http://192.168.1.20:1234/v1/', protocol: 'openai-chat', apiKey: 'test-key', models: [{ id: 'my-model', name: 'My model' }] };
   const saved = service.save(draft).connections[0];
@@ -32,7 +32,7 @@ test('connections persist, redact keys, retain unchanged keys, and validate endp
 
 test('discovery uses provider auth, pagination, and avoids redirect/error credential leaks', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const draft = { kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: 'test-key', models: [{ id: 'mock-chat' }] };
   assert.equal((await service.discover(draft)).models.length, 2);
@@ -47,7 +47,7 @@ test('discovery uses provider auth, pagination, and avoids redirect/error creden
 
 for (const protocol of ['openai-chat', 'openai-responses', 'anthropic']) test(`${protocol} forwards history, streams text, and records reported usage`, async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol, apiKey: 'test-key', models: [{ id: 'mock-chat' }] }).connections[0];
   const frames = [];
@@ -62,7 +62,7 @@ for (const protocol of ['openai-chat', 'openai-responses', 'anthropic']) test(`$
 
 test('truncated streams, provider stream errors, and cancellation preserve output without a false done', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: 'test-key', models: ['truncated', 'stream-error', 'slow'].map(id => ({ id })) }).connections[0];
   for (const modelId of ['truncated', 'stream-error']) {
@@ -78,7 +78,7 @@ test('truncated streams, provider stream errors, and cancellation preserve outpu
 
 test('every API key preset discovers and streams with its configured protocol', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-presets-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   assert.ok(PROVIDER_CATALOG.length >= 20);
   assert.equal(new Set(PROVIDER_CATALOG.map(p => p.id)).size, PROVIDER_CATALOG.length);
@@ -101,7 +101,7 @@ test('every API key preset discovers and streams with its configured protocol', 
 
 test('a model switch refreshes the real context from the server, filling only the blanks', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const saved = service.save({ kind: 'custom', name: 'Local', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat' }, { id: 'hand-set', name: 'Hand set', contextMax: 40960 }] }).connections[0];
   const out = await service.refreshModelInfo(saved.id);
@@ -115,7 +115,7 @@ test('a model switch refreshes the real context from the server, filling only th
 
 test('a provider connection\'s catalog presets are overwritten by the server truth; anthropic connections refresh too', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const saved = service.save({ kind: 'custom', name: 'Local custom', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat', contextMax: 131072 }] }).connections[0];
   const kept = await service.refreshModelInfo(saved.id);
@@ -132,7 +132,7 @@ for (const [protocol, check] of [
   ['anthropic', body => { assert.equal(body.thinking, undefined, 'the Anthropic payload keeps its existing shape'); }],
 ]) test(`${protocol}: a chosen reasoning effort reaches the wire only on the chat protocol, and only for a model saved as thinking`, async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol, apiKey: 'test-key', models: [{ id: 'mock-chat', reasoning: true }] }).connections[0];
   await service.stream({ selection: { connectionId: connection.id, modelId: 'mock-chat' }, message: 'Hello', history: [], thinking: 'max', onFrame: () => {} });
@@ -141,7 +141,7 @@ for (const [protocol, check] of [
 
 test('no chosen effort: nothing thinking-shaped goes on the wire (and off sends nothing)', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const connection = service.save({ kind: 'custom', name: 'Mock', baseUrl: mock.baseUrl, protocol: 'anthropic', apiKey: 'test-key', models: [{ id: 'mock-chat' }] }).connections[0];
   await service.stream({ selection: { connectionId: connection.id, modelId: 'mock-chat' }, message: 'Hello', history: [], onFrame: () => {} });
@@ -152,7 +152,7 @@ test('no chosen effort: nothing thinking-shaped goes on the wire (and off sends 
 
 test('a model the server does not report a window for takes the catalog value (glm-5.3 is 1M, not the 128K assumption)', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   // the mock's list has no context_length for "contextless-model"; the catalog table does not know it either -> stays blank.
   // glm-5.3-flash is served by the mock id list? No: the catalog value comes with the refresh only for ids in the list.
@@ -172,7 +172,7 @@ test('glm-5.3-flash really gets its 1M window: a server that reports no context 
   const port = server.address().port;
   t.after(async () => { await new Promise(resolve => server.close(resolve)); });
   const directory = mkdtempSync(join(tmpdir(), 'strata-glm-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const service = createModelProviders({ directory });
   const saved = service.save({ kind: 'custom', name: 'Z.ai', baseUrl: `http://127.0.0.1:${port}`, protocol: 'openai-chat', apiKey: '', models: [{ id: 'glm-5.3-flash' }, { id: 'glm-4.7' }] }).connections[0];
   const out = await service.refreshModelInfo(saved.id);
@@ -186,7 +186,7 @@ test('glm-5.3-flash really gets its 1M window: a server that reports no context 
 
 test('the refresh runs once per connection within its TTL: the next message is instant (no second fetch)', async t => {
   const mock = await createMockModelApi(), directory = mkdtempSync(join(tmpdir(), 'strata-providers-'));
-  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(async () => { await mock.close(); rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
   const service = createModelProviders({ directory });
   const saved = service.save({ kind: 'custom', name: 'Local', baseUrl: mock.baseUrl, protocol: 'openai-chat', apiKey: '', models: [{ id: 'mock-chat' }] }).connections[0];
   await service.refreshModelInfo(saved.id);
@@ -213,7 +213,7 @@ test('an anthropic base without /v1 reads its model list under /v1/models (zhipu
   const port = server.address().port;
   t.after(async () => { await new Promise(resolve => server.close(resolve)); });
   const directory = mkdtempSync(join(tmpdir(), 'strata-zp-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const service = createModelProviders({ directory });
   const saved = service.save({ kind: 'custom', name: 'Z', baseUrl: `http://127.0.0.1:${port}`, protocol: 'anthropic', apiKey: 'k', models: [{ id: 'glm-5.3-flash' }] }).connections[0];
   const out = await service.refreshModelInfo(saved.id);

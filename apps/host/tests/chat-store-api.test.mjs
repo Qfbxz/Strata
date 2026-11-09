@@ -76,7 +76,7 @@ test('the chat routes: named page only, other sites refused, save / read / list 
     // import: the browser's chats, the host keeps what it has
     const imp = await (await fetch(`${h.base}/api/chats/import`, { method: 'POST', headers: named('w1'), body: JSON.stringify({ sessions: [chat('s_big', 1, 1), chat('s_old', 3, 10)] }) })).json();
     assert.deepEqual([imp.imported, imp.skipped], [['s_old'], ['s_big']]);
-  } finally { await h.stop(); await rm(home, { recursive: true, force: true }).catch(() => {}); }
+  } finally { await h.stop(); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); }
 });
 
 test('a save in one window is announced to the others on the event stream, with the name of the window that made it', async () => {
@@ -95,7 +95,7 @@ test('a save in one window is announced to the others on the event stream, with 
     const frame = /event: chats\ndata: (.*)\n/.exec(seen);
     assert.ok(frame, 'a chats event arrived');
     assert.deepEqual(JSON.parse(frame[1]), { id: 's_ev', rev: 1, from: 'window-A' });
-  } finally { await h.stop(); await rm(home, { recursive: true, force: true }).catch(() => {}); }
+  } finally { await h.stop(); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); }
 });
 
 test('a page that comes back asks which chats have a turn running; with none, the answer is an empty list and "nothing to take over"', async () => {
@@ -107,5 +107,5 @@ test('a page that comes back asks which chats have a turn running; with none, th
     assert.equal(none.status, 404);
     assert.equal((await none.json()).code, 'no-turn');
     assert.equal((await fetch(`${h.base}/api/chat/attach`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status, 400);
-  } finally { await h.stop(); await rm(home, { recursive: true, force: true }).catch(() => {}); }
+  } finally { await h.stop(); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); }
 });

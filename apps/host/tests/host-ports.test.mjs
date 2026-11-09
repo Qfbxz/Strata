@@ -41,7 +41,7 @@ test('F12: the permission-denied sentence follows the platform, Windows keeps it
 });
 
 test('the host on a taken port prints the plain sentence and exits, with no stack trace', async t => {
-  const home = realpathSync(mkdtempSync(join(tmpdir(), 'strata-port-'))); t.after(() => rmSync(home, { recursive: true, force: true }));
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'strata-port-'))); t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const blocker = await hold(0); t.after(() => blocker.close());
   const port = blocker.address().port;
   const child = spawn(process.execPath, ['server/index.mjs'], { cwd, env: { ...process.env, STRATA_HOME: home, STRATA_PORT: String(port), STRATA_MODELS_DIR: join(home, 'm') } });

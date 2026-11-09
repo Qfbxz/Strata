@@ -31,7 +31,7 @@ async function startHost() {
   let up = false;
   for (let i = 0; i < 150 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${port}/api/health`)).ok; } catch { await delay(100); } }
   assert.ok(up, 'host started');
-  return { host, port, sharePort, exit, done: async () => { host.kill('SIGKILL'); await exit; await rm(home, { recursive: true, force: true }).catch(() => {}); } };
+  return { host, port, sharePort, exit, done: async () => { host.kill('SIGKILL'); await exit; await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); } };
 }
 
 /** One raw HTTP request on its own socket: the bytes are sent as written and the first response is returned. */

@@ -47,7 +47,7 @@ function slowControl({ failFirst }) {
     return child;
   };
   const native = createNativeControl({ control, directory: data, spawnProcess, fetcher: async () => Response.json({ status: 'ok' }), requests: () => [], modelsDirectory: () => join(root, 'models'), hardwareProbe: () => [] });
-  return { native, asked: () => asked, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return { native, asked: () => asked, cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
 test('a read that fails while Control starts is "checking", not "nothing installed", and the page waits on it', async () => {

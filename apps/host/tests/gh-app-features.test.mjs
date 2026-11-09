@@ -92,7 +92,7 @@ test('shell prefs: defaults, a valid port, automatic, a refused port, the tray, 
     assert.deepEqual(readShellPrefs(file), DEFAULTS);
     assert.deepEqual(cleanPrefs({ port: '47831', tray: 'yes', language: 'ko' }), { port: 0, tray: false, language: 'ko' });
     assert.ok(validPort(1024) && validPort(65535) && !validPort(1023) && !validPort(65536) && !validPort(47.5));
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('the busy-port notice and the shell notifier come only from the shell', async () => {

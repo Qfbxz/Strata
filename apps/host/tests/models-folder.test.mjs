@@ -50,7 +50,7 @@ function fixture(t, { plan = {}, move = null, unfinished = null } = {}) {
     for (const [key, name] of [['install', 'STRATA_INSTALL_DIR'], ['terminal', 'STRATA_TERMINAL_SETTINGS_FILE'], ['settings', 'STRATA_SETTINGS_FILE'], ['comp', 'STRATA_COMPONENTS_DIR']]) {
       if (earlier[key] === undefined) delete process.env[name]; else process.env[name] = earlier[key];
     }
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
   native.setDownloadDirectory(oldFolder);
   return { native, control, calls, root, install, oldFolder, newFolder, terminalFile: process.env.STRATA_TERMINAL_SETTINGS_FILE };

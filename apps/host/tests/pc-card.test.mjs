@@ -12,7 +12,7 @@ const built = await build({ stdin, bundle: true, write: false, format: 'esm', pl
 const dir = mkdtempSync(join(tmpdir(), 'strata-pc-test-'));
 writeFileSync(join(dir, 'card.mjs'), built.outputFiles[0].text);
 const { render, setTranslationLanguage } = await import(pathToFileURL(join(dir, 'card.mjs')).href);
-rmSync(dir, { recursive: true, force: true });
+rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 const fit = (spillGb, vramUseGb = 12, ramUseGb = 44) => ({ memoryGb: vramUseGb + ramUseGb + spillGb, vramUseGb, ramUseGb, spillGb, known: true });
 const card = props => render({ gpuName: 'RTX 5070', ramGb: 64, vramGb: 12, ...props });
 const live = { vramTotalGb: 12, freeVramGb: 10.3, freeRamGb: 49.8, diskReadGbs: null };

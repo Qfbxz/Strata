@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const cwd = fileURLToPath(new URL('..', import.meta.url));
-function fixture(t) { const home = realpathSync(mkdtempSync(join(tmpdir(), 'strata-fallback-'))); t.after(() => rmSync(home, { recursive: true, force: true })); return home; }
+function fixture(t) { const home = realpathSync(mkdtempSync(join(tmpdir(), 'strata-fallback-'))); t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })); return home; }
 function load(env) {
   const code = "const s = await import('./server/store.mjs'); console.log(JSON.stringify({ dir: s.MODELS_DIR, notice: s.MODELS_DIR_NOTICE }));";
   const run = spawnSync(process.execPath, ['--input-type=module', '-e', code], { cwd, encoding: 'utf8', env: { ...process.env, ...env } });

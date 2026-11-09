@@ -14,7 +14,7 @@ const cwd = fileURLToPath(new URL('..', import.meta.url));
 const freePort = () => new Promise(resolve => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
 
 test('every listen() of the host process, from its start until it answers, is on the loopback address', async t => {
-  const home = realpathSync(mkdtempSync(join(tmpdir(), 'strata-loop-'))); t.after(() => rmSync(home, { recursive: true, force: true }));
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'strata-loop-'))); t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const log = join(home, 'listen-calls.jsonl');
   const hook = join(home, 'hook.cjs');
   writeFileSync(hook, `const fs = require('fs'); const net = require('net'); const dgram = require('dgram');

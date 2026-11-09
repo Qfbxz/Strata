@@ -38,7 +38,7 @@ async function start(t, { user, home }) {
 const scratch = () => { const dir = mkdtempSync(join(tmpdir(), 'strata-ws-')); const user = join(dir, 'user'); const home = join(dir, 'home'); mkdirSync(user, { recursive: true }); mkdirSync(home, { recursive: true }); return { dir, user, home }; };
 
 test('item 6: with nothing chosen the first workspace is Documents\\Strata, never the app folder', async t => {
-  const s = scratch(); t.after(() => rmSync(s.dir, { recursive: true, force: true }));
+  const s = scratch(); t.after(() => rmSync(s.dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const host = await start(t, s);
   const { body } = await host.call('GET', '/api/workspaces');
   const first = body.workspaces[0];
@@ -50,7 +50,7 @@ test('item 6: with nothing chosen the first workspace is Documents\\Strata, neve
 });
 
 test('item 6: a saved first workspace that is the app folder moves to the default; its chats follow through an alias', async t => {
-  const s = scratch(); t.after(() => rmSync(s.dir, { recursive: true, force: true }));
+  const s = scratch(); t.after(() => rmSync(s.dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   mkdirSync(join(s.home, 'data'), { recursive: true });
   writeFileSync(join(s.home, 'data', 'workspaces.json'), JSON.stringify([{ id: 'root', name: 'host', path: HOST_DIR }, { id: 'ws_a', name: 'Mine', path: s.user }]));
   const host = await start(t, s);
@@ -62,7 +62,7 @@ test('item 6: a saved first workspace that is the app folder moves to the defaul
 });
 
 test('item 6: renaming changes the display name only', async t => {
-  const s = scratch(); t.after(() => rmSync(s.dir, { recursive: true, force: true }));
+  const s = scratch(); t.after(() => rmSync(s.dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const host = await start(t, s);
   const before = (await host.call('GET', '/api/workspaces')).body.workspaces[0];
   const done = await host.call('PATCH', '/api/workspaces/root', { name: '  My projects  ' });

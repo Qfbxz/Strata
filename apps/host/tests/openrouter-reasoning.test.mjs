@@ -31,7 +31,7 @@ test('a model list row says whether the model can think', () => {
 });
 
 test('fetching the model list keeps the reasoning answer, and a saved connection keeps it', async t => {
-  const directory = mkdtempSync(join(tmpdir(), 'strata-or-')); t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const directory = mkdtempSync(join(tmpdir(), 'strata-or-')); t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const fetchImpl = async () => ({ ok: true, status: 200, json: async () => LIST, body: { cancel() {} } });
   const service = createModelProviders({ directory, fetchImpl });
   const found = await service.discover({ kind: 'provider', provider: 'openrouter', apiKey: 'mock-key', models: [] });

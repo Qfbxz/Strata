@@ -64,7 +64,7 @@ test('stream usage comes from the server, includes reasoning latency and preserv
     assert.equal(result.usageSource, 'reported'); assert.ok(result.ttftMs < result.durationMs);
     assert.match(request.messages[0].content, /Check correctness/); assert.equal(request.messages[1].content, 'Client instruction');
     assert.equal(frames.filter(f => f.type === 'delta').length, 1);
-  } finally { await close(fixture); await rm(home, { recursive: true, force: true }); }
+  } finally { await close(fixture); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a stream without usage never presents chunks as tokens', async () => {
@@ -116,7 +116,7 @@ test('Serving cancellation stops active and queued demo requests; test keys enfo
     assert.equal((await call('/v1/models')).status, 200);
   } finally {
     const ended = new Promise(resolve => host.once('exit', resolve)); host.kill('SIGTERM'); await ended;
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 

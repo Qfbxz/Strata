@@ -59,7 +59,7 @@ test('the pack\'s limit is read from ds4.txt, and a config names its pack with -
     assert.equal(configContextLimit({ args: ['--pack', small, '--max-context', '8192'] }), 262144);
     assert.equal(configContextLimit({ args: ['--native', 'm.gguf'] }), null, 'a Qwen model has no pack');
     assert.equal(configContextLimit({}), null);
-  } finally { for (const d of [full, small, none]) rmSync(d, { recursive: true, force: true }); }
+  } finally { for (const d of [full, small, none]) rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('through the host: an installed DeepSeek model reports its pack\'s limit, a Qwen model none', async () => {
@@ -73,7 +73,7 @@ test('through the host: an installed DeepSeek model reports its pack\'s limit, a
     const byId = Object.fromEntries(models.map(m => [m.model, m]));
     assert.equal(byId.iq3_s?.contextMax, 1048576);
     assert.equal(byId.iq2_xs?.contextMax, undefined);
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   } finally { await f.cleanup(); }
 });
 

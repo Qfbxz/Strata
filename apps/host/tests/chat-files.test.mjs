@@ -29,7 +29,7 @@ test('a chat folder is remembered per chat, must exist, and is never a system fo
     assert.ok(refusedFolder(process.platform === 'win32' ? 'C:' + BS + 'Windows' + BS + 'System32' : '/etc'));
     rmSync(mine, { recursive: true }); assert.equal(a.get('c1'), null, 'a deleted folder falls back to the default'); assert.equal(a.info('c1').exists, false);
     a.clear('c1'); assert.equal(a.info('c1'), null);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('files open by path from inside the folder only; the browser gets a file:// address', () => {
@@ -51,7 +51,7 @@ test('files open by path from inside the folder only; the browser gets a file://
     assert.throws(() => openFile(root, 'pagoda.html', 'weird', { recorder: rec }), /not known/);
     try { symlinkSync(join(dir, 'secret.txt'), join(root, 'link.txt')); assert.throws(() => resolveChatFile(root, 'link.txt'), /outside/, 'a link out of the folder is followed and refused'); } catch { /* no symlink right on this system */ }
     assert.equal(rec.length, 1, 'nothing was started for a refused request');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a chat that moves to another folder gets a session there: the agent writes into the new folder', { skip }, async (t) => {
@@ -92,5 +92,5 @@ test('a chat with no chosen folder still has a folder: the one its agent worked 
     assert.equal(openFile(root, 'pagoda.html', 'app', { platform: 'win32', recorder: rec }).ok, true);
     assert.throws(() => resolveChatFile(root, join(dir, 'secret.txt')), /no longer there|outside/, 'the default folder is still a boundary');
     assert.equal(chatRootOf({}), null);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });

@@ -108,7 +108,7 @@ function fixture({ failStarts = 0, config = {} } = {}) {
   };
   const fetcher = async () => Response.json({ status: 'ok' });
   const native = createNativeControl({ control, hardwareProbe: () => [{ index: 0, vram_gb: 32 }], directory: data, spawnProcess: () => { throw new Error('the host starts no process'); }, fetcher, requests: () => [] });
-  return { native, saved, calls, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return { native, saved, calls, cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 const finish = async (native, id) => { for (let i = 0; i < 500; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 

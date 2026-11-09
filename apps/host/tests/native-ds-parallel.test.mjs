@@ -35,7 +35,7 @@ function fixture(config = {}, id = 'deepseek-v4.1-flash-ist-das-2.25bpw') {
     async stop() { return { ok: true }; },
   };
   const native = createNativeControl({ control, hardwareProbe: () => [{ index: 0, vram_gb: 24 }], directory: data, spawnProcess: () => { throw new Error('no process'); }, fetcher: async () => Response.json({ status: 'ok' }), requests: () => [] });
-  return { native, saved, id, path, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return { native, saved, id, path, cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 const finish = async (native, id) => { for (let i = 0; i < 500; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 

@@ -20,4 +20,4 @@ test('removing the API key while local sharing and the tunnel run is allowed', (
   assert.equal(after.access.apiKeySet, false);
   assert.equal(serving.authorized({ headers: {} }), true);
 });
-test.after(() => { try { rmSync(home, { recursive: true, force: true }); } catch { /* temp folder */ } });
+test.after(() => { try { rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } catch { /* temp folder */ } });

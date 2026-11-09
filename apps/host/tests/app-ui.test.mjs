@@ -124,7 +124,7 @@ test('browser-mode host over HTTP: mode, Quit needs the client header, then the 
     if (other) await assert.rejects(fetch(`http://${other.address}:${port}/api/health`, { signal: AbortSignal.timeout(2000) }));
     assert.equal((await fetch(`${base}/api/app/quit`, { method: 'POST', headers: { 'x-strata-client': 'ui' } })).status, 202);
     assert.equal(await Promise.race([exited, delay(30000).then(() => 'still running')]), 0);
-  } finally { host.kill(); await rm(home, { recursive: true, force: true }); }
+  } finally { host.kill(); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('window-mode host over HTTP: Quit is refused; the shell (with its secret) registers the bridge and can move the host to browser mode', async () => {
@@ -139,5 +139,5 @@ test('window-mode host over HTTP: Quit is refused; the shell (with its secret) r
     const moved = await (await as({ mode: 'browser', reason: 'window-failed', open: false })).json();
     assert.equal(moved.mode, 'browser');
     assert.equal((await (await fetch(`${base}/api/app/mode`)).json()).reason, 'window-failed');
-  } finally { host.kill(); await rm(home, { recursive: true, force: true }); }
+  } finally { host.kill(); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });

@@ -12,7 +12,7 @@ const instance = { port: 18500, key: 'k', apiModelId: 'm', context: 32768 };
 
 test('file: the whole text is saved in the chat folder, the message names it and shows how it starts', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'strata-oversize-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const r = await prepareOversized({ mode: 'file', text: big, root, instance, fetchImpl: engine(36000), now: new Date(2026, 9, 22, 14, 5, 9) });
   assert.equal(r.mode, 'file');
   assert.equal(r.tokens, 36000);

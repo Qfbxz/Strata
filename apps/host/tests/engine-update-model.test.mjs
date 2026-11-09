@@ -40,7 +40,7 @@ function fixture({ updateScript } = {}) {
     async rollbackEngine() { return { ok: true }; },
   };
   const native = createNativeControl({ control, directory: data, spawnProcess: () => { throw new Error('no process'); }, fetcher: async () => Response.json({}), requests: () => [] });
-  return { native, calls, control, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return { native, calls, control, cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 const finish = async (native, id) => { for (let i = 0; i < 400; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 async function loaded(f) {

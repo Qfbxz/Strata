@@ -69,7 +69,7 @@ test('a multi-byte character split across reads survives intact', async () => {
     assert.ok(!text.includes('\uFFFD'), 'no replacement character may appear');
   } finally {
     await new Promise((r) => fixture.close(r));
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 
@@ -97,7 +97,7 @@ test('an SSE line split across reads is reassembled, not dropped', async () => {
     assert.equal(text, 'alphabeta', 'both deltas must survive the split');
   } finally {
     await new Promise((r) => fixture.close(r));
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 
@@ -120,7 +120,7 @@ test('a stream that ends without a trailing newline still yields its last delta'
     assert.equal(text, 'tail');
   } finally {
     await new Promise((r) => fixture.close(r));
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 
@@ -144,7 +144,7 @@ test('a malformed frame is skipped without losing the frames around it', async (
     assert.equal(text, 'beforeafter', 'the good frames on both sides must survive');
   } finally {
     await new Promise((r) => fixture.close(r));
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 
@@ -167,6 +167,6 @@ test('an error frame is surfaced rather than silently ending the turn', async ()
     );
   } finally {
     await new Promise((r) => fixture.close(r));
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });

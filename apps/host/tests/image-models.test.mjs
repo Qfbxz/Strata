@@ -8,7 +8,7 @@ import { createImageModels, IMAGE_CATALOG } from '../server/image-models.mjs';
 
 function fixture(t, options = {}) {
   const home = mkdtempSync(join(tmpdir(), 'strata-image-test-'));
-  t.after(() => rmSync(home, { recursive: true, force: true }));
+  t.after(() => rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const paths = { dataDir: join(home, 'data'), modelsDir: join(home, 'models') };
   return { ...paths, service: createImageModels({ ...paths, demoDuration: 25, ...options }) };
 }

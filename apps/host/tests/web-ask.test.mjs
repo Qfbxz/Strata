@@ -149,7 +149,7 @@ test('Settings -> Tools: "search the web without asking" is off at first, rememb
     assert.equal(tools.update({ search: { provider: 'exa' } }).webWithoutAsking, true, 'other changes keep it');
     assert.equal(tools.update({ webWithoutAsking: false }).webWithoutAsking, false);
     assert.equal(tools.update({ webWithoutAsking: 'yes' }).webWithoutAsking, false, 'only a real on/off counts');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('the profile names the search service in the gate\'s question, and carries the switch', () => {

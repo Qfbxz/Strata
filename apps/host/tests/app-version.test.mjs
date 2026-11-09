@@ -26,5 +26,5 @@ test('in a checkout the same file the shell is built from is read, so there is o
     await mkdir(join(dir, 'desktop', 'src-tauri'), { recursive: true });
     await writeFile(join(dir, 'desktop', 'src-tauri', 'Cargo.toml'), '[package]\nname = "x"\nversion = "9.8.7-rc.1"\n');
     assert.equal(appVersionFrom({ env: {}, here: join(dir, 'host', 'server') }), '9.8.7-rc.1');
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });

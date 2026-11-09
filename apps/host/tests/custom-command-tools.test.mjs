@@ -55,7 +55,7 @@ test('a command runs in the folder the call names, then the tool\'s, then the ho
     assert.equal(gone.ok, false);
     assert.match(gone.text, /does not exist, so the command was not run/);
     assert.deepEqual(resolveCwd(''), { cwd: homedir() });
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a relative path in the command finds its file in the tool\'s folder', async () => {
@@ -65,7 +65,7 @@ test('a relative path in the command finds its file in the tool\'s folder', asyn
     writeFileSync(join(dir, 'tools', 'foo.js'), 'console.log("from foo " + (process.env.STRATA_INPUT || ""));');
     const r = await runCommand({ command: `${node} tools/foo.js`, cwd: dir, input: 'hello' });
     assert.deepEqual([r.ok, r.text], [true, 'from foo hello']);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a command over the limit is ended and says so; output over the cap says it was cut', async () => {
@@ -86,7 +86,7 @@ test('PowerShell commands run on Windows (Get-ChildItem, $env:)', { skip: !WIN &
     writeFileSync(join(dir, 'note.txt'), 'hi');
     const read = await runCommand({ command: 'Get-Content note.txt', cwd: dir });
     assert.deepEqual([read.ok, read.text], [true, 'hi']);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('Settings keeps a command tool\'s folder, shell and time, validates them, and an edit that does not send them keeps them', () => {
@@ -108,7 +108,7 @@ test('Settings keeps a command tool\'s folder, shell and time, validates them, a
     // the tool server's file carries them
     const file = JSON.parse(require_read(tools.filePath));
     assert.deepEqual(file.commands.build, { description: 'Builds the project, quickly.', command: 'npm run build', cwd: 'C:\\work\\app', shell: 'cmd', timeoutSec: 900 });
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 import { readFileSync } from 'node:fs';
@@ -140,5 +140,5 @@ test('the tool server over stdio: the call may name a folder, and the tool\'s ow
     const missing = await ask(4, 'tools/call', { name: 'where', arguments: { cwd: join(dir, 'nope') } });
     assert.equal(missing.isError, true);
     assert.match(missing.content[0].text, /does not exist/);
-  } finally { child.kill(); rmSync(dir, { recursive: true, force: true }); }
+  } finally { child.kill(); rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });

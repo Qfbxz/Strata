@@ -55,7 +55,7 @@ const host = (io = realIo) => {
   const store = createChatStore({ dir, io });
   const state = { offline: false };
   const transport = storeTransport(store, TransportError, state);
-  return { dir, store, state, transport, reopen: () => createChatStore({ dir }), done: () => rmSync(dir, { recursive: true, force: true }) };
+  return { dir, store, state, transport, reopen: () => createChatStore({ dir }), done: () => rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 };
 const writerOn = (h, opts = {}) => createSessionWriter({ transport: h.transport, ...opts });
 const saveAll = async (h, sessions, opts) => { const w = writerOn(h, opts); w.schedule(sessions); await w.flush(); return w; };

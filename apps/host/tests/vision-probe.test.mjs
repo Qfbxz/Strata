@@ -57,7 +57,7 @@ test('a provider list that names image input is believed without asking /props',
 
 test('the tick "This model reads pictures" is saved with the model and survives a reload', t => {
   const directory = mkdtempSync(join(tmpdir(), 'strata-vision-'));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.after(() => rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const service = createModelProviders({ directory });
   const saved = service.save({ kind: 'custom', name: 'Other PC', baseUrl: 'http://192.168.1.20:8080/v1', protocol: 'openai-chat', apiKey: '', models: [{ id: 'smol', name: 'SmolVLM', vision: true }, { id: 'text', name: 'Text only' }] }).connections[0];
   assert.deepEqual(saved.models.map(m => m.vision), [true, null]);

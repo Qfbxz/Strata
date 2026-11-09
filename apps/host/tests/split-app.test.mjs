@@ -85,7 +85,7 @@ function fixture({ plan, split = null, installFails = false, startFails = 0, met
   const fetcher = async url => String(url).endsWith('/metrics') ? Response.json({ engine: metrics }) : Response.json({ status: 'ok' });
   const native = createNativeControl({ control, directory: data, spawnProcess, fetcher, requests: () => [], modelsDirectory: () => modelsDir, hardwareProbe: () => [0, 1].map(index => ({ index, vram_gb: 48 })) });
   return { native, state, root, gguf, modelFolder, mtp, configPath, args,
-    cleanup: () => { if (earlier === undefined) delete process.env.STRATA_INSTALL_DIR; else process.env.STRATA_INSTALL_DIR = earlier; rmSync(root, { recursive: true, force: true }); } };
+    cleanup: () => { if (earlier === undefined) delete process.env.STRATA_INSTALL_DIR; else process.env.STRATA_INSTALL_DIR = earlier; rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } };
 }
 const finish = async (native, id) => { for (let i = 0; i < 1500; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 const load = (f, args = {}) => f.native.operation('load', { model: 'ud_q4_k_xl', ...args });

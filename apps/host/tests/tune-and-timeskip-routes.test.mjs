@@ -116,7 +116,7 @@ test('the tuning plan comes from the engine binary and excludes what it cannot a
     assert.ok(plan.max_trials > 0);
   } finally {
     child.kill('SIGKILL');
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 

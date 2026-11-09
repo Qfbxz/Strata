@@ -41,7 +41,7 @@ test('pictures and files arrive as multipart, a data address or raw bytes; pictu
     assert.throws(() => up.accept('c1', { body: Buffer.alloc(13 * 1024 * 1024), contentType: 'application/pdf', name: 'huge.pdf' }), /bigger than 12 MB/);
     const evil = up.accept('c1', { body: Buffer.from('x'), contentType: 'text/plain', name: '..' + String.fromCharCode(92) + '..' + String.fromCharCode(92) + 'evil.txt' });
     assert.ok(evil[0].path.startsWith(join(proj, '.strata', 'attachments')), 'a file name cannot climb out of the attachments folder');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('pictures become the Harness image parts; anything else is dropped', () => {

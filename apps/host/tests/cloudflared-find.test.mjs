@@ -78,7 +78,7 @@ test('a real executable on PATH is found and run (a user-local copy, never a sys
     assert.equal(await installer.locate(), join(bin, 'cloudflared'));
     assert.equal(installer.connector().version, '2026.5.0');
     assert.equal(await installer.ensure(), join(bin, 'cloudflared'), 'nothing is fetched when one is found');
-  } finally { await rm(dir, { recursive: true, force: true }); }
+  } finally { await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 const ps = lines => async (cmd) => cmd === 'ps' ? lines.join('\n') + '\n' : cmd === 'systemctl' ? 'active\n' : '';

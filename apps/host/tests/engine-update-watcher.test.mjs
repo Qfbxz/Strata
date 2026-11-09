@@ -11,7 +11,7 @@ import { createEngineUpdateWatcher, hasEngineUpdate } from '../server/engine-upd
 
 function fixture() {
   const dir = mkdtempSync(join(tmpdir(), 'strata-euw-'));
-  return { dir, after: () => rmSync(dir, { recursive: true, force: true }) };
+  return { dir, after: () => rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
 test('hasEngineUpdate is true only for an available (or installable) engine', () => {

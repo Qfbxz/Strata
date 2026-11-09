@@ -113,6 +113,6 @@ test('setup, config and lifecycle preserve truthful outcomes in the demo host', 
     assert.equal((await call('/api/models')).data.loaded, null);
     assert.equal((await call('/api/setup/complete', 'POST')).status, 409);
   } finally {
-    host.kill('SIGTERM'); await new Promise(r => host.once('exit', r)); await rm(home, { recursive: true, force: true });
+    host.kill('SIGTERM'); await new Promise(r => host.once('exit', r)); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });

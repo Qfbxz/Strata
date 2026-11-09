@@ -51,7 +51,7 @@ test('an updated Control wins only when it is newer than the bundled one, and on
     assert.equal(find().dir, bundled, 'a half-installed updated Control is not used');
     writeFileSync(join(components, 'control', 'active.json'), JSON.stringify({ version: '0.1.46', folder: '../../etc' }));
     assert.equal(updatedControlDirectory({ env: {}, components }), null, 'a pointer cannot leave the control folder');
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally { rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 function fakeSpawn(lines, code = 0, seen = []) {
@@ -214,7 +214,7 @@ function fixture({ withApp = false, update, appInstall } = {}) {
     install: appInstall ?? (async ({ onProgress }) => { calls.push(['app-install']); onProgress({ downloaded: 50, total: 100 }); return { state: 'done' }; }),
   } : null;
   const native = createNativeControl({ control, appUpdater, directory: data, spawnProcess: (...args) => { if (!args[1]?.some(a => String(a).endsWith('strata_mcp.py'))) spawned.push(args); throw new Error('no process but the installer tool (Control strata_mcp.py, absent in this fixture) may be started by the host in packaged mode'); }, fetcher: async () => Response.json({}), requests: () => [] });
-  return { native, calls, spawned, data, control, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return { native, calls, spawned, data, control, cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 const finish = async (native, id) => { for (let i = 0; i < 400; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 

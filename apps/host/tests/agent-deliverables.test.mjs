@@ -40,7 +40,7 @@ test('a created file, a changed file and a script-made file are reported once ea
     assert.deepEqual(swept.map(d => d.path).sort(), ['out/data.csv', 'pic.png'], 'hidden and dependency folders are not deliverables');
     assert.equal(swept.find(d => d.path === 'pic.png').lines, null); assert.equal(swept.find(d => d.path === 'pic.png').kind, 'image');
     assert.equal(t.check('../outside.txt'), null); assert.equal(t.check('missing.txt'), null);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a snapshot cut short by its time budget never turns the rest of the folder into "new files" (QA report: Edited 308 files)', () => {
@@ -62,7 +62,7 @@ test('a snapshot cut short by its time budget never turns the rest of the folder
     // a file the turn really makes is still found, and an old file the turn really changes
     writeFileSync(join(dir, 'barrier', 'made.txt'), 'x' + NL);
     assert.deepEqual(t.sweep().map(d => d.path), ['barrier/made.txt']);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('the tracker never looks inside the app, engine, component, AppData or temp folders, nor when the chat folder is the app itself', () => {
@@ -83,7 +83,7 @@ test('the tracker never looks inside the app, engine, component, AppData or temp
     const own = new DeliverableTracker(temp, { exclude: [temp] }); own.snapshot();
     writeFileSync(join(temp, 'ok.txt'), 'c' + NL);
     assert.deepEqual(own.sweep().map(d => d.path), ['ok.txt']);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('activity groups: consecutive tools are one growing group closed by text, with counts, files and the diff stat', () => {

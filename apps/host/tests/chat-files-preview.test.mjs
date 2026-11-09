@@ -23,7 +23,7 @@ test('previews: html and markdown as text, csv as a table, pictures and pdf as r
     assert.throws(() => previewFile(root, join('..', 'secret.txt'), 's'), /outside/);
     assert.throws(() => rawFile(root, join('..', 'secret.txt')), /outside/);
     assert.deepEqual(parseCsv('a;b\n1;2', ';'), [['a', 'b'], ['1', '2']]);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('attach as context: the files are named in the next message once, then forgotten', () => {

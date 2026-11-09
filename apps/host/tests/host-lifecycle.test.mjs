@@ -49,7 +49,7 @@ async function startHost(extraEnv = {}, spawnOptions = {}) {
   let up = false;
   for (let i = 0; i < 120 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${port}/api/health`)).ok; } catch { await delay(100); } }
   assert.ok(up, 'host started');
-  return { host, port, home, done: () => rm(home, { recursive: true, force: true }) };
+  return { host, port, home, done: () => rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
 test('SIGTERM and SIGHUP end the host through the clean shutdown (exit 0)', { skip: process.platform === 'win32' && 'Windows has no SIGTERM/SIGHUP to send' }, async t => {
@@ -67,7 +67,7 @@ test('SIGTERM and SIGHUP end the host through the clean shutdown (exit 0)', { sk
 test('Started by the shell (STRATA_EXIT_WITH_PARENT=1), the host leaves when its parent is killed', async t => {
   // a stand-in shell: it starts the host and then waits to be killed hard
   const home = await mkdtemp(join(tmpdir(), 'strata-host-parent-'));
-  t.after(() => rm(home, { recursive: true, force: true }));
+  t.after(() => rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const port = await freePort();
   const shell = spawn(process.execPath, ['-e', `
     const {spawn}=require('node:child_process');

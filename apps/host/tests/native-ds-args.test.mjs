@@ -36,7 +36,7 @@ function fixture(config = {}, id = 'deepseek-v4.1-flash-ist-das-2.25bpw') {
     async stop() { return { ok: true }; },
   };
   const native = createNativeControl({ control, hardwareProbe: () => [{ index: 0, vram_gb: 24 }], directory: data, spawnProcess: () => { throw new Error('no process'); }, fetcher: async () => Response.json({ status: 'ok' }), requests: () => [] });
-  return { native, saved, id, path, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return { native, saved, id, path, cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 const finish = async (native, id) => { for (let i = 0; i < 500; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 /** Every word of the argument list that is not an option name or the value right after one: a stray word means a flag lost its name. */
@@ -139,7 +139,7 @@ test('a DeepSeek model whose pack carries the picture tower is prepared for pict
       } finally { await f.native.close(); f.cleanup(); }
     }
     assert.deepEqual(seen, [[true, 'yes'], [false, 'off']], 'a text-only pack: the Models screen offers the missing shared file, nothing is fetched on its own');
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally { rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a DeepSeek pack with the tower and `--vision off` in its arguments: Read pictures on turns it on, and only where the tower is', async () => {
@@ -156,7 +156,7 @@ test('a DeepSeek pack with the tower and `--vision off` in its arguments: Read p
       } finally { await f.native.close(); f.cleanup(); }
     }
     assert.deepEqual(got, ['on', 'off'], 'no tower in the pack: the engine is not told to read pictures');
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally { rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('#4504: the reserve field and the resource preference reach strata-dsv41 as --reserve-mib, with no --pool-workers', async () => {
@@ -211,7 +211,7 @@ test('a Qwen model with pictures off still loses its stand-alone --vision (nothi
     const job = await finish(native, native.operation('load', { model: 'q2_0', vision: 'no' }).id);
     assert.equal(job.state, 'done', job.error);
     assert.deepEqual(saved[0].args, ['--pack', '/p', '--max-context', '4096', '--kv', 'int8']);
-  } finally { await native.close(); rmSync(root, { recursive: true, force: true }); }
+  } finally { await native.close(); rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a DeepSeek load with Read pictures on does not ask for a separate reader (#4772)', async () => {

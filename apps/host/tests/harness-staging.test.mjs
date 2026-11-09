@@ -40,7 +40,7 @@ test('missingHarnessImports names a package a plugin imports that is not staged'
     assert.deepEqual(missingHarnessImports(root), [{ from: 'dsh-subprocess-local', missing: '@deepseek-ai/dsh-win32-process' }]);
     mkdirSync(join(scope, 'dsh-win32-process'), { recursive: true });
     assert.deepEqual(missingHarnessImports(root), []);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally { rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test('a staged Harness (STRATA_HARNESS_DIR) has every package its plugins import', { skip: !process.env.STRATA_HARNESS_DIR }, () => {

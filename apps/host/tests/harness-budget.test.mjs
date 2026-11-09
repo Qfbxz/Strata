@@ -12,7 +12,7 @@ const original = readFileSync(new URL('./fixtures/pi-ai-1.1.0-simple-options.js.
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 function staged(t, { source = original, manifest = { name: '@earendil-works/pi-ai', version: '1.3.0' } } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'strata-harness-budget-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const file = join(root, HARNESS_BUDGET_PATCH.file), packageFile = join(root, 'node_modules', '@earendil-works', 'pi-ai', 'package.json');
   mkdirSync(join(file, '..'), { recursive: true });
   writeFileSync(file, source); writeFileSync(packageFile, JSON.stringify(manifest));

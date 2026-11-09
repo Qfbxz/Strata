@@ -44,7 +44,7 @@ test('the llama.cpp and cloudflared fetches refuse before any request is made', 
   } finally {
     globalThis.fetch = realFetch;
     if (previous === undefined) delete process.env.STRATA_NO_ACQUIRE; else process.env.STRATA_NO_ACQUIRE = previous;
-    await rm(directory, { recursive: true, force: true });
+    await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 
@@ -58,7 +58,7 @@ test('a connector placed in the component folder is used as it is; it is never f
     const installer = createConnectorInstaller({ directory: join(directory, 'own'), componentDirectory: components, env: { STRATA_CLOUDFLARED_SEARCH: 'own' }, run: async () => 'cloudflared version 2026.5.0', fetchImpl: async () => { throw new Error('no network'); } });
     assert.equal(await installer.locate(), join(components, name));
     assert.equal(await installer.ensure(), join(components, name));
-  } finally { await rm(directory, { recursive: true, force: true }); }
+  } finally { await rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 async function runHost({ env, calls }) {
@@ -85,7 +85,7 @@ async function runHost({ env, calls }) {
   } finally {
     host.kill();
     await new Promise(r => host.once('exit', r));
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 }
 

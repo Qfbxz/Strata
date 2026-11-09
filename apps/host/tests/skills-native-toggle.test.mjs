@@ -63,7 +63,7 @@ test('the native skill-pack switch hides every native folder, and turning it bac
   }
   finally {
     await host.stop();
-    await rm(home, { recursive: true, force: true });
-    await rm(userHome, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    await rm(userHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });

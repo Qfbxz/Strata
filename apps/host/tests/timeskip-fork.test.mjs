@@ -35,7 +35,7 @@ test('copyProject leaves out dependency and VCS folders', () => {
     writeFileSync(join(from, 'node_modules', 'x.js'), 'x'); writeFileSync(join(from, 'src', 'a.txt'), 'a'); writeFileSync(join(from, '.git', 'h'), 'h');
     copyProject(from, join(dir, 'c'));
     assert.ok(existsSync(join(dir, 'c', 'src', 'a.txt'))); assert.ok(!existsSync(join(dir, 'c', 'node_modules'))); assert.ok(!existsSync(join(dir, 'c', '.git')));
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 async function rig(t, slots, opts = {}) {

@@ -17,7 +17,7 @@ const realFetch = globalThis.fetch;
 globalThis.fetch = (...args) => { calls.push(String(args[0])); return Promise.reject(new Error('no network in this test')); };
 const models = await import('../server/models.mjs');
 const { REAL_VARIANTS } = await import('../server/real-model-catalog.mjs');
-test.after(() => { globalThis.fetch = realFetch; rmSync(home, { recursive: true, force: true }); });
+test.after(() => { globalThis.fetch = realFetch; rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); });
 
 test('with the real engine on, installing from the starter list is refused before any request, for every entry', async () => {
   assert.equal(models.REAL, true);

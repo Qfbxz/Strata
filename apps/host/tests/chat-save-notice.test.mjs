@@ -106,5 +106,5 @@ test('a full disk raises the notice once with a working copy button; offline rai
     assert.equal(toasts().filter((t) => t.title === TITLE && !t.leaving).length, 0, 'the notice is taken away when the chats are saved');
     const onDisk = JSON.parse(await chatStore.read(copy[0].id)).session;
     assert.equal(onDisk.messages.some((m) => m.content === 'a question that cannot be saved'), true, 'and the chat is on disk after all');
-  } finally { fake.restore(); rmSync(dir, { recursive: true, force: true }); }
+  } finally { fake.restore(); rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });

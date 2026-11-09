@@ -25,7 +25,7 @@ const setup = () => {
   const base = mkdtempSync(join(tmpdir(), 'st-bundled-engine-'));
   const bundle = join(base, 'engine-bundle'), components = join(base, 'components');
   mkdirSync(bundle); mkdirSync(components);
-  return { base, bundle, components, engine: join(components, 'engine'), cleanup: () => rmSync(base, { recursive: true, force: true }) };
+  return { base, bundle, components, engine: join(components, 'engine'), cleanup: () => rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 };
 
 test('versions compare by number, not text', () => {

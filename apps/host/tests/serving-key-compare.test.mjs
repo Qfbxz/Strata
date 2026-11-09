@@ -15,7 +15,7 @@ import { createLocalShare } from '../server/local-share.mjs';
 const home = mkdtempSync(join(tmpdir(), 'strata-serving-compare-'));
 process.env.STRATA_HOME = home;
 const serving = await import('../server/serving.mjs');
-test.after(() => { try { rmSync(home, { recursive: true, force: true }); } catch { /* temp folder */ } });
+test.after(() => { try { rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } catch { /* temp folder */ } });
 
 const KEY = 'sk-strata-0123456789abcdef0123456789abcdef';
 serving.init({ send() {} }, { port: 8080, host: '127.0.0.1' });

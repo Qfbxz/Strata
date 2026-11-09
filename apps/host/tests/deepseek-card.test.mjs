@@ -14,7 +14,7 @@ const built = await build({ stdin, bundle: true, write: false, format: 'esm', pl
 const dir = mkdtempSync(join(tmpdir(), 'strata-card-test-'));
 writeFileSync(join(dir, 'card.mjs'), built.outputFiles[0].text);       // a file, not a data: URL: the bundled react-dom/server needs require()
 const { render, setTranslationLanguage } = await import(pathToFileURL(join(dir, 'card.mjs')).href);
-rmSync(dir, { recursive: true, force: true });
+rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 const fit = (spillGb, known = true) => ({ memoryGb: 250, vramUseGb: 10, ramUseGb: 240, spillGb, known });
 const card = props => render({ gpuName: 'RTX 5070', ramGb: 64, vramGb: 12, ...props });
 

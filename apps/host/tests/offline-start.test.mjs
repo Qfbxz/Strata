@@ -35,7 +35,7 @@ async function startOfflineHost() {
   const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : []);
   const get = async path => { const r = await fetch(`http://127.0.0.1:${port}${path}`); return { status: r.status, data: await r.json().catch(() => null) }; };
   const post = async path => { const r = await fetch(`http://127.0.0.1:${port}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); return { status: r.status, data: await r.json().catch(() => null) }; };
-  return { host, get, post, calls, stop: async () => { host.kill(); await new Promise(r => host.once('exit', r)); await rm(home, { recursive: true, force: true }).catch(() => {}); } };
+  return { host, get, post, calls, stop: async () => { host.kill(); await new Promise(r => host.once('exit', r)); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); } };
 }
 
 test('with no internet the host starts, serves its screens and loads a model without one outside call', async t => {

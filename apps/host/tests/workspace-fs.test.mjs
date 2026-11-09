@@ -79,4 +79,4 @@ test('git views answer through the fixed menu and nothing else', () => {
   assert.throws(() => ws.git('log; rm -rf /'), /menu/, 'no shell through the menu');
 });
 
-function t_after(root) { process.on('exit', () => rmSync(root, { recursive: true, force: true })); }
+function t_after(root) { process.on('exit', () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 })); }

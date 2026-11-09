@@ -96,7 +96,7 @@ function fixture({ layout = 'own', vision = null, arch = undefined, onFetch = nu
   const installs = () => rpc.filter(p => p.name === 'strata_install');
   return { native, calls, saved, rpc, fetches, installs, root, install, data, home, modelsDir, dataFolder, modelFolder, gguf, pack, mtp, mmproj, configPath, args, settingsFile,
     config: () => JSON.parse(readFileSync(configPath, 'utf8')), settings: () => readFileSync(settingsFile, 'utf8'),
-    cleanup: () => { if (earlier === undefined) delete process.env.STRATA_INSTALL_DIR; else process.env.STRATA_INSTALL_DIR = earlier; rmSync(root, { recursive: true, force: true }); } };
+    cleanup: () => { if (earlier === undefined) delete process.env.STRATA_INSTALL_DIR; else process.env.STRATA_INSTALL_DIR = earlier; rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } };
 }
 const loadOp = (f, args) => f.native.operation('load', { model: 'iq3_s', ...args });
 

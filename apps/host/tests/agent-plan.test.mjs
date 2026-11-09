@@ -83,7 +83,7 @@ test('plans survive a restart', () => {
     const b = new PlanStore(file);
     assert.equal(b.get('chat-1').id, plan.id); assert.equal(b.get('chat-1').state, 'approved');
     b.clear('chat-1'); assert.equal(new PlanStore(file).get('chat-1'), null);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 import { parseSources, researchPrompt, researchWritePrompt } from '../server/agent/plan.mjs';

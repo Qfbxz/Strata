@@ -33,7 +33,7 @@ function fixture(config = {}, { gpus = [{ index: 0, vram_gb: 12 }] } = {}) {
     async stop() { return { ok: true }; },
   };
   const native = createNativeControl({ control, hardwareProbe: () => gpus, directory: data, spawnProcess: () => { throw new Error('no process'); }, fetcher: async () => Response.json({ status: 'ok' }), requests: () => [] });
-  return { native, saved, path, read: () => JSON.parse(readFileSync(path, 'utf8')), write: c => writeFileSync(path, JSON.stringify(c)), cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  return { native, saved, path, read: () => JSON.parse(readFileSync(path, 'utf8')), write: c => writeFileSync(path, JSON.stringify(c)), cleanup: () => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 const finish = async (native, id) => { for (let i = 0; i < 500; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 const reserveOf = args => args[args.indexOf('--vram-reserve-mib') + 1];

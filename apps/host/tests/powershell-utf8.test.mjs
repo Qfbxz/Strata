@@ -16,7 +16,7 @@ test('the UTF-8 line comes first and leaves the script alone', () => {
 test('a Cyrillic temp folder name survives PowerShell through a pipe', { skip: process.platform !== 'win32' }, t => {
   const word = String.fromCharCode(0x414, 0x43e, 0x43a, 0x443, 0x43c, 0x435, 0x43d, 0x442, 0x44b);   // "Документы"
   const dir = mkdtempSync(join(tmpdir(), word + '-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  t.after(() => rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const read = script => execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
     { encoding: 'utf8', windowsHide: true, env: { ...process.env, STRATA_UTF8_TEST: dir } }).trim();
   const ask = '(Get-Item -LiteralPath $env:STRATA_UTF8_TEST).FullName';

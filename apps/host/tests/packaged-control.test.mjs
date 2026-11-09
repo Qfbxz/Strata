@@ -43,10 +43,10 @@ test('the Control component is found by STRATA_CONTROL_DIR or beside the host, a
       writeFileSync(bundledPython(join(install, 'control')), 'x');
       writeFileSync(join(install, 'control', 'strata.py'), '#');
       assert.equal(findControl({ env: {}, hostDir: join(install, 'host'), components: none }).dir, join(install, 'control'));
-    } finally { rmSync(install, { recursive: true, force: true }); }
+    } finally { rmSync(install, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
     rmSync(join(dir, 'strata.py'));
     assert.equal(findControl({ env: { STRATA_CONTROL_DIR: dir }, hostDir: join(dir, 'x'), components: none }), null, 'a half component is not used');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); }
 });
 
 test("Control runs on its own interpreter with nothing from the user's Python and acquiring forbidden", () => {
@@ -176,7 +176,7 @@ function packagedFixture({ engineUsable = true, updater = null, repair = false, 
   };
   const native = createNativeControl({ control, directory: data, spawnProcess, fetcher, requests: () => requests });
   const others = () => spawned.filter(s => !String(s.args[0]).endsWith('strata_mcp.py'));
-  return { native, calls, saved, spawned, others, rpc, setStatus: v => { statusAnswer = v; }, setMetricsDown: v => { metricsDown = v; }, setHealthDown: v => { healthDown = v; }, failStart: (v, times = Infinity) => { startFailure = v; startFailureLeft = times; }, catalog, hardware, install, root, cleanup: () => { if (earlierInstallEnv === undefined) delete process.env.STRATA_INSTALL_DIR; else process.env.STRATA_INSTALL_DIR = earlierInstallEnv; rmSync(root, { recursive: true, force: true }); } };
+  return { native, calls, saved, spawned, others, rpc, setStatus: v => { statusAnswer = v; }, setMetricsDown: v => { metricsDown = v; }, setHealthDown: v => { healthDown = v; }, failStart: (v, times = Infinity) => { startFailure = v; startFailureLeft = times; }, catalog, hardware, install, root, cleanup: () => { if (earlierInstallEnv === undefined) delete process.env.STRATA_INSTALL_DIR; else process.env.STRATA_INSTALL_DIR = earlierInstallEnv; rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); } };
 }
 const finish = async (native, id) => { for (let i = 0; i < 400; i++) { const job = native.state().jobs.find(j => j.id === id); if (job.state !== 'running') return job; await new Promise(r => setTimeout(r, 10)); } throw new Error('job did not finish'); };
 
