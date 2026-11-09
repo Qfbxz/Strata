@@ -30,6 +30,7 @@ import { DeliverableTracker, ActivityGroups, FolderClaims } from './deliverables
 import { SkillsUsed, skillInfoFrom } from './skills-used.mjs';
 import { turnEngineSpeed } from './engine-speed.mjs';
 import { TurnGuard, guardNote, GUARD_NOTES } from './turn-guard.mjs';
+import { CompactBreaker } from './compact-breaker.mjs';
 import { cutNotice, cutNudge } from './reply-cut.mjs';
 
 /** How often one turn asks the agent to carry on after a reply the length limit cut (each time in smaller pieces). */
@@ -167,6 +168,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
   let lastError = null;
   let starting = null;
   const chats = new Map();         // chatId -> { turn, route, routeGeneration }
+  const breaker = new CompactBreaker(agentGuard());   // H2: automatic summarizing that keeps failing is stopped per chat
   const plans = new PlanStore(join(root, 'plans.json'));
   /** chatId -> messages the person typed while a goal ran: [{ id, text, at, deliverAt }]; delivered between steps or when the goal ends */
   const queues = new Map();
@@ -455,11 +457,19 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
         emit({ type: 'error', message: text, key: FIT_TEXT.tooLarge, values, code: 'CONTEXT_MESSAGE_TOO_LARGE', tokens: fit.tokens, window: fit.window });
         return { error: text };
       }
+      if (fit?.action === 'summarize' && breaker.blocked(sessionId)) {
+        // H2: automatic summarizing keeps failing for this chat. One plain card, and the message is sent as it is: the chat stays usable.
+        reporter.clear();
+        const text = fill(FIT_TEXT.compactFailed, []);
+        emit({ type: 'error', message: text, key: FIT_TEXT.compactFailed, code: 'COMPACT_BREAKER' });
+        return { error: text };
+      }
       if (fit?.action === 'summarize') {
         reporter.set({ phase: 'compacting', code: 'compacting', text: FIT_TEXT.summarizing, key: FIT_TEXT.summarizing, values: [] });
         const done = await compactChat(runtime, sessionId);
         reporter.clear();
-        if (done.ok) emit(summarizedNote(done.before, done.after, fit.window));
+        if (done.ok) { breaker.success(sessionId); emit(summarizedNote(done.before, done.after, fit.window)); }
+        else breaker.failure(sessionId);
       }
     }
 
@@ -1406,6 +1416,7 @@ ${note.text}
     try { ({ rt: runtime } = await ensureRuntime(choice, signal)); } catch { return say(FIT_TEXT.compactFailed); }
     const done = await compactChat(runtime, known);
     if (done.ok) {
+      breaker.success(known);
       const note = summarizedNote(done.before, done.after, 0);
       return say(note.key, note.values);
     }
