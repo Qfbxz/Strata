@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const SERVER = fileURLToPath(new URL('../server/agent/custom-tools-mcp.mjs', import.meta.url));
 
@@ -47,7 +48,7 @@ test('the context mode serves context_remaining from the budget snapshot the hos
     assert.match(text, new RegExp(String(n)), `the answer carries ${n}`);
 });
 
-test('the answer follows the snapshot file: a new turn's numbers are read on the next call', async (t) => {
+test('the answer follows the snapshot file: the numbers of a new turn are read on the next call', async (t) => {
   const s = await withServer(t, { window: 32768, pressure: 9000, reply: 4096, headroom: 2048, room: 17632, compactAt: 24000 });
   await s.rpc('tools/list', {});
   const first = await s.rpc('tools/call', { name: 'context_remaining', arguments: {} });

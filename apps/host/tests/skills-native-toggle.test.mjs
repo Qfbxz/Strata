@@ -38,11 +38,17 @@ test('the native skill-pack switch hides every native folder, and turning it bac
   await pack(join(userHome, '.kimi-code', 'skills', 'pack-ns'), 'pack-ns', 'From the Kimi folder.');
   await pack(join(userHome, '.agents', 'skills', 'pack-na'), 'pack-na', 'From the agents folder.');
   await pack(join(userHome, '.cc-switch', 'skills', 'pack-nc'), 'pack-nc', 'From the switch folder.');
+  await pack(join(userHome, '.claude', 'skills', 'pack-ncl'), 'pack-ncl', 'From the Claude folder.');
+  await pack(join(userHome, '.codex', 'skills', 'pack-ncx'), 'pack-ncx', 'From the Codex folder.');
+  await pack(join(userHome, '.zcode', 'skills', 'pack-nz'), 'pack-nz', 'From the zcode folder.');
+  await pack(join(userHome, '.opencode', 'skills', 'pack-noc'), 'pack-noc', 'From the opencode folder.');
+  await pack(join(userHome, '.config', 'opencode', 'skills', 'pack-noco'), 'pack-noco', 'From the opencode config folder.');
+  await pack(join(userHome, '.dsh', '.agent-presets', 'petro-agent', 'skills', 'pack-ndp'), 'pack-ndp', 'From the DeepSeek persona folder.');
   const host = await startHost(home, userHome);
   try {
     const ids = async () => (await host.call('/api/skills')).data.map(s => s.id);
     const first = await ids();
-    for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc'])
+    for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc', 'ncl-pack-ncl', 'ncx-pack-ncx', 'nz-pack-nz', 'noc-pack-noc', 'noco-pack-noco', 'ndp-pack-ndp'])
       assert.ok(first.includes(id), `${id} lists while the switch is on`);
 
     const agentFolder = () => readdir(join(home, 'data', 'agent', 'skills-live')).catch(() => []);
@@ -51,14 +57,14 @@ test('the native skill-pack switch hides every native folder, and turning it bac
     assert.equal((await host.call('/api/features', 'PUT', { skillsNative: false })).status, 200);
     assert.ok(!(await agentFolder()).includes('ns-pack-ns'), 'the agent folder drops the native pack at once, without another page read');
     const off = await ids();
-    for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc'])
+    for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc', 'ncl-pack-ncl', 'ncx-pack-ncx', 'nz-pack-nz', 'noc-pack-noc', 'noco-pack-noco', 'ndp-pack-ndp'])
       assert.ok(!off.includes(id), `${id} is gone while the switch is off`);
     assert.ok(off.length > 0, 'the bundled and app skills stay listed');
 
     assert.equal((await host.call('/api/features', 'PUT', { skillsNative: true })).status, 200);
     assert.ok((await agentFolder()).includes('ns-pack-ns'), 'the agent folder carries it again');
     const again = await ids();
-    for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc'])
+    for (const id of ['ns-pack-ns', 'na-pack-na', 'nc-pack-nc', 'ncl-pack-ncl', 'ncx-pack-ncx', 'nz-pack-nz', 'noc-pack-noc', 'noco-pack-noco', 'ndp-pack-ndp'])
       assert.ok(again.includes(id), `${id} comes back when the switch is on again`);
   }
   finally {
