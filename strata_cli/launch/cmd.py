@@ -1099,7 +1099,7 @@ def run_connect(a: argparse.Namespace) -> int:
         if not a.check:
             print(json.dumps(payload))
             return 0
-        # --check runs the same two checks as the plain-words output (one prompt, one tool call, the way this app sends them) and the answer
+        # --check runs three checks (the prompt, one tool call, the count endpoint, the way this app sends them) and the answer
         # says what they found: "ok" is true only when both worked, and the exit code is 1 when one failed or the server cannot be reached.
         from strata_cli.launch import check
         results = check.run_checks(h.id if not h.built_in else "opencode", tgt.url, key, tgt.model)

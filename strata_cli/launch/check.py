@@ -55,6 +55,12 @@ def _prompt_request(wire: str, base: str, model: str) -> tuple[str, dict]:
     return base + "/v1/chat/completions", {"model": model, "max_tokens": 256, "messages": [{"role": "user", "content": PROMPT}]}
 
 
+def _count_request(wire: str, base: str, model: str) -> tuple[str, dict]:
+    if wire == "messages":
+        return base + "/v1/messages/count_tokens", {"model": model, "messages": [{"role": "user", "content": PROMPT}]}
+    return base + "/v1/chat/completions/count_tokens", {"model": model, "messages": [{"role": "user", "content": PROMPT}]}
+
+
 def _tool_request(wire: str, base: str, model: str) -> tuple[str, dict]:
     if wire == "responses":
         return base + "/v1/responses", {"model": model, "input": TOOL_PROMPT, "max_output_tokens": 1536, "tool_choice": "auto",
@@ -140,6 +146,17 @@ def run_checks(harness_id: str, url: str, key: str, model: str, *, timeout: floa
             checks.append(Check("tool call", False, "The model answered in words and did not call the tool.", time.monotonic() - t1))
     except Exception as e:                                   # noqa: BLE001
         checks.append(Check("tool call", False, _why(e), time.monotonic() - t1))
+    t2 = time.monotonic()
+    try:
+        u, body = _count_request(wire, base, model)
+        data = poster(u, key, body, None, timeout)
+        n = data.get("input_tokens")
+        ok = isinstance(n, int) and n > 0
+        checks.append(Check("count endpoint", ok, f"The count endpoint answered {n} tokens." if ok else
+                            (f"It answered {json.dumps(data)[:60]}, not a token count." if data is not None else "No answer."),
+                            time.monotonic() - t2))
+    except Exception as e:                                   # noqa: BLE001
+        checks.append(Check("count endpoint", False, _why(e), time.monotonic() - t2))
     return checks
 
 

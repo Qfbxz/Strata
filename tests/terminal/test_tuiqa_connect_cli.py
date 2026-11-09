@@ -1,5 +1,5 @@
 """Tester report T07: `strata connect pi --check --output json` skipped the checks and said "ok": true with exit 0 even when nothing was
-listening. It now runs the same two checks as the plain-words output, returns each result, and exits 1 when one failed or the server cannot be
+listening. It now runs the same three checks as the plain-words output, returns each result, and exits 1 when one failed or the server cannot be
 reached."""
 
 from __future__ import annotations
@@ -21,6 +21,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        if self.path.endswith("count_tokens"):
+            data = json.dumps({"input_tokens": 12}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         wants_tool = bool(body.get("tools"))
         message = {"role": "assistant", "content": "pong"}
         if Handler.mode == "no-text" and not wants_tool:
@@ -59,13 +67,14 @@ class ConnectCheckJson(unittest.TestCase):
     def run_human(self, port: int):
         return run_cli(["connect", "pi", "--url", f"http://127.0.0.1:{port}", "--context", "128k", "--check"])
 
-    def test_a_working_server_passes_both_checks_with_ok_true_and_exit_zero(self):
+    def test_a_working_server_passes_all_three_checks_with_ok_true_and_exit_zero(self):
         code, data, _ = self.run_json(self.port)
         self.assertEqual(code, 0)
         self.assertIs(data["ok"], True)
-        self.assertEqual([c["name"] for c in data["checks"]], ["prompt", "tool call"])
+        self.assertEqual([c["name"] for c in data["checks"]], ["prompt", "tool call", "count endpoint"])
         self.assertTrue(all(c["ok"] for c in data["checks"]))
         self.assertIn("get_weather", data["checks"][1]["detail"])
+        self.assertEqual(data["checks"][2]["detail"], "The count endpoint answered 12 tokens.")
         self.assertEqual(data["checked_server"], f"http://127.0.0.1:{self.port}")
         self.assertEqual(data["vendor_tested"], "pi 0.74.2")
         self.assertIn("files", data)                          # the rendered setup is still there
@@ -86,7 +95,7 @@ class ConnectCheckJson(unittest.TestCase):
         code, data, _ = self.run_json(port)
         self.assertEqual(code, 1)
         self.assertIs(data["ok"], False)
-        self.assertEqual([c["ok"] for c in data["checks"]], [False, False])
+        self.assertEqual([c["ok"] for c in data["checks"]], [False, False, False])
         self.assertIn("could not be reached", data["error"]["message"])
 
     def test_json_and_human_agree_on_the_exit_code(self):

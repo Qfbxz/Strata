@@ -1319,16 +1319,23 @@ class ConnectCommand(unittest.TestCase):
             if url.endswith("/v1/messages"):
                 if "tools" in body:
                     return {"content": [{"type": "tool_use", "name": "get_weather", "input": {"city": "Paris"}}]}
+                if body.get("messages") and "count_tokens" in url:
+                    return {"input_tokens": 12}
                 return {"content": [{"type": "text", "text": "pong"}]}
             if "tools" in body:
                 return {"choices": [{"message": {"content": None, "tool_calls": [{"function": {"name": "get_weather", "arguments": "{\"city\": \"Paris\"}"}}]}}]}
+            if body.get("messages") and "count_tokens" in url:
+                return {"input_tokens": 12}
             return {"choices": [{"message": {"content": "Pong."}}]}
 
-        for h, ending in (("opencode", "/v1/chat/completions"), ("codex", "/v1/responses"), ("claude-code", "/v1/messages")):
+        endings = {"opencode": ("/v1/chat/completions", "/v1/chat/completions/count_tokens"),
+                   "codex": ("/v1/responses", "/v1/chat/completions/count_tokens"),
+                   "claude-code": ("/v1/messages", "/v1/messages/count_tokens")}
+        for h, allowed in endings.items():
             seen.clear()
             res = check.run_checks(h, "http://127.0.0.1:1", "k", "m", poster=good)
-            self.assertEqual([r.ok for r in res], [True, True], h)
-            self.assertTrue(all(u.endswith(ending) for u in seen), (h, seen))
+            self.assertEqual([r.ok for r in res], [True, True, True], h)
+            self.assertTrue(all(any(u.endswith(e) for e in allowed) for u in seen), (h, seen))
 
         def wrong(url, key, body, headers=None, timeout=0):
             if "tools" in body:
@@ -1336,7 +1343,7 @@ class ConnectCommand(unittest.TestCase):
             return {"choices": [{"message": {"content": "hello there"}}]}
 
         res = check.run_checks("pi", "http://127.0.0.1:1", "k", "m", poster=wrong)
-        self.assertEqual([r.ok for r in res], [False, False])
+        self.assertEqual([r.ok for r in res][:2], [False, False])
         self.assertIn("not the word asked for", res[0].detail)
         self.assertIn("did not call the tool", res[1].detail)
 

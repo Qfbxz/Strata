@@ -8313,6 +8313,8 @@ def make_handler(svc: Service):
                     self._anthropic(req)
                 elif path == "/v1/messages/count_tokens":
                     self._count_tokens(req)
+                elif path == "/v1/chat/completions/count_tokens":
+                    self._openai_count_tokens(req)
                 elif path == "/v1/images/generations":
                     self._images(req)
                 else:
@@ -8883,6 +8885,15 @@ def make_handler(svc: Service):
             messages, tools, kw = anthropic_to_messages(req, svc.anthropic_think_unasked)
             stop_strings(req)                                 # the same 400 as the request itself would get
             check_request_sampling(req)                       # ... likewise a sampling field of the wrong type
+            self._json(200, {"input_tokens": len(svc.encode_prompt(messages, tools, kw, store=False))})
+
+        def _openai_count_tokens(self, req):
+            """The OpenAI-side count (HARNESS_ROADMAP E1): the prompt this /v1/chat/completions would read, rendered
+            and tokenized the same way - the model does not run. OpenAI-protocol agents (opencode, codex) ask for it
+            because their harness can only reach the OpenAI paths."""
+            req = svc.with_shared(req, "openai")
+            messages, tools, kw = openai_to_messages(req)
+            require_messages(messages)                        # the same 400 as the request itself would get
             self._json(200, {"input_tokens": len(svc.encode_prompt(messages, tools, kw, store=False))})
 
         def _anthropic(self, req):
