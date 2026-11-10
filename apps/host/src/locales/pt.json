@@ -3567,5 +3567,8 @@
  "s9075": "Padrão mantém a paleta concebida; aumentado reforça o texto e as molduras.",
  "s9076": "Arquivar",
  "s9077": "Desarquivar",
- "s9078": "O assistente ficou repetindo a mesma operação, então eu o parei. Ajuste o pedido e me diga para continuar."
+ "s9078": "O assistente ficou repetindo a mesma operação, então eu o parei. Ajuste o pedido e me diga para continuar.",
+ "s9079": "Parar o assistente travado",
+ "s9080": "Para após esta quantidade de chamadas idênticas consecutivas. 0 = nunca parar.",
+ "s9081": "Para de tentar o resumo automático após esta quantidade de falhas. 0 = continuar tentando."
 }

@@ -3567,5 +3567,8 @@
  "s9075": "Standard keeps the palette as designed; increased strengthens text and borders.",
  "s9076": "Archive",
  "s9077": "Unarchive",
- "s9078": "The assistant kept repeating the same operation, so I stopped it. Adjust the request and tell me to continue."
+ "s9078": "The assistant kept repeating the same operation, so I stopped it. Adjust the request and tell me to continue.",
+ "s9079": "Stop a stuck assistant",
+ "s9080": "Stop after this many identical tool calls in a row. 0 = never stop.",
+ "s9081": "Stop retrying automatic summarizing after this many failures. 0 = keep trying."
 }

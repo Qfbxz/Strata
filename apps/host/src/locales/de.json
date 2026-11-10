@@ -3567,5 +3567,8 @@
  "s9075": "Standard behält die gestaltete Palette; erhöht verstärkt Text und Rahmen.",
  "s9076": "Archivieren",
  "s9077": "Aus Archiv holen",
- "s9078": "Der Assistent hat dieselbe Aktion wiederholt, deshalb habe ich ihn gestoppt. Passe die Anfrage an und lass mich weitermachen."
+ "s9078": "Der Assistent hat dieselbe Aktion wiederholt, deshalb habe ich ihn gestoppt. Passe die Anfrage an und lass mich weitermachen.",
+ "s9079": "Hängenden Assistenten stoppen",
+ "s9080": "Stoppt nach dieser vielen identischen Toolaufrufen in Folge. 0 = nie stoppen.",
+ "s9081": "Stoppt die automatische Zusammenfassung nach dieser vielen Fehlversuchen. 0 = weiter versuchen."
 }

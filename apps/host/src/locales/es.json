@@ -3567,5 +3567,8 @@
  "s9075": "Estándar mantiene la paleta diseñada; aumentado refuerza el texto y los bordes.",
  "s9076": "Archivar",
  "s9077": "Desarchivar",
- "s9078": "El asistente repetía la misma operación, así que lo detuve. Ajusta la petición y dime que continúe."
+ "s9078": "El asistente repetía la misma operación, así que lo detuve. Ajusta la petición y dime que continúe.",
+ "s9079": "Detener al asistente atascado",
+ "s9080": "Detiene tras esta cantidad de llamadas idénticas consecutivas. 0 = nunca detener.",
+ "s9081": "Deja de reintentar el resumen automático tras esta cantidad de fallos. 0 = seguir intentando."
 }

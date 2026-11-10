@@ -31,12 +31,30 @@ export function FeatureFlagsSetting() {
             .then((saved: Features) => setFeatures(saved))
             .catch(e => setProblem(e.message));
     }
-    return <span className="row feature-flags">
+    const [guard, setGuard] = useState<{ identicalCalls: number; compactFailures: number } | null>(null);
+  useEffect(() => { fetch('/api/agent-guard').then(r => r.json()).then(d => setGuard(d)).catch(() => {}); }, []);
+  function saveGuard(key: 'identicalCalls' | 'compactFailures', value: number) {
+    if (!guard) return;
+    const next = { ...guard, [key]: value };
+    setGuard(next);
+    fetch('/api/agent-guard', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ [key]: value }) }).catch(() => {});
+  }
+  return <span className="row feature-flags">
         <span className="feature-flags__grid">
             {tr(SWITCHES.map(s => <label key={s.key} className="feature-flags__row">
                 <button className="st-toggle" role="switch" aria-checked={features ? !!features[s.key] : false} aria-label={tr(s.label)} disabled={!features} onClick={() => toggle(s.key)}/>
                 <span>{tr(s.label)}</span>
             </label>))}
+        </span>
+        <span className="feature-flags__grid">
+          <label className="feature-flags__row">
+            <span><strong>{tr("Stop a stuck assistant")}</strong><small className="muted">{tr("Stop after this many identical tool calls in a row. 0 = never stop.")}</small></span>
+            <input className="st-input" style={{ width: 64 }} inputMode="numeric" aria-label={tr("Stop a stuck assistant")} value={guard?.identicalCalls ?? ''} disabled={!guard} onChange={e => { const n = parseInt(e.target.value, 10); if (Number.isInteger(n) && n >= 0) saveGuard('identicalCalls', n); }} />
+          </label>
+          <label className="feature-flags__row">
+            <span><strong>{tr("Stop retrying automatic summarizing")}</strong><small className="muted">{tr("Stop retrying automatic summarizing after this many failures. 0 = keep trying.")}</small></span>
+            <input className="st-input" style={{ width: 64 }} inputMode="numeric" aria-label={tr("Stop retrying automatic summarizing")} value={guard?.compactFailures ?? ''} disabled={!guard} onChange={e => { const n = parseInt(e.target.value, 10); if (Number.isInteger(n) && n >= 0) saveGuard('compactFailures', n); }} />
+          </label>
         </span>
         {tr(problem ? <span className="small inline-error" role="alert">{problem}</span> : null)}
     </span>;

@@ -3567,5 +3567,8 @@
  "s9075": "Standard conserve la palette prévue ; renforcé accentue le texte et les bordures.",
  "s9076": "Archiver",
  "s9077": "Désarchiver",
- "s9078": "L’assistant répétait la même opération, alors je l’ai arrêté. Ajustez la requête et dites-moi de continuer."
+ "s9078": "L’assistant répétait la même opération, alors je l’ai arrêté. Ajustez la requête et dites-moi de continuer.",
+ "s9079": "Arrêter l’assistant bloqué",
+ "s9080": "Arrête après ce nombre d’appels identiques consécutifs. 0 = ne jamais arrêter.",
+ "s9081": "Arrête de réessayer le résumé automatique après ce nombre d’échecs. 0 = continuer à essayer."
 }
