@@ -22,7 +22,6 @@ export const DEFAULT_SLOTS = 4;
 /** What the person is told when DFlash2 is chosen and nobody picked a number of requests (strata_control/drafting.py ONE_REQUEST_NOTE). */
 export const DFLASH2_NOTE = 'DFlash2 answers one request at a time, so Strata set this model to one request at a time.';
 /** The most the engine's batch window holds without grouped MTP. */
-export const MAX_SLOTS = 8;
 /**
  * THE one-line policy.
  *   'fit'   the default aims for 4 and takes fewer where the slots would eat more than CACHE_LOSS_SHARE of the expert cache

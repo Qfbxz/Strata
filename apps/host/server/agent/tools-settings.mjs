@@ -20,7 +20,6 @@ const KINDS = ['instructions', 'command', 'server'];
 const NAME = /^[A-Za-z][A-Za-z0-9 _-]{0,39}$/;
 const MAX_CUSTOM = 40;
 
-export const INSTRUCTIONS_SERVER = 'strata-instructions';
 export const COMMANDS_SERVER = 'strata-commands';
 
 const slug = value => String(value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'tool';

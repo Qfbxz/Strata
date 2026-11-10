@@ -31,7 +31,6 @@ export const STANDARD_PLUGIN_IDS = [
 /** What we leave out of it. */
 export const REMOVED_PLUGIN_IDS = ['tool-schedule', 'planning'];
 /** Plugins removed from inside the `delegation` group (the group stays: helper agents are a feature). */
-export const REMOVED_DELEGATION_IDS = [];
 
 /**
  * The whole system prompt of an app chat. The Harness's own text is about 4.8 KB (about 1,200 tokens) of guidance for working on

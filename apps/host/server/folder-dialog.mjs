@@ -185,7 +185,6 @@ export async function portalFolder(prompt, { run = exec, env = externalEnvironme
   }
 }
 
-export const TYPE_A_PATH = 'No folder chooser is available on this system, so type the folder path instead.';
 
 /** The host's answer when no chooser works: a plain sentence and a code the app turns into a field for typing the path. */
 export function chooserUnavailable(picked) {
