@@ -51,6 +51,19 @@ class Apply(unittest.TestCase):
         new, _ = runconfig.apply({"sampling": {"top_k": 20}}, {"sampling.top_k": None})
         self.assertNotIn("sampling", new)                                 # an empty block goes
 
+    def test_the_small_model_section_changes_by_leaf_key(self):
+        # E3: the "small_model" block is editable by its leaf keys; a block already in the file keeps its other keys
+        new, changed = runconfig.apply(CFG, {"small_model.enabled": True, "small_model.idle_unload_s": 120})
+        self.assertEqual(changed, ["small_model.enabled", "small_model.idle_unload_s"])
+        self.assertEqual(new["small_model"], {"enabled": True, "idle_unload_s": 120})
+        self.assertNotIn("small_model", CFG, "the input is left alone")
+        cfg = {**CFG, "small_model": {"enabled": False, "model": "/m/vl.gguf", "mmproj": "/m/mm.gguf"}}
+        new, _ = runconfig.apply(cfg, {"small_model.enabled": True})
+        self.assertEqual(new["small_model"], {"enabled": True, "model": "/m/vl.gguf", "mmproj": "/m/mm.gguf"})
+        new, changed = runconfig.apply(new, {"small_model.enabled": None})
+        self.assertEqual(changed, ["small_model.enabled"])
+        self.assertEqual(new["small_model"], {"model": "/m/vl.gguf", "mmproj": "/m/mm.gguf"})
+
     def test_refused(self):
         for changes in ({"api_key": "x"}, {"host": "0.0.0.0"}, {"mcp_servers": {}}, {"before_load": "calc.exe"},
                         {"args": []}, {"exe": "evil.exe"}, {"trusted_origins": ["*"]}, {"allowed_hosts": ["*"]},

@@ -41,6 +41,11 @@ EDITABLE = [
     ("open_browser", "bool", "Open the chat page in the browser when the model is ready"),
     ("vram_reserve_mib", ("arg", "--vram-reserve-mib"),
      "VRAM in MiB the engine leaves free for other programs (engine default 700)"),
+    ("small_model.enabled", "bool",
+     "Serve the small model (llama-server sidecar): session titles and summaries on \"model\": \"small\", "
+     "and pictures become text for a main model with no vision tower (E3; used from the next start)"),
+    ("small_model.idle_unload_s", "num>=0",
+     "Stop the small model after this many seconds without requests (300 by default, 0 = never)"),
 ]
 SPEC = {k: kind for k, kind, _ in EDITABLE}
 
@@ -60,6 +65,10 @@ def value_of(cfg: dict, key: str):
         return s.get(key.split(".", 1)[1]) if isinstance(s, dict) else None
     if isinstance(kind, tuple) and kind[0] == "arg":
         return _arg(cfg, kind[1])
+    if "." in key:                                     # a leaf of a section ("small_model.enabled")
+        node, sub = key.split(".", 1)
+        s = cfg.get(node)
+        return s.get(sub) if isinstance(s, dict) else None
     return cfg.get(key)
 
 
@@ -165,6 +174,17 @@ def apply(cfg: dict, changes: dict) -> tuple[dict, list[str]]:
                 new.pop(user_args.USER_KEY, None)
             if user_args.WRITTEN_KEY in new:
                 new[user_args.WRITTEN_KEY] = list(a)
+        elif "." in key:                               # a leaf of a section ("small_model.enabled"): the block keeps its other keys
+            node, sub = key.split(".", 1)
+            s = dict(new.get(node) or {}) if isinstance(new.get(node), dict) else {}
+            if v is None:
+                s.pop(sub, None)
+            else:
+                s[sub] = v
+            if s:
+                new[node] = s
+            else:
+                new.pop(node, None)
         elif v is None:
             new.pop(key, None)
         else:
