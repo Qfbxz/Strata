@@ -73,6 +73,7 @@ tls.install()       # #3722: image URLs and tool servers over HTTPS are checked 
 from strata_control import hipblaslt_tuning  # noqa: E402
 from strata_control import vision_reader  # noqa: E402
 from serve.ds_pictures import PICTURE_FORMATS, DsPictures  # noqa: E402
+from serve.small_model import SMALL_NAMES, SmallModel  # noqa: E402
 from strata_control import draft_layer  # noqa: E402
 from strata_control import drafting  # noqa: E402
 from strata_control import vram_fit  # noqa: E402
@@ -3224,6 +3225,51 @@ def vision_start_error(line: str, log=None, code: int | None = None, waited: flo
     return msg
 
 
+def small_model_from_config(cfg: dict) -> SmallModel | None:
+    """E3: the run config's "small_model" section -> the sidecar (lazy, it starts with its first
+    request), or None.  Off by default: without the section, or without enabled/exe/model, the
+    server behaves exactly as the last release did."""
+    sec = cfg.get("small_model")
+    if not isinstance(sec, dict) or not sec.get("enabled") or not (sec.get("exe") and sec.get("model")):
+        return None
+    return SmallModel(sec)
+
+
+def textualize_images(svc, messages: list) -> list:
+    """E3, the vision-text gateway: a main model with no picture tower and a small model configured
+    means every picture in the messages travels on as the sidecar's description (text).  With
+    either part missing the messages go back unchanged - prepare() then refuses pictures as before."""
+    small = getattr(svc, "small", None)
+    if small is None or getattr(svc, "vision", None) is not None:
+        return messages
+    changed = False
+    out = []
+    for m in messages:
+        content = m.get("content") if isinstance(m, dict) else None
+        if not isinstance(content, list):
+            out.append(m)
+            continue
+        parts = []
+        for p in content:
+            url = None
+            if isinstance(p, dict):
+                if p.get("type") == "image_url":
+                    url = (p.get("image_url") or {}).get("url")
+                elif p.get("type") == "image":
+                    url = p.get("source")
+            if not isinstance(url, str):
+                parts.append(p)
+                continue
+            try:
+                desc = small.describe_image(url)
+            except SmallModel.ServingError as e:
+                desc = f"the small model could not describe it: {e}"
+            parts.append({"type": "text", "text": f"[picture: {desc}]"})
+            changed = True
+        out.append({**m, "content": parts})
+    return out if changed else messages
+
+
 class Vision:
     """The resident image encoder: `strata-vision` (llama.cpp mtmd + the mmproj file) reads `ENC <image> <out>`
     lines and writes each image's embeddings; results are cached by the image's hash, so a conversation that
@@ -4798,8 +4844,10 @@ class Service:
     reproducible = False
     def __init__(self, engine: Engine, tokenizer, template: ChatTemplate, model_name: str = "qwen3.8-flash-next",
                  vision: Vision | None = None, sampling_defaults: dict | None = None,
+                 small: SmallModel | None = None,
                  fit_max_tokens: bool = True):
         self.engine, self.tok, self.template, self.model, self.vision = engine, tokenizer, template, model_name, vision
+        self.small = small                             # E3: the llama-server sidecar (None = off)
         self.literals = literal_tags(getattr(tokenizer, "control_tokens", ()))   # texts that stay text inside a message
         self.fit_max_tokens = fit_max_tokens          # default: clamp the output cap to the room left; False (--no-fit-max-tokens) = 400
         self.aliases: list[str] = []                  # #297: other names of the model (the config's `aliases`)
@@ -5123,6 +5171,23 @@ class Service:
         Other names are still served, as before."""
         asked = req.get("model") if isinstance(req, dict) else None
         return asked if isinstance(asked, str) and asked in self.aliases else self.model
+
+    def small_proxy(self, req: dict, anthropic: bool = False) -> dict:
+        """E3: a request the sidecar serves itself ("model": "small").  The answer carries the shape
+        the endpoint speaks: OpenAI's for /v1/chat/completions, Anthropic's for /v1/messages."""
+        small = getattr(self, "small", None)
+        if small is None:
+            raise ValueError('this server has no small model (the config has no enabled "small_model" '
+                             'section); ask the main model, or enable the small model in settings')
+        text = small.chat(req.get("messages") or [], max_tokens=req.get("max_tokens"))
+        now = int(time.time())
+        if anthropic:
+            return {"id": f"small_{now}", "type": "message", "role": "assistant", "model": small.model_name,
+                    "content": [{"type": "text", "text": text}], "stop_reason": "end_turn",
+                    "usage": {"input_tokens": 0, "output_tokens": 0}}
+        return {"id": f"small_{now}", "object": "chat.completion", "created": now, "model": small.model_name,
+                "choices": [{"index": 0, "message": {"role": "assistant", "content": text}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}}
 
     def reported_ctx(self) -> int:
         """The context the endpoints report (/v1/status, /v1/models, /props, /health, /slots, /metrics): the engine's,
@@ -5532,6 +5597,8 @@ class Service:
             if self.vision is not None and hasattr(self.vision, "unload"):
                 self.vision.unload()
             self.vision_held = False
+            if self.small is not None:
+                self.small.unload()
             print(f"[strata] model unloaded{f' after {idle_for:.0f} s idle' if idle_for else ''}; "
                   "the next request loads it again", flush=True)
             return "unloaded"
@@ -5546,6 +5613,11 @@ class Service:
         def loop():
             while True:
                 time.sleep(max(1.0, min(30.0, self.idle_unload_s / 4)))
+                if self.small is not None:
+                    try:
+                        self.small.idle_tick()
+                    except OSError:
+                        pass
                 try:
                     self.unload(idle_for=self.idle_unload_s)
                 except EngineStuck as e:                # tried again at the next turn; the thread keeps running
@@ -5928,6 +6000,9 @@ class Service:
                         part.update(type="text", text=f"[image omitted: {why}]")
                     else:
                         part["source"] = str(image)
+        if self.vision is None and self.small is not None:
+            # E3: the gateway turns the pictures into the sidecar's text before anything else reads them
+            messages = textualize_images(self, messages)
         fetched = self._note_unreadable_tool_images(messages, cancel)
         ids = encoded_ids = self.encode_prompt(messages, tools, kwargs)
         if force and kwargs.get("enable_thinking", True) is False:
@@ -8314,6 +8389,14 @@ def make_handler(svc: Service):
                     except EngineDied as e:
                         self._json(503, {"error": {"type": "server_error", "message": str(e)}})
                     return
+                if path in ("/v1/chat/completions", "/v1/messages") and isinstance(req.get("model"), str) \
+                        and req.get("model") in SMALL_NAMES:
+                    # E3: the small model serves this request itself; the main engine's FIFO, window and turn stay out of it
+                    try:
+                        self._json(200, svc.small_proxy(req, anthropic=path == "/v1/messages"))
+                    except SmallModel.ServingError as e:
+                        self._json(503, {"error": {"type": "server_error", "message": str(e)}})
+                    return
                 if path in ("/v1/chat/completions", "/v1/messages", "/v1/responses"):
                     self.record = svc.begin_request(path, req)
                 if path == "/v1/responses":
@@ -10256,7 +10339,11 @@ def _main(argv=None, *, lifecycle_event=None, interrupt_exit_code: int = 0) -> i
     svc = Service(engine, tok, ChatTemplate(tpl if tpl.exists() else ROOT / "serve/chat_template.jinja"),
                   model_name=default_model_name(cfg), vision=vision,
                   sampling_defaults=sampling_defaults,
+                  small=small_model_from_config(cfg),
                   fit_max_tokens=a.fit_max_tokens or (not a.no_fit_max_tokens and cfg.get("fit_max_tokens") is not False))
+    if svc.small is not None:
+        print(f"[strata] small model: {svc.small.model_name} (llama-server sidecar, E3) - titles, summaries and "
+              "pictures of a tower-less main model", flush=True)
     svc.launch_attestation = launch_attestation
     svc.reproducible = bool(a.greedy)
     if (cfg.get("arch") or "") == "deepseek41" and vision is None and a.engine == "strata":

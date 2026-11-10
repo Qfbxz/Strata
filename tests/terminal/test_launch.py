@@ -1334,8 +1334,9 @@ class ConnectCommand(unittest.TestCase):
         for h, allowed in endings.items():
             seen.clear()
             res = check.run_checks(h, "http://127.0.0.1:1", "k", "m", poster=good)
-            self.assertEqual([r.ok for r in res], [True, True, True], h)
-            self.assertTrue(all(any(u.endswith(e) for e in allowed) for u in seen), (h, seen))
+            self.assertEqual([r.ok for r in res], [True, True, True, True], h)   # the 4th is the E3 small-model check
+            self.assertTrue(all(any(u.endswith(e) for e in allowed) or u.endswith("/v1/chat/completions")
+                                for u in seen), (h, seen))   # the E3 check always speaks the sidecar's own OpenAI wire
 
         def wrong(url, key, body, headers=None, timeout=0):
             if "tools" in body:
@@ -1367,6 +1368,40 @@ class ConnectCommand(unittest.TestCase):
             code, out, err = run_cli(["connect", "opencode", "--url", "http://127.0.0.1:1", "--check"])
         self.assertEqual(code, 1)
         self.assertIn("FAIL prompt", out)
+
+    def test_the_small_model_check_reports_off_as_a_state_not_a_failure(self):
+        # E3: the sidecar answers when enabled; a 400/404 means it is off and that is fine
+        from strata_cli.launch import check
+        import urllib.error
+
+        def good(url, key, body, headers=None, timeout=0):
+            if body.get("model") == "small":
+                return {"choices": [{"message": {"content": "pong"}}]}
+            return {"choices": [{"message": {"content": "pong"}}]}
+
+        res = check.run_checks("pi", "http://127.0.0.1:1", "k", "m", poster=good)
+        small = next(r for r in res if r.name == "small model")
+        self.assertTrue(small.ok)
+        self.assertIn("answered", small.detail)
+
+        def off(url, key, body, headers=None, timeout=0):
+            if body.get("model") == "small":
+                raise urllib.error.HTTPError(url, 400, "no", None, None)
+            return {"choices": [{"message": {"content": "pong"}}]}
+
+        res = check.run_checks("pi", "http://127.0.0.1:1", "k", "m", poster=off)
+        small = next(r for r in res if r.name == "small model")
+        self.assertTrue(small.ok, "the small model being off is a state, not a failed check")
+        self.assertIn("off", small.detail)
+
+        def broken(url, key, body, headers=None, timeout=0):
+            if body.get("model") == "small":
+                raise urllib.error.HTTPError(url, 500, "no", None, None)
+            return {"choices": [{"message": {"content": "pong"}}]}
+
+        res = check.run_checks("pi", "http://127.0.0.1:1", "k", "m", poster=broken)
+        small = next(r for r in res if r.name == "small model")
+        self.assertFalse(small.ok)
 
     def test_context_flag_reaches_the_config(self):
         code, out, _ = run_cli(["connect", "pi", "--url", "http://127.0.0.1:8080", "--context", "64k", "--show-key"])

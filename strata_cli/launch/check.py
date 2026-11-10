@@ -157,6 +157,23 @@ def run_checks(harness_id: str, url: str, key: str, model: str, *, timeout: floa
                             time.monotonic() - t2))
     except Exception as e:                                   # noqa: BLE001
         checks.append(Check("count endpoint", False, _why(e), time.monotonic() - t2))
+    t3 = time.monotonic()
+    try:
+        body = {"model": "small", "messages": [{"role": "user", "content": PROMPT}], "max_tokens": 16}
+        data = poster(base + "/v1/chat/completions", key, body, None, timeout)
+        text = answer_text("chat", data).strip()
+        ok = bool(text)
+        checks.append(Check("small model", ok, f"The small model answered: {text[:60]!r}." if ok else
+                            "The small model answered, but with no text.", time.monotonic() - t3))
+    except urllib.error.HTTPError as e:
+        if e.code in (400, 404):
+            checks.append(Check("small model", True, 'The small model is off (no route for "model": "small"); '
+                                'titles and pictures go to the main model as before. Enable it in settings to use it.',
+                                time.monotonic() - t3))
+        else:
+            checks.append(Check("small model", False, _why(e), time.monotonic() - t3))
+    except Exception as e:                                   # noqa: BLE001
+        checks.append(Check("small model", False, _why(e), time.monotonic() - t3))
     return checks
 
 

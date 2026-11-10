@@ -33,7 +33,9 @@ def capture_post(calls):
 
 def small_of(**cfg):
     base = {"exe": "/engines/llama-server", "model": "/m/vl-q8_0.gguf", "mmproj": "/m/mmproj-f16.gguf"}
-    return SmallModel({**base, **cfg}, lazy=True)
+    s = SmallModel({**base, **cfg}, lazy=True)
+    s.__dict__["_ensure"] = lambda: None       # the unit tests do not start a process; _post is the seam
+    return s
 
 
 class ServerArgs(unittest.TestCase):
@@ -178,7 +180,8 @@ class RouteSmall(unittest.TestCase):
         svc, fake = self._svc_with_fake_small()
         req = {"model": "small", "messages": [{"role": "user", "content": "summarize"}]}
         out = svc.small_proxy(req)
-        self.assertEqual(fake.served, [{"role": "user", "content": "summarize"}])
+        self.assertEqual(fake.served, [[{"role": "user", "content": "summarize"}]],
+                         "the sidecar got exactly the request's messages")
         self.assertIn("TITLE", json.dumps(out))
 
     def test_the_small_answer_is_shaped_like_openai_s_own(self):
