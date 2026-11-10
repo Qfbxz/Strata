@@ -21,6 +21,7 @@ export const REWRITE_SYSTEM = [
   '输出格式：',
   'REWRITE: <重述的完整请求>',
   '（仅在有歧义时另起一行）AMBIGUOUS: <追问>',
+  '不要输出格式说明本身，也不要输出这些示例文字。',
 ].join('\n');
 
 /** The messages for the rewriter call: the rules, the recent turns, then the raw message. */
@@ -38,20 +39,18 @@ export function rewriteMessages(history, message, windowSize = 4) {
   ];
 }
 
-/** REWRITE:/AMBIGUOUS: lines, or the whole text as the rewrite when the model ignores the format. */
+/** REWRITE:/AMBIGUOUS: markers anywhere in the text - the models like to prefix the AMBIGUOUS
+ *  line with the format note itself ("（仅在有歧义时另起一行）AMBIGUOUS: …"), so anchoring at the
+ *  line start loses the marker.  A bare answer is still a rewrite attempt. */
 export function parseRewrite(text) {
   const raw = String(text ?? '').trim();
   if (!raw) return { rewritten: null, ambiguous: null };
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  let rewritten = null;
-  let ambiguous = null;
-  for (const line of lines) {
-    const m = /^(?:\*{0,2})(REWRITE|AMBIGUOUS)(?:\*{0,2})\s*[:：]\s*(.*)$/.exec(line);
-    if (!m) continue;
-    if (m[1] === 'REWRITE' && m[2].trim()) rewritten = m[2].trim();
-    if (m[1] === 'AMBIGUOUS' && m[2].trim()) ambiguous = m[2].trim();
-  }
-  if (rewritten === null && ambiguous === null) rewritten = raw;   // a bare answer is still a rewrite attempt
+  const amb = /AMBIGUOUS\s*[:：]\s*(.+)$/m.exec(raw);
+  const ambiguous = amb ? amb[1].trim().replace(/^[（(].*?[)）]\s*/, '') : null;
+  const rw = /REWRITE\s*[:：]\s*([\s\S]+?)(?=\n?\s*AMBIGUOUS\s*[:：]|$)/m.exec(raw);
+  let rewritten = rw ? rw[1].trim() : null;
+  if (rewritten) rewritten = rewritten.replace(/^[（(][^)）]*[)）]\s*/, '').trim();
+  if (!rewritten && !ambiguous) rewritten = raw;   // a bare answer is still a rewrite attempt
   return { rewritten, ambiguous };
 }
 

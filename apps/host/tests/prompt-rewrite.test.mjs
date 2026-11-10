@@ -42,6 +42,14 @@ test('parseRewrite reads the wire format and the ambiguity marker', () => {
   assert.equal(bare.rewritten, '继续上一轮的任务。', 'a model that ignores the format still yields its text');
   assert.equal(bare.ambiguous, null);
 
+  // what the models actually send back: the format note rides in front of the AMBIGUOUS marker
+  const real = parseRewrite('REWRITE: 想修复哪个问题？\n（仅在有歧义时另起一行）AMBIGUOUS: 你要修下载中断还是下载速度？');
+  assert.equal(real.ambiguous, '你要修下载中断还是下载速度？', 'the marker survives a prefixed format note');
+
+  const noisy = parseRewrite('REWRITE: 请修复下载脚本的断点续传。\n（无歧义，无需追问）');
+  assert.equal(noisy.rewritten, '请修复下载脚本的断点续传。', 'a trailing note after the rewrite is not part of it');
+  assert.equal(noisy.ambiguous, null);
+
   assert.equal(parseRewrite('   ').rewritten, null, 'nothing useful comes back as null');
 });
 
