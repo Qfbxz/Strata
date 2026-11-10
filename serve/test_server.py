@@ -99,6 +99,20 @@ class MaxTokens(unittest.TestCase):
         self.assertEqual(s2, 200)
         self.assertEqual(b["input_tokens"], n_in)
 
+    def test_greedy_flag_forces_temperature_zero(self):
+        # E4 (HARNESS_ROADMAP 阶段三): a --greedy serve overrides every request's sampling to greedy
+        # decoding (temperature 0), so eval runs of harness changes produce comparable output.
+        svc = self.svc
+        svc.reproducible = True
+        # The sampling merge in run() honours the override over the request's own temperature.
+        req = {"temperature": 0.7, "top_p": 0.9, "messages": [{"role": "user", "content": "hi"}]}
+        merged = svc._merge_sampling(req)
+        self.assertEqual(merged.get("temperature"), 0, "greedy: temperature is pinned to 0")
+        self.assertEqual(merged.get("top_p"), 1, "greedy: top_p is pinned to 1 (no nucleus filtering)")
+        svc.reproducible = False
+        merged2 = svc._merge_sampling(req)
+        self.assertEqual(merged2.get("temperature"), 0.7, "off: the request's own temperature passes through")
+
     def test_openai_count_tokens_reads_the_same_prompt_the_chat_route_would(self):
         # E1 (HARNESS_ROADMAP 阶段三): the OpenAI side gets its own count endpoint, so OpenAI-protocol agents
         # (opencode, codex) can ask how many tokens their prompt would read without running the model.
