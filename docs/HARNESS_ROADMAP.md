@@ -40,10 +40,10 @@
 | --- | --- | --- | --- |
 | E1 | OpenAI 兼容侧 `count_tokens` 端点 | 宿主预算与上游 W6 目前只能走 Anthropic 端点；opencode/codex 等 OpenAI 协议 harness 拿不到真计数 | `serve/` |
 | E2 | 语法约束的结构化输出 | 当前 JSON 模式与工具调用互斥；`tool_choice: required` 仅预写前缀、非硬保证——上游报告下限续写与结构化摘要都受益 | 引擎解码路径 |
-| E3 | 标题/摘要小模型路由 | 会话标题等小任务不应消耗主模型 32K 窗口（当前单服务器单模型） | `serve/` + `strata_cli/` |
-| E4 | 可复现采样模式 | harness 改造的效果需要可对比评测（当前默认 adaptive tier 不可复现） | 引擎采样 |
+| E3 ✅ | 标题/摘要小模型路由（2026-11-10 落地并扩展为多模态双目标：主模型无 tower 时小模型看图说话，[docs/E3_SMALL_MODEL.md](E3_SMALL_MODEL.md)） | 会话标题等小任务不应消耗主模型 32K 窗口（当前单服务器单模型） | `serve/` + `strata_cli/` |
+| E4 ✅ | 可复现采样模式（2026-11-10 落地：`serve --greedy` 钉死 temperature 0/top_p 1；引擎采样路径未动，serve 层覆盖已满足评测可比性） | harness 改造的效果需要可对比评测（当前默认 adaptive tier 不可复现） | 引擎采样 |
 
-每项落地后 `strata connect --check` 增加一项对应检查（E1 查计数端点、E2 查结构化输出、E3 查路由、E4 查采样标志）。
+每项落地后 `strata connect --check` 增加一项对应检查（E1 查计数端点、E2 查结构化输出、E3 查路由、E4 查采样标志）。E1/E3/E4 的检查已进 `strata_cli/launch/check.py`；E2 落地时补。
 
 ## 明确不做
 

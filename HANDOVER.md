@@ -316,7 +316,12 @@ a46aa9c0 契约测试  f0e9754f v0.2.11 合并（3 冲突谁完善谁上）
 | `~/.local/share/strata/install/` | 全部 run config（含 iq4_xs-v31-1m.json 1M 档；iq3_s 带 F16=1；五套带 --batch 2）+ strata-dsv41 0.1.57 引擎（官方签名件，勘误后） |
 | `/Applications/Strata.app` | v0.2.11-46-g95a99ca7 定制版（含全部夜班功能） |
 
-## 四、未完成与下一步（按优先级，2026-11-07 晚刷新）
+## 四、未完成与下一步（按优先级，2026-11-07 晚刷新；2026-11-10 增补 E3/E4）
+
+0. ~~**HARNESS_ROADMAP 阶段三 E3/E4**~~ **✅ 已落地（2026-11-10）**：
+   - **E4 可复现采样**：`serve --greedy` 钉死 temperature 0/top_p 1（fba82ab7），默认路径字节一致；`connect --check` 无新增项（采样是 serve 层行为，由 E3 项同批覆盖）
+   - **E3 小模型路由 + 多模态文本化网关**（按用户方向升级：主模型不带多模态时，小模型先解析图片）：llama-server sidecar（`build-small/bin/llama-server`，Metal 0.4.1-dev）+ `serve/small_model.py` + `"model": "small"` 路由 + `textualize_images` 网关 + `connect --check` 第 4 项 + runconfig 五 leaf + host 设置面板（9 语言）+ dist 重建。Metal 实测：加载 1.5 s、中文标题 0.4 s、截图描述 30 tok/s（docs/E3_SMALL_MODEL.md）。模型 `~/.strata/models/small-model/`（ModelScope 95 s 下完，hf-mirror 断点续传会丢）
+   - 阶段三剩 **E2**（语法约束结构化输出，C++ 引擎解码路径，深水区待排期）；H1–H4+E1+E3+E4 已全绿
 
 1. **夜间纯净窗口七相**（脚本就绪 `~/strata-setup/night/final-debts.sh`，cron 23:37 点火）：CONTIG A/B + batch 1v2 + F16 复测 + **DS lane 六旋钮臂（本夜最高价值：asis96/noenv/lane_cal/stream_force/cpu_lane0/vram100，任一臂让 CPU-lane 专家数下降+tok/s 上升即为 Mac 修复旋钮）** + 20b MLX 重下 + dspark Q8_0 重下验 SHA + 2.25bpw 安装冒烟（引擎本地 0.1.57）。跑完按 results-YYYYMMDD.jsonl 入账本
 2. ~~DS 大杯上游报告投递~~ **✅ 已投 [#5488](https://github.com/Niko1221/Strata/issues/5488)**
