@@ -21,6 +21,7 @@ import { memoryContextSection } from './memory-context.mjs';
 import { projectInstructions, projectInstructionsSection } from './project-instructions.mjs';
 import { officeSkills } from './agent/plugins/office-skills.mjs';
 import { featuresView, sanitizeFeatures } from './feature-flags.mjs';
+import { smallModelView, sanitizeSmallModel, smallModelConfigLeaves } from './small-model.mjs';
 import { guardSettingsView, sanitizeGuardSettings } from './agent/guard-settings.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
@@ -1177,8 +1178,23 @@ const engineWatcher = createEngineUpdateWatcher({
   check: () => checkComponentUpdates({ control: typeof control !== 'undefined' ? control : null, appUpdater, appVersion: process.env.STRATA_APP_VERSION || null }),
 });
 
-async function api(req, res, path, method, url) {
-  if(path==='/api/fonts'&&method==='GET')return json(res,200,await systemFonts());
+/** The instance the model server talks about (the first ready one), or null while none runs. */
+function defaultInstance() {
+  const list = runtimeState().instances ?? [];
+  return list[0] ?? null;
+}
+
+function authHeaders(instance) {
+  return instance?.key ? { Authorization: 'Bearer ' + instance.key, 'x-api-key': instance.key } : {};
+}
+
+async function fetchJson(url, options = {}) {
+  const r = await fetch(url, options);
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  return r.json();
+}
+
+async function api(req, res, path, method, url) {  if(path==='/api/fonts'&&method==='GET')return json(res,200,await systemFonts());
   // --- chats: one file each in the data folder -----------------------------
   // Not held back by a model folder move: saving a chat has nothing to do with the models. A page must name itself (x-strata-client), which
   // a web page from another site cannot do without the browser asking the host first.
@@ -2243,6 +2259,34 @@ async function api(req, res, path, method, url) {
   }
   if (path === '/api/features' && method === 'PUT') {
     try { const saved = sanitizeFeatures(await readBody(req)); store.update({ features: saved }); try { rescanSkills(); } catch (e) { console.warn('skills · could not rescan after a feature change:', e.message); } return json(res, 200, featuresView(saved)); }
+    catch (e) { return error(res, 400, e.message); }
+  }
+  if (path === '/api/small-model' && method === 'GET') {
+    const view = smallModelView(store.get().smallModel);
+    try {
+      const instance = defaultInstance();
+      if (instance) {
+        const cfg = await fetchJson(instance.baseUrl.replace(/\/v1\/?$/, '') + '/config', { headers: authHeaders(instance) });
+        const leaf = k => cfg.keys?.find(x => x.key === k)?.value ?? null;
+        Object.assign(view, { servingEnabled: leaf('small_model.enabled'), servingIdleUnloadS: leaf('small_model.idle_unload_s'), note: cfg.note });
+      }
+    } catch { /* the model server is not up, or an older one: the store's values are the answer */ }
+    return json(res, 200, view);
+  }
+  if (path === '/api/small-model' && method === 'PUT') {
+    try {
+      const saved = sanitizeSmallModel(await readBody(req));
+      store.update({ smallModel: saved });
+      let pushed = false;
+      try {
+        const instance = defaultInstance();
+        if (instance) {
+          await fetchJson(instance.baseUrl.replace(/\/v1\/?$/, '') + '/config', { method: 'POST', headers: { ...authHeaders(instance), 'Content-Type': 'application/json' }, body: JSON.stringify({ set: smallModelConfigLeaves(saved) }) });
+          pushed = true;
+        }
+      } catch { /* an older server or none running: the settings stay saved for the next start */ }
+      return json(res, 200, { ...smallModelView(saved), pushedToServer: pushed });
+    }
     catch (e) { return error(res, 400, e.message); }
   }
   if (path === '/api/chat/helper' && method === 'POST') {

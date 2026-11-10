@@ -3570,5 +3570,15 @@
  "s9078": "El asistente repetía la misma operación, así que lo detuve. Ajusta la petición y dime que continúe.",
  "s9079": "Detener al asistente atascado",
  "s9080": "Detiene tras esta cantidad de llamadas idénticas consecutivas. 0 = nunca detener.",
- "s9081": "Deja de reintentar el resumen automático tras esta cantidad de fallos. 0 = seguir intentando."
+ "s9081": "Deja de reintentar el resumen automático tras esta cantidad de fallos. 0 = seguir intentando.",
+ "s9082": "Modelo pequeño secundario",
+ "s9083": "Un segundo modelo pequeño responde títulos de sesión y resúmenes con \"model\": \"small\", y describe imágenes para un modelo principal sin visión. Apagado = todo va al modelo principal como antes. Se usa desde el próximo arranque del modelo.",
+ "s9084": "Parar el modelo pequeño tras (segundos)",
+ "s9085": "El proceso del modelo pequeño se detiene tras estos segundos sin peticiones. 0 = sigue funcionando.",
+ "s9086": "Archivos del modelo pequeño",
+ "s9087": "El programa llama-server y el GGUF del modelo pequeño (un Qwen2.5-VL multimodal funciona mejor) con su proyector de imágenes.",
+ "s9088": "programa llama-server",
+ "s9089": "GGUF del modelo pequeño",
+ "s9090": "GGUF del proyector de imágenes",
+ "s9091": "Dejar de reintentar el resumen automático"
 }

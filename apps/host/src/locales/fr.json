@@ -3570,5 +3570,15 @@
  "s9078": "L’assistant répétait la même opération, alors je l’ai arrêté. Ajustez la requête et dites-moi de continuer.",
  "s9079": "Arrêter l’assistant bloqué",
  "s9080": "Arrête après ce nombre d’appels identiques consécutifs. 0 = ne jamais arrêter.",
- "s9081": "Arrête de réessayer le résumé automatique après ce nombre d’échecs. 0 = continuer à essayer."
+ "s9081": "Arrête de réessayer le résumé automatique après ce nombre d’échecs. 0 = continuer à essayer.",
+ "s9082": "Modèle secondaire léger",
+ "s9083": "Un second modèle léger répond aux titres de session et aux résumés avec \"model\": \"small\", et décrit les images pour un modèle principal sans vision. Désactivé = tout va au modèle principal comme avant. Pris en compte au prochain démarrage du modèle.",
+ "s9084": "Arrêter le modèle léger après (secondes)",
+ "s9085": "Le processus du modèle léger s’arrête après autant de secondes sans requêtes. 0 = il continue de tourner.",
+ "s9086": "Fichiers du modèle léger",
+ "s9087": "Le programme llama-server et le GGUF du modèle léger (un Qwen2.5-VL multimodal marche le mieux) avec son projeteur d’images.",
+ "s9088": "programme llama-server",
+ "s9089": "GGUF du modèle léger",
+ "s9090": "GGUF du projeteur d’images",
+ "s9091": "Arrêter de réessayer le résumé automatique"
 }

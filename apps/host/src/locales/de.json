@@ -3570,5 +3570,15 @@
  "s9078": "Der Assistent hat dieselbe Aktion wiederholt, deshalb habe ich ihn gestoppt. Passe die Anfrage an und lass mich weitermachen.",
  "s9079": "Hängenden Assistenten stoppen",
  "s9080": "Stoppt nach dieser vielen identischen Toolaufrufen in Folge. 0 = nie stoppen.",
- "s9081": "Stoppt die automatische Zusammenfassung nach dieser vielen Fehlversuchen. 0 = weiter versuchen."
+ "s9081": "Stoppt die automatische Zusammenfassung nach dieser vielen Fehlversuchen. 0 = weiter versuchen.",
+ "s9082": "Kleines Nebenmodell",
+ "s9083": "Ein zweites, kleines Modell beantwortet Sitzungstitel und Zusammenfassungen unter \"model\": \"small\" und beschreibt Bilder für ein Hauptmodell ohne Bildverständnis. Aus = alles geht wie bisher an das Hauptmodell. Gilt ab dem nächsten Start des Modells.",
+ "s9084": "Kleines Modell anhalten nach (Sekunden)",
+ "s9085": "Der Prozess des kleinen Modells endet nach so vielen Sekunden ohne Anfragen. 0 = läuft weiter.",
+ "s9086": "Dateien des kleinen Modells",
+ "s9087": "Das llama-server-Programm und die GGUF des kleinen Modells (multimodales Qwen2.5-VL wirkt am besten) samt Bildprojektor.",
+ "s9088": "llama-server-Programm",
+ "s9089": "GGUF des kleinen Modells",
+ "s9090": "Bildprojektor-GGUF",
+ "s9091": "Automatisches Zusammenfassen nicht weiter versuchen"
 }

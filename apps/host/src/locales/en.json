@@ -3570,5 +3570,15 @@
  "s9078": "The assistant kept repeating the same operation, so I stopped it. Adjust the request and tell me to continue.",
  "s9079": "Stop a stuck assistant",
  "s9080": "Stop after this many identical tool calls in a row. 0 = never stop.",
- "s9081": "Stop retrying automatic summarizing after this many failures. 0 = keep trying."
+ "s9081": "Stop retrying automatic summarizing after this many failures. 0 = keep trying.",
+ "s9082": "Small model sidecar",
+ "s9083": "A second, small model answers session titles and summaries on \"model\": \"small\", and describes pictures for a main model with no vision. Off = everything goes to the main model as before. Used from the next start of the model.",
+ "s9084": "Stop the small model after (seconds)",
+ "s9085": "Stop the small model's process after this many seconds without requests. 0 = keep it running.",
+ "s9086": "Small model files",
+ "s9087": "The llama-server binary and the small model's GGUF (a multimodal Qwen2.5-VL works best) with its picture projector.",
+ "s9088": "llama-server binary",
+ "s9089": "small model GGUF",
+ "s9090": "picture projector GGUF",
+ "s9091": "Stop retrying automatic summarizing"
 }
