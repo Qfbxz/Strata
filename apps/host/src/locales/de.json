@@ -3580,5 +3580,6 @@
  "s9088": "llama-server-Programm",
  "s9089": "GGUF des kleinen Modells",
  "s9090": "Bildprojektor-GGUF",
- "s9091": "Automatisches Zusammenfassen nicht weiter versuchen"
+ "s9091": "Automatisches Zusammenfassen nicht weiter versuchen",
+ "s9092": "Vague Nachrichten vor dem Hauptmodell vom kleinen Modell umformulieren"
 }

@@ -10,6 +10,7 @@ const SWITCHES: { key: string; label: string }[] = [
     { key: 'memory', label: "Memory index in direct chats" },
     { key: 'projectInstructions', label: "Project instructions (CLAUDE.md / AGENTS.md)" },
     { key: 'skillsNative', label: "Native skill packs (other agents' folders, read-only)" },
+    { key: 'promptRewrite', label: "Rewrite vague messages with the small model before the main one" },
     { key: 'branchChip', label: "Branch chip in the composer" },
     { key: 'checkpoints', label: "Restore-point picker in the composer" },
 ];

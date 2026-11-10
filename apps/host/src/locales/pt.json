@@ -3580,5 +3580,6 @@
  "s9088": "programa llama-server",
  "s9089": "GGUF do modelo pequeno",
  "s9090": "GGUF do projetor de imagens",
- "s9091": "Parar de tentar o resumo automático"
+ "s9091": "Parar de tentar o resumo automático",
+ "s9092": "Reescrever mensagens vagas com o modelo pequeno antes do principal"
 }

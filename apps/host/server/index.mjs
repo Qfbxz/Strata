@@ -22,6 +22,7 @@ import { projectInstructions, projectInstructionsSection } from './project-instr
 import { officeSkills } from './agent/plugins/office-skills.mjs';
 import { featuresView, sanitizeFeatures } from './feature-flags.mjs';
 import { smallModelView, sanitizeSmallModel, smallModelConfigLeaves } from './small-model.mjs';
+import { rewriteMessages, parseRewrite, wrapForMainModel } from './prompt-rewrite.mjs';
 import { guardSettingsView, sanitizeGuardSettings } from './agent/guard-settings.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
@@ -796,7 +797,7 @@ async function runTurn({ message, history = [], onFrame, signal, client, workspa
   if(native.hasLive()||nativeModelId){
     let instance;try{instance=native.resolveInstance(nativeModelId??native.state().defaultId);}catch(e){const message=plainNoModel(e.message);onFrame({type:'error',message});return {error:message};}const started=Date.now(),cancel=new AbortController();
     const entry=serving.open({client:client??'Strata chat',endpoint:'/chat/completions',model:instance.apiModelId,instanceId:instance.id,gpuIds:instance.gpus.map(String),cancel:()=>cancel.abort()});
-    try{serving.mark(entry.id,{state:'generating'});const applied=selectSkills(skillState,message,workspaceId);const result=await proxyCompletion({baseUrl:`http://127.0.0.1:${instance.port}/v1`,modelId:instance.apiModelId,authorization:instance.key,message,history,images,extra:{strata_mcp:useTools===true,...(thinkingBudget>0&&String(thinking).toLowerCase()!=='off'?{reasoning_budget_tokens:thinkingBudget}:{}),reasoning_effort:({off:'none',max:'high'}[String(thinking).toLowerCase()]??String(thinking).toLowerCase())},systemPrompt:[SYSTEM_PROMPT,skillInstructions(applied),features().memory ? memoryContextSection() : null, projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'),signal:signal?AbortSignal.any([signal,cancel.signal]):cancel.signal,onFrame:frame=>onFrame({...frame,requestId:entry.id,model:instance.label,contextMax:instance.metrics?.engine?.max_context??instance.context,skills:applied.map(s=>s.name)})});serving.mark(entry.id,{...result,usageSource:result.usageSource});serving.finish(entry.id,{tokensOut:result.tokensOut,durationMs:Date.now()-started});return result;}catch(e){serving.finish(entry.id,{durationMs:Date.now()-started,error:e.message});onFrame({type:'error',message:e.message,requestId:entry.id});return {error:e.message};}
+    try{serving.mark(entry.id,{state:'generating'});let outgoingMessage=message;if(features().promptRewrite){try{const rr=await callSmallRewrite(instance,message,history);if(rr?.ambiguous){const q=`需要确认：${rr.ambiguous}`;serving.finish(entry.id,{durationMs:Date.now()-started,error:q});onFrame({type:'error',message:q,requestId:entry.id});return {error:q};}outgoingMessage=wrapForMainModel(rr?.rewritten,message);}catch(e){console.warn('prompt rewrite failed, the original message goes as is:',e.message);}}const applied=selectSkills(skillState,message,workspaceId);const result=await proxyCompletion({baseUrl:`http://127.0.0.1:${instance.port}/v1`,modelId:instance.apiModelId,authorization:instance.key,message:outgoingMessage,history,images,extra:{strata_mcp:useTools===true,...(thinkingBudget>0&&String(thinking).toLowerCase()!=='off'?{reasoning_budget_tokens:thinkingBudget}:{}),reasoning_effort:({off:'none',max:'high'}[String(thinking).toLowerCase()]??String(thinking).toLowerCase())},systemPrompt:[SYSTEM_PROMPT,skillInstructions(applied),features().memory ? memoryContextSection() : null, projectPromptPart(workspaceId ? workspaces.find(w => w.id === workspaceId)?.path ?? WORKSPACE : WORKSPACE)].filter(Boolean).join('\n\n'),signal:signal?AbortSignal.any([signal,cancel.signal]):cancel.signal,onFrame:frame=>onFrame({...frame,requestId:entry.id,model:instance.label,contextMax:instance.metrics?.engine?.max_context??instance.context,skills:applied.map(s=>s.name)})});serving.mark(entry.id,{...result,usageSource:result.usageSource});serving.finish(entry.id,{tokensOut:result.tokensOut,durationMs:Date.now()-started});return result;}catch(e){serving.finish(entry.id,{durationMs:Date.now()-started,error:e.message});onFrame({type:'error',message:e.message,requestId:entry.id});return {error:e.message};}
   }
   runtimeState();
   let instance;
@@ -1192,6 +1193,19 @@ async function fetchJson(url, options = {}) {
   const r = await fetch(url, options);
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return r.json();
+}
+
+/** E3 意图整理器: the small model restates a vague message for the main model; an ambiguity comes
+ * back as a question for the user instead of a guess.  A failed rewrite never blocks the turn. */
+async function callSmallRewrite(instance, message, history) {
+  const r = await fetch(instance.baseUrl + '/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(instance) },
+    body: JSON.stringify({ model: 'small', messages: rewriteMessages(history, message), max_tokens: 512 }),
+  });
+  if (!r.ok) throw new Error(`small model ${r.status}`);
+  const data = await r.json();
+  return parseRewrite(data.choices?.[0]?.message?.content);
 }
 
 async function api(req, res, path, method, url) {  if(path==='/api/fonts'&&method==='GET')return json(res,200,await systemFonts());

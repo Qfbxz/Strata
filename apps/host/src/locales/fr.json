@@ -3580,5 +3580,6 @@
  "s9088": "programme llama-server",
  "s9089": "GGUF du modèle léger",
  "s9090": "GGUF du projeteur d’images",
- "s9091": "Arrêter de réessayer le résumé automatique"
+ "s9091": "Arrêter de réessayer le résumé automatique",
+  "s9092": "Reformuler les messages vagues avec le modèle léger avant le principal"
 }

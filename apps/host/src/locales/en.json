@@ -3580,5 +3580,6 @@
  "s9088": "llama-server binary",
  "s9089": "small model GGUF",
  "s9090": "picture projector GGUF",
- "s9091": "Stop retrying automatic summarizing"
+ "s9091": "Stop retrying automatic summarizing",
+ "s9092": "Rewrite vague messages with the small model before the main one"
 }
