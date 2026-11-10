@@ -4793,6 +4793,9 @@ def slot_save_dir(value, base: str | None = None) -> str:
     return path
 
 class Service:
+    # E4 (HARNESS_ROADMAP): a --greedy serve pins every request's sampling to greedy decoding
+    # (temperature 0, top_p 1) so eval runs of harness changes produce comparable output.
+    reproducible = False
     def __init__(self, engine: Engine, tokenizer, template: ChatTemplate, model_name: str = "qwen3.8-flash-next",
                  vision: Vision | None = None, sampling_defaults: dict | None = None,
                  fit_max_tokens: bool = True):
@@ -6211,6 +6214,22 @@ class Service:
                   f"{el:.0f} s", flush=True)
         return now
 
+    def _pin_greedy(self, sampling: dict) -> dict:
+        """Greedy decoding (temperature 0, no nucleus/top-k/sampling seeds) when --greedy is set (E4);
+        the dict is changed in place and returned."""
+        if self.reproducible and sampling is not None:
+            sampling['temperature'] = 0
+            sampling['top_p'] = 1
+            for k in ('min_p', 'top_k', 'seed'): sampling.pop(k, None)
+        return sampling
+
+    def _merge_sampling(self, req: dict) -> dict:
+        """The sampling dict the engine receives: the request's own fields, overridden by
+        the greedy flag when --reproducible is set (E4)."""
+        keys = ('temperature', 'top_p', 'top_k', 'min_p', 'seed',
+                'repeat_penalty', 'repetition_penalty', 'penalty_last_n', 'presence_penalty')
+        return self._pin_greedy({k: req[k] for k in keys if k in req})
+
     def run(self, ids, thinking, tools, max_new, sampling, cancel, force=None,
             declared_only=False, deferred=False) -> Iterator[tuple[str, object]]:
         """The request's events (see _run); with "prevent_sleep" in the config, the PC stays awake while it runs or waits."""
@@ -6233,6 +6252,7 @@ class Service:
         if defaults:                   # the request's own fields win (explicit 0 stays greedy)
             req_values = {k: v for k, v in (sampling or {}).items() if v is not None}
             sampling = {**defaults, **req_values}
+        self._pin_greedy(sampling)
         # #123: read after the merge, so a budget shared through POST /settings is seen like the other keys
         budget = self.reasoning_budget(sampling) if thinking else None
         if thinking and not budget and self.answer_room and max_new and max_new >= ANSWER_ROOM_MIN_CAP:
@@ -9934,6 +9954,8 @@ def _main(argv=None, *, lifecycle_event=None, interrupt_exit_code: int = 0) -> i
                     help="maximum inference calls waiting beyond effective engine slots; 0 refuses overload")
     ap.add_argument("--queue-timeout", type=float, default=None,
                     help="maximum seconds waiting for the first engine turn (0.1..600; off by default)")
+    ap.add_argument("--greedy", action="store_true", default=False,
+                    help="pin every request's sampling to greedy decoding (temperature 0) for reproducible eval runs (E4)")
     ap.add_argument("--batch-telemetry", action=argparse.BooleanOptionalAction, default=None,
                     help="opt in to low-rate engine decode-window samples for /v1/telemetry")
     ap.add_argument("--offline", action="store_true",
@@ -10236,6 +10258,7 @@ def _main(argv=None, *, lifecycle_event=None, interrupt_exit_code: int = 0) -> i
                   sampling_defaults=sampling_defaults,
                   fit_max_tokens=a.fit_max_tokens or (not a.no_fit_max_tokens and cfg.get("fit_max_tokens") is not False))
     svc.launch_attestation = launch_attestation
+    svc.reproducible = bool(a.greedy)
     if (cfg.get("arch") or "") == "deepseek41" and vision is None and a.engine == "strata":
         # DeepSeek-V4.1 reads pictures with the engine's own tower (--vision on, the default): no separate reader process.
         # `--vision off` in the config's args, or a pack without a tower, leaves svc.vision None: pictures are refused with the 400 as before.
