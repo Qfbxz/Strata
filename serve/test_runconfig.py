@@ -57,6 +57,10 @@ class Apply(unittest.TestCase):
         self.assertEqual(changed, ["small_model.enabled", "small_model.idle_unload_s"])
         self.assertEqual(new["small_model"], {"enabled": True, "idle_unload_s": 120})
         self.assertNotIn("small_model", CFG, "the input is left alone")
+        new, _ = runconfig.apply(new, {"small_model.exe": "/engines/llama-server", "small_model.model": "/m/vl.gguf",
+                                       "small_model.mmproj": "/m/mm.gguf"})
+        self.assertEqual(new["small_model"], {"enabled": True, "idle_unload_s": 120, "exe": "/engines/llama-server",
+                                              "model": "/m/vl.gguf", "mmproj": "/m/mm.gguf"})
         cfg = {**CFG, "small_model": {"enabled": False, "model": "/m/vl.gguf", "mmproj": "/m/mm.gguf"}}
         new, _ = runconfig.apply(cfg, {"small_model.enabled": True})
         self.assertEqual(new["small_model"], {"enabled": True, "model": "/m/vl.gguf", "mmproj": "/m/mm.gguf"})

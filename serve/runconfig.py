@@ -46,6 +46,9 @@ EDITABLE = [
      "and pictures become text for a main model with no vision tower (E3; used from the next start)"),
     ("small_model.idle_unload_s", "num>=0",
      "Stop the small model after this many seconds without requests (300 by default, 0 = never)"),
+    ("small_model.exe", "str", "The sidecar binary (llama-server, Metal build)"),
+    ("small_model.model", "str", "The small model's GGUF file (a multimodal Qwen2.5-VL works best)"),
+    ("small_model.mmproj", "str", "The small model's picture projector (mmproj GGUF); empty = text only"),
 ]
 SPEC = {k: kind for k, kind, _ in EDITABLE}
 
@@ -120,6 +123,10 @@ def check(key: str, v, cfg: dict):
         return _number(key, v, whole=True)
     if k == "num>=0":
         return _number(key, v)
+    if k == "str":
+        if not isinstance(v, str) or not v.strip() or len(v) > 1024:
+            raise ValueError(f"{key}: expected a path or a short text, not {v!r}")
+        return v.strip()
     if k == "arg":
         return _number(key, v, whole=True)
     rule = kind[1]                                     # a sampling key: the server's own rules
