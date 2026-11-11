@@ -9067,6 +9067,23 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 
 .feature-flags__row { display: flex; align-items: center; gap: 10px; }
 
+/* The Assistant-files section, grouped: file surfaces / prompt rewrite / the small model sidecar.
+   fieldset+legend give the grouping semantics for free; the vars keep it on the page's own theme. */
+.feature-flags { display: grid; gap: 16px; }
+
+.feature-flags__section { display: grid; gap: 10px; margin: 0; padding: 12px; min-width: 0;
+  border: 1px solid var(--st-line, rgba(128, 128, 128, .28)); border-radius: var(--st-r-md, 8px); }
+
+.feature-flags__title { font-weight: 600; font-size: 13px; padding: 0 4px; }
+
+.feature-flags__label { display: grid; gap: 2px; min-width: 0; flex: 1; }
+
+.feature-flags__hint { line-height: 1.5; }
+
+.feature-flags__paths { display: grid; gap: 6px; min-width: 0; }
+
+.feature-flags__paths .st-input { width: 100%; }
+
 /* The composer's helper-target strip. */
 .helper-target { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--st-accent); border-radius: var(--st-r-md); background: var(--st-surface); font-size: 13px; }
 
