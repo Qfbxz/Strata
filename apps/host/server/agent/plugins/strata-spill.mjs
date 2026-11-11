@@ -23,7 +23,14 @@
  * applies).
  *
  * There is no new tool surface: the marker text tells the assistant to read the file back with
- * its shell tools.
+ * `read` (offset/limit) or `grep`.
+ *
+ * 0.2.3 ships its own spill (dsh-spill-policy + dsh-spill-local, preview head only, inline cap
+ * 50000 bytes). The two compose: this plugin spills first at its tighter threshold, so results
+ * reach the Harness's retention already bounded and the Harness spill stays dormant below its cap;
+ * the marker's retrieval hint matches the Harness's wording either way. HARNESS_ROADMAP P5 keeps
+ * this plugin (its tail retention and measured token count are a superset of the upstream
+ * preview) — the only host-side change is the marker copy.
  */
 
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -105,9 +112,11 @@ const safeCallId = (callId) => String(callId ?? 'unknown').replace(/[^A-Za-z0-9.
  * @returns {string}
  */
 export function spillMarker({ chars, tokens, path }) {
+  // The retrieval hint names the tools the way the Harness's own spill (dsh-spill-local, 0.2.3) names
+  // them, so the model reads one spelling whichever mechanism spilled the text.
   const note = tokens != null && tokens > 0
-    ? `spilled ${chars} chars (~${tokens} tokens), full: ${path}; the assistant can read that file back with its shell tools`
-    : `spilled ${chars} chars, full: ${path}; the assistant can read that file back with its shell tools`;
+    ? `spilled ${chars} chars (~${tokens} tokens), full: ${path}; read it back with read (offset/limit) or grep the path`
+    : `spilled ${chars} chars, full: ${path}; read it back with read (offset/limit) or grep the path`;
   return `…[${note}]`;
 }
 

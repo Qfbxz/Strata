@@ -64,7 +64,7 @@ test('spillDecision leaves a result at exactly the threshold alone and spills on
   assert.ok(plan.replacement.endsWith(over.slice(-1024)), 'the retained tail closes the replacement');
   assert.ok(plan.replacement.includes('…[spilled 5121 chars, full: '));
   assert.ok(plan.replacement.includes(plan.path));
-  assert.ok(plan.replacement.includes('the assistant can read that file back with its shell tools'));
+  assert.ok(plan.replacement.includes('read it back with read (offset/limit) or grep the path'));
   assert.ok(!plan.replacement.slice(2048, -1024).includes('yyyy'), 'only the marker sits between head and tail');
 });
 
@@ -92,7 +92,7 @@ test('apply smoke: an oversized result is written to a 0600 file and replaced wi
     assert.ok(shown.includes('…[spilled'));
     assert.ok(shown.includes('full: '), 'the marker names the file');
     assert.ok(shown.includes(file));
-    assert.ok(shown.includes('shell tools'), 'the marker tells the assistant how to read it back');
+    assert.ok(shown.includes('read (offset/limit) or grep'), 'the marker tells the assistant how to read it back');
     assert.ok(shown.length < bigText.length, 'the inline text really got shorter');
   } finally { cleanup(dir); }
 });
