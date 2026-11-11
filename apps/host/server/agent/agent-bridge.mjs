@@ -241,6 +241,13 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     const workdir = join(root, 'run');
     const hp = new HarnessProcess({
       harness: h, home, patchFile, cwd: workdir, env: profile.env, nodePath, logFile: join(root, 'harness.log'), pidFile: join(root, 'harness.pid'),
+      // The fleet auto-continue plugin's tool-repeat loop guard (identical call AND result, default 5)
+      // cancels a turn before the Harness's own repeat guard finishes its ladder (reminders at 3/5/8,
+      // force stop at 12 with the model-visible instruction) — the upstream stop was unreachable.
+      // Above 12 the fleet guard yields the in-turn loop to the Harness and keeps covering loops that
+      // outlive a restart. The settings service resolves schema defaults over a patch row's config, so
+      // this goes through the settings user layer, seeded into a fresh Harness home.
+      settingsSeed: 'auto-continue:\n  loopToolRepeat: 13\n',
       onExit: exit => {
         log(`agent · the Harness process exited (code ${exit.code})`);
         if (rt?.hp === hp) { lastError = 'The agent process stopped.'; rt = null; }

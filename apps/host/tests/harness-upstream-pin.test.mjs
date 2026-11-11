@@ -129,12 +129,16 @@ async function rig(t, options = {}) {
   return { worker, bridge, ws, base };
 }
 
-test.skip('a turn stuck on one identical call ends at twelve with the upstream stop instruction', { skip: '0.2.3 stops an identical-call loop by harness cancellation at ~5 calls (observed: done/aborted at streak 5, reminders at 3+) BEFORE the forceStopStreak=12 instruction path; the loop does not hang, but this pin\'s instruction assertion no longer describes the reaching mechanism. Revisit when the wp9 force-stop path is re-measured.' }, async (t) => {
-  // The host's own repeat backstop is explicitly off: this turn is stopped by the Harness's guard alone.
-  const r = await rig(t, { guard: { identicalCalls: 0 } });
+test('a turn stuck on one identical call ends at twelve with the upstream stop instruction', async (t) => {
+  // Measured composition (2026-11-11): reminders reach the model at 3/5/8 and the 12th identical call
+  // is concluded by repeat-tool-reminder with the pinned instruction. The fleet auto-continue plugin's
+  // own tool-repeat loop guard (identical call AND result at 5) used to cancel the turn first, so the
+  // profile seeds loopToolRepeat: 13 into a fresh Harness home (see profile.mjs / agent-bridge.mjs).
+  const r = await rig(t);
   const out = [];
-  await r.bridge.runTurn({ ...r.base('p1', f => out.push(f)), mode: 'bypass', message: 'SCRIPT:sameloop' });
+  const res = await r.bridge.runTurn({ ...r.base('p1', f => out.push(f)), mode: 'bypass', message: 'SCRIPT:sameloop' });
   assert.ok(out.find(f => f.type === 'done'), 'the turn ended instead of looping');
+  assert.ok(!JSON.stringify(res.reason ?? {}).includes('dsh-auto-continue:loop-guard'), 'the loop is ended by the Harness repeat guard, not the fleet loop guard');
   const injected = r.worker.requests.filter(q => /停止工具调用/.test(q.raw));
   assert.ok(injected.length >= 1, 'the force-stop instruction reached the model');
   assert.ok(injected[0].raw.includes('consecutive identical calls'), 'the instruction names the run it ended');

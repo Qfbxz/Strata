@@ -410,7 +410,13 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     // imports). The ssh plugin is not mounted: its vendored assembly is incomplete (ssh2's own
     // dependencies are missing), and the 0.2.2 bundle it shipped in carried it as a dead row too.
     { insert: [{ id: 'dsh-infinite-gen-4', name: INFINITE_GEN_PLUGIN }] },
-    { insert: [{ id: 'auto-continue', name: AUTO_CONTINUE_PLUGIN }] },
+    { insert: [{ id: 'auto-continue', name: AUTO_CONTINUE_PLUGIN, config: { loopToolRepeat: 13 } }] },
+    // loopToolRepeat 13 yields the identical-tool loop to the Harness's own repeat guard
+    // (dsh-repeat-tool-reminder: reminders at 3/5/8, force stop at 12 with the model-visible
+    // instruction). The fleet guard's default of 5 cancels the turn before that ladder can finish,
+    // so the upstream force stop was unreachable; above 12 it stays a backstop for loops that
+    // outlive a restart instead of racing the Harness. The text-loop signals (same message, short
+    // sentences) keep their defaults — the Harness has no counterpart for them.
     // the owner's auto-memory plugin: typed memory files + the MEMORY.md index injected into the system prompt
     { insert: [{ id: 'auto-memory', name: AUTO_MEMORY_PLUGIN }] },
     // the persona resolver: `persona: "<agents id>"` at spawn becomes that agent's instructions

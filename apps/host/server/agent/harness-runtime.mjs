@@ -64,8 +64,8 @@ export class HarnessProcess {
   exited = null;
   #onExit;
 
-  constructor({ harness, home, patchFile, cwd, env = {}, nodePath = process.execPath, logFile = null, pidFile = null, onExit = () => {} }) {
-    Object.assign(this, { harness, home, patchFile, cwd, extraEnv: env, nodePath, logFile, pidFile });
+  constructor({ harness, home, patchFile, cwd, env = {}, nodePath = process.execPath, logFile = null, pidFile = null, onExit = () => {}, settingsSeed = null }) {
+    Object.assign(this, { harness, home, patchFile, cwd, extraEnv: env, nodePath, logFile, pidFile, settingsSeed });
     this.#onExit = onExit;
   }
 
@@ -76,6 +76,16 @@ export class HarnessProcess {
   async start({ timeoutMs = 120_000 } = {}) {
     mkdirSync(this.home, { recursive: true });
     mkdirSync(this.cwd, { recursive: true });
+    // The settings service resolves registered namespaces over the user layer in `<home>/settings.yaml`
+    // and its schema defaults always win over a patch row's config, so a fleet plugin whose defaults
+    // collide with the Harness's own guard is tuned here: the seed lands only in a fresh home (a
+    // document that exists is the person's, and it is never touched).
+    if (this.settingsSeed) {
+      const settingsPath = join(this.home, 'settings.yaml');
+      if (!existsSync(settingsPath)) {
+        try { writeFileSync(settingsPath, this.settingsSeed, { mode: 0o600 }); } catch { /* a seed that cannot land must not stop the boot */ }
+      }
+    }
     // Since 0.2.3 a profile is a pnpm-style project under `home/profiles/<name>`: patch-row imports
     // resolve from THAT directory, where the pinned bundle's own node_modules no longer reaches. The
     // fleet plugins the profile mounts (profile.mjs) are symlinked into it before boot; their own
