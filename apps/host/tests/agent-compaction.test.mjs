@@ -21,8 +21,8 @@ test('the reply keeps 30 percent of the window (at most 32K) and compaction gets
     assert.ok(threshold >= (w - out) * 0.5, `window ${w}: compaction starts after at least half of the room the conversation has (${threshold})`);
     assert.ok(Math.floor((w - out) * 0.16) < threshold, `window ${w}: the verbatim tail is smaller than the start point`);
   }
-  const profile = buildProfile({ local: [{ id: 'a', modelId: 'm', baseUrl: 'http://x', context: 32768 }], connections: [] });
-  assert.match(profile.patch, /"modelPolicies": \[\s*\{\s*"provider": "strata-local",\s*"model": "m",\s*"headroomTokens": 2867/);
+  const profile = buildProfile({ local: [{ id: 'a', modelId: 'm', baseUrl: 'http://x', context: 32768 }], connections: [], presetDir: '/tmp/presets-compaction-test' });
+  assert.match(profile.presetFile.content, /"modelPolicies": \[\s*\{\s*"provider": "strata-local",\s*"model": "m",\s*"retainTokens": 2867/);
 });
 
 test('a long chat on a small window compacts before it overflows, and the conversation goes on', { skip }, async (t) => {

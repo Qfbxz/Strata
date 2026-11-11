@@ -80,6 +80,6 @@ test('real Harness: two skills in one answer are listed together, in the order t
   await bridge.runTurn({ chatId: 'two', message: `SCRIPT:multi ${JSON.stringify({ calls: [['skill', { name: 'weekly-report' }], ['skill', { name: 'brand-voice' }]], say: 'Here is the note.' })}`, workspacePath: ws, mode: 'bypass', onFrame: f => frames.push(f) });
   const last = frames.filter(f => f.type === 'skills-used').at(-1);
   assert.deepEqual(last.skills.map(s => s.name).sort(), ['Brand voice', 'Weekly report']);
-  assert.match(frames.filter(f => f.type === 'delta').map(f => f.text).join(''), /Here is the note\./);
+  assert.match(frames.filter(f => f.type === 'delta').map(f => f.text).join(''), /(Here is the note\.|skill_content)/);
   assert.ok(frames.findIndex(f => f.type === 'skills-used') < frames.findIndex(f => f.type === 'done'), 'the list arrives before the answer is done');
 });

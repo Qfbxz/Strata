@@ -95,11 +95,13 @@ test('Tools: the person\'s own tools are checked in plain words and saved with t
 // ---------------------------------------------------------------------------------------------- what the agent gets
 
 const entriesOf = profile => JSON.parse(profile.patch.split('\n').slice(1).join('\n'));
-const toolWeb = entries => entries.find(e => e.id === 'preset-standard').config.plugins.find(p => p.id === 'tool-web');
+const compositionOf = profile => JSON.parse(profile.presetFile.content);
+const toolWeb = profile => compositionOf(profile).find(p => p.id === 'tool-web');
 
 test('profile: web search is on with no key (DuckDuckGo), pinned so a second backend cannot make the choice ambiguous', () => {
-  const e = entriesOf(buildProfile({ local: [], connections: [] }));
-  assert.equal(toolWeb(e).config.search, true); assert.equal(toolWeb(e).config.fetch, true);
+  const p = buildProfile({ local: [], connections: [], presetDir: '/tmp/presets-ts-test' });
+  const e = entriesOf(p);
+  assert.equal(toolWeb(p).config.search, true); assert.equal(toolWeb(p).config.fetch, true);
   assert.deepEqual(e.find(x => x.id === 'web').config, { searchProvider: 'strata-duckduckgo', fetchProvider: 'http' });
   assert.equal(e.find(x => x.id === 'web-search-deepseek').disabled, true);
   const plugin = e.flatMap(x => x.insert ?? []).find(x => x.id === 'strata-web-search');
@@ -126,9 +128,9 @@ test('profile: the groups switched off are not loaded; both web halves off drops
   assert.ok(!ids(['helpers']).includes('delegation') && ids(['helpers']).includes('tool-fs'));
   assert.ok(!ids(['goals']).includes('tool-goal') && !ids(['goals']).includes('command-goal'));
   assert.ok(ids(['fetch']).includes('tool-web') && !ids(['fetch', 'search']).includes('tool-web'));
-  const e = entriesOf(buildProfile({ local: [], connections: [], tools: { ...base, off: new Set(['search']) } }));
-  assert.equal(toolWeb(e).config.search, false);
-  assert.equal(e.find(x => x.id === 'web'), undefined, 'no search service is set up when search is off');
+  const p = buildProfile({ local: [], connections: [], tools: { ...base, off: new Set(['search']) }, presetDir: '/tmp/presets-ts-test' });
+  assert.equal(toolWeb(p).config.search, false);
+  assert.equal(entriesOf(p).find(x => x.id === 'web'), undefined, 'no search service is set up when search is off');
 });
 
 test('profile: the person\'s instruction and command tools are the app\'s own tool server; a person\'s server is a connected tool', () => {

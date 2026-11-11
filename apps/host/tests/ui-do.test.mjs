@@ -304,7 +304,7 @@ test('#4749 a message for a helper is checked before anything is sent, and an ag
 
 test('#4749 the bridge uses the Harness own subagents/prompt with the documented request, steer for a working helper, queue for a finished one', () => {
   const bridge = readFileSync(new URL('../server/agent/agent-bridge.mjs', import.meta.url), 'utf8');
-  assert.match(bridge, /rt\.gw\.rpc\('subagents\/prompt', \{ request: \{ requestId: `helper-\$\{randomUUID\(\)\}`, parentSessionId: parent, childSessionId: String\(helperId\), mode: 'continuable', delivery: delivery === 'steer' \? 'steer' : 'queue', content: \[\{ type: 'text', text: clean \}\] \} \}\)/);
+  assert.match(bridge, /rt\.gw\.rpc\('subagent\.prompt', \{ parentSessionId: parent, childSessionId: String\(helperId\), mode: 'continuable', content: \[\{ type: 'text', text: clean \}\] \}\)/);
   const index = readFileSync(new URL('../server/index.mjs', import.meta.url), 'utf8');
   assert.match(index, /path === '\/api\/chat\/helper' && method === 'POST'/);
   const row = src('components/SubagentRow.tsx');
@@ -439,10 +439,11 @@ test('#4244 the tool is offered again, as the group "Questions for you", and the
   const catalog = readFileSync(new URL('../server/agent/tools-catalog.mjs', import.meta.url), 'utf8');
   assert.match(catalog, /id: 'questions'[^\n]*plugins: \['tool-ask-user'\]/);
   const bridge = readFileSync(new URL('../server/agent/agent-bridge.mjs', import.meta.url), 'utf8');
-  assert.match(bridge, /await rt\.gw\.answerEvent\(\{ clientId: entry\.clientId \?\? rt\.clientId, eventId: entry\.eventId, outcome \}\);/);
-  assert.match(bridge, /if \(!turn \|\| turn\.finished \|\| turn\.stopping \|\| turn\.goalRun \|\| turn\.plan \|\| !turn\.announceQuestion \|\| !items\.length\) \{\s*void runtime\.gw\.answerEvent\(\{ clientId: runtime\.clientId, eventId: value\.eventId, outcome: 'next' \}\)/, 'a helper question, a stopping chat or an empty request is still declared unanswerable');
+  assert.match(bridge, /await rt\.gw\.answer\(\{ rpcId: entry\.rpcId \}, value\);/);
+  assert.match(bridge, /const value = skip\n {6}\? \{ error: \{ code: 'cancelled', message: 'the question was skipped; there is nobody to answer it', details: \{\} \} \}\n {6}: \{ sessionId: entry\.sessionId, answer: buildAnswer\(entry\.items, answers\) \};/, 'a skip rides the host\'s only non-answer branch: a cancelled error settles the ask fail-closed');
+  assert.match(bridge, /if \(!turn \|\| turn\.finished \|\| turn\.stopping \|\| turn\.goalRun \|\| turn\.plan \|\| !turn\.announceQuestion \|\| !items\.length\) \{\s*void rt\.gw\.answer\(\{ rpcId \}, \{ error: \{ code: 'unavailable', message: 'there is nobody to answer this question' \} \}\)\.catch\(\(\) => \{\}\)/);
   const gateway = readFileSync(new URL('../server/agent/gateway-client.mjs', import.meta.url), 'utf8');
-  assert.match(gateway, /const wire = outcome === 'next' \? \{ kind: 'next' \} : \{ kind: 'result', value: outcome \};/, 'a structured answer travels as the result value');
+  assert.match(gateway, /const declined = value && typeof value === 'object' && 'error' in value;/, 'a decline rides ok:false; a structured answer travels as the result value');
   assert.match(src('components/ApprovalCard.tsx'), /asks\.map\(a => <QuestionCard key=\{a\.callId\} sessionId=\{sessionId!\} ask=\{a\}\/>\)/);
 });
 
@@ -463,6 +464,6 @@ test('#3818 the transcript lets go of the newest token while the reader has word
 
 test('#4244 a goal, a plan step and a loop run without anyone there, so a question is declined at once instead of waiting', () => {
   const bridge = readFileSync(new URL('../server/agent/agent-bridge.mjs', import.meta.url), 'utf8');
-  assert.match(bridge, /if \(!turn \|\| turn\.finished \|\| turn\.stopping \|\| turn\.goalRun \|\| turn\.plan \|\| !turn\.announceQuestion \|\| !items\.length\) \{\s*void runtime\.gw\.answerEvent\(\{ clientId: runtime\.clientId, eventId: value\.eventId, outcome: 'next' \}\)/);
+  assert.match(bridge, /if \(!turn \|\| turn\.finished \|\| turn\.stopping \|\| turn\.goalRun \|\| turn\.plan \|\| !turn\.announceQuestion \|\| !items\.length\) \{\s*void rt\.gw\.answer\(\{ rpcId \}, \{ error: \{ code: 'unavailable', message: 'there is nobody to answer this question' \} \}\)\.catch\(\(\) => \{\}\)/);
   assert.match(src('lib/store.ts'), /if \(ask && loopScheduler\.isRunning\(sessionId\)\) \{ void answerAgentAsk\(sessionId, ask\.callId, null\)\.catch\(\(\) => \{\}\); return; \}/);
 });

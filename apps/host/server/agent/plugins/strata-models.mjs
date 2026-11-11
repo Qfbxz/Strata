@@ -70,15 +70,23 @@ export function apply(ctx, config = {}) {
 
   const wrapAll = () => {
     let agents;
-    try { agents = ctx.get('agents')?.list?.() ?? []; } catch { return; }
-    for (const agent of agents) {
-      try {
-        const sub = ctx.tools.get('subagent', agent);
+    try { agents = ctx.get('agents')?.list?.() ?? []; } catch (e) { try { (async () => (await import('node:fs')).appendFileSync('/tmp/models-dbg.log', `wrapAll: ctx.get('agents') threw ${e?.message}\n`))(); } catch {} return; }
+
+    // 0.2.3: the agents service no longer lists chat agents to a plugin, and a preset-scope mount
+    // registers the two tools into the agent's own layer, not the global one — so wrap the global
+    // definition and every scoped layer's own copy as it appears (tools/change fires per insert).
+    try {
+      const globalSub = ctx.tools.get('subagent');
+      if (globalSub) wrapSubagent(globalSub);
+      const globalList = ctx.tools.get('list_subagent_models');
+      if (globalList) wrapList(globalList);
+      for (const layer of ctx.tools.layers?.scoped?.values() ?? []) {
+        const sub = layer.tools.get('subagent');
         if (sub) wrapSubagent(sub);
-        const list = ctx.tools.get('list_subagent_models', agent);
+        const list = layer.tools.get('list_subagent_models');
         if (list) wrapList(list);
-      } catch { /* a tool that is not there yet is wrapped at the next change */ }
-    }
+      }
+    } catch { /* a tool that is not there yet is wrapped at the next change */ }
   };
   ctx.on('tools/change', wrapAll);
   wrapAll();

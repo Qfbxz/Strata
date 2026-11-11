@@ -10,12 +10,12 @@
  * route change while idle), never a way to implement Stop.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { externalEnvironment } from '../external-env.mjs';
 import { utf8Script } from '../powershell-utf8.mjs';
 
-const URL_PATTERN = /http:\/\/127\.0\.0\.1:(\d+)\/\?token=([A-Za-z0-9_-]+)/;
+const URL_PATTERN = /http:\/\/127\.0\.0\.1:(\d+)/;
 
 /** Environment names that carry ambient credentials and must not reach the agent unless named. */
 const SECRET_NAME = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH)/i;
@@ -59,7 +59,7 @@ export function resolveHarness({ env = process.env, componentsDir = null, bundle
 
 export class HarnessProcess {
   #child = null;
-  /** @type {{baseUrl:string, token:string, port:number}|null} */
+  /** @type {{baseUrl:string, port:number}|null} */
   info = null;
   exited = null;
   #onExit;
@@ -72,10 +72,27 @@ export class HarnessProcess {
   get pid() { return this.#child?.pid ?? null; }
   get running() { return this.#child !== null && this.exited === null; }
 
-  /** Start the agent and resolve with its loopback URL and launch token. */
+  /** Start the agent and resolve with its loopback URL (no launch token since Harness 0.2.3: loopback is trusted by the fence). */
   async start({ timeoutMs = 120_000 } = {}) {
     mkdirSync(this.home, { recursive: true });
     mkdirSync(this.cwd, { recursive: true });
+    // Since 0.2.3 a profile is a pnpm-style project under `home/profiles/<name>`: patch-row imports
+    // resolve from THAT directory, where the pinned bundle's own node_modules no longer reaches. The
+    // fleet plugins the profile mounts (profile.mjs) are symlinked into it before boot; their own
+    // dependencies keep resolving from the bundle's copies through the symlink's real path.
+    {
+      const fleet = ['dsh-client-auto-continue', 'dsh-auto-memory', '@deepseek-ai/dsh-web-fetch-http'];
+      const bundleModules = join(this.harness.dir ?? '', 'node_modules');
+      const profileModules = join(this.home, 'profiles', 'web', 'node_modules');
+      mkdirSync(profileModules, { recursive: true });
+      for (const name of fleet) {
+        const from = join(bundleModules, ...name.split('/'));
+        const to = join(profileModules, ...name.split('/'));
+        if (existsSync(from) && !existsSync(to)) {
+          try { mkdirSync(join(to, '..'), { recursive: true }); symlinkSync(from, to, 'dir'); } catch { /* already linked by a previous start */ }
+        }
+      }
+    }
     const args = [this.harness.bin, '--profile', 'web', '--patch', this.patchFile, '--port', '0', '--no-open'];
     const child = spawn(this.nodePath, args, {
       cwd: this.cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
@@ -97,7 +114,7 @@ export class HarnessProcess {
         keep(chunk);
         text += chunk.toString();
         const m = URL_PATTERN.exec(text);
-        if (m) { clearTimeout(timer); resolveInfo({ port: Number(m[1]), token: m[2], baseUrl: `http://127.0.0.1:${m[1]}` }); }
+        if (m) { clearTimeout(timer); resolveInfo({ port: Number(m[1]), baseUrl: `http://127.0.0.1:${m[1]}` }); }
       });
       child.on('exit', code => { clearTimeout(timer); reject(new Error(`the agent exited during start (code ${code}): ${redact(log.join('').slice(-600), Object.values(this.extraEnv))}`)); });
       child.on('error', e => { clearTimeout(timer); reject(e); });

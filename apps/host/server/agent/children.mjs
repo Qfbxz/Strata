@@ -163,13 +163,16 @@ export class ChildProjector {
         break;
       }
       case 'tool/result': {
-        const callId = d.message?.toolCallId;
+        // 0.2.3: `toolCallId` and `isError` ride the nested `tool-result` block (`message.content[0]`), not the message.
+        const resultBlock = (d.message?.content ?? []).find(b => b?.type === 'tool-result');
+        const callId = d.message?.toolCallId ?? resultBlock?.toolCallId;
         const entry = this.tools.get(callId);
         if (!entry) break;
         if (entry.asked) {
           const wasDenied = entry.card.state === 'denied';
+          const isError = d.message?.isError === true || resultBlock?.isError === true;
           const frame = this.#card(callId, {
-            state: wasDenied ? 'denied' : d.message?.isError === true ? 'error' : 'done',
+            state: wasDenied ? 'denied' : isError ? 'error' : 'done',
             result: wasDenied ? entry.card.result : resultText(d.message),
             durationMs: Math.max(0, (e.time ?? 0) - entry.calledAt),
           });

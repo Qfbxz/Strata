@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AGENT_PROMPT, agentPromptFor, standardPreset } from '../server/agent/preset.mjs';
 
-const promptOf = platform => standardPreset({ platform }).plugins.find(p => p.id === 'persona').config.prefix;
+const promptOf = platform => standardPreset({ platform }).plugins.find(p => p.id === 'persona').config.text;
 
 test('the Windows prompt names PowerShell and the commands that do not exist', () => {
   const text = promptOf('win32');

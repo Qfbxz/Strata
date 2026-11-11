@@ -90,33 +90,24 @@ export function apply(ctx) {
     const original = llm.prepareCall;
     const raised = new WeakSet();
     const prepare = async function prepareCall(config, signal, configure) {
-      try { raiseReplyCeiling(config?.provider, raised); } catch (e) { log('warn', `could not raise the reply ceiling: ${e.message}`); }
+      try { await raiseAgentCeiling(config); } catch (e) { log('warn', `could not raise the reply ceiling: ${e.message}`); }
       return original.call(this, config, signal, configure);
     };
     wrapped.add(prepare);
     llm.prepareCall = prepare;
   }
-  function raiseReplyCeiling(provider, raised) {
-    if (!isLocalRoute(provider)) return;
-    const adapter = llm.adapters?.get?.(provider)?.adapter;
-    if (!adapter || raised.has(adapter) || typeof adapter.streamWithSnapshot !== 'function' || typeof adapter.modelOf !== 'function') return;
-    raised.add(adapter);
-    const stream = adapter.streamWithSnapshot;
-    adapter.streamWithSnapshot = function streamWithSnapshot(options, snapshot) {
-      let next = options;
-      try {
-        if (isLocalRoute(options?.provider)) {
-          const model = this.modelOf(snapshot, options.provider, options.model);
-          const asked = options.maxTokens ?? model.maxTokens ?? 0;
-          // Only the agent's own reply budget is raised: a summary or a title asks for far less and keeps what it asked.
-          if (model.contextWindow > 0 && asked >= Math.floor(model.contextWindow * 0.25)) {
-            const cap = replyCap(model.contextWindow, asked);
-            if (cap > asked) next = { ...options, maxTokens: cap };
-          }
-        }
-      } catch { next = options; }
-      return stream.call(this, next, snapshot);
-    };
+  /** AGENT-LOST on the 0.2.3 seam: raise a big reply budget (what compaction reserves) to the
+   *  replyCap ceiling for local routes before prepareCall freezes it. Summaries ask far less and
+   *  keep what they asked. */
+  async function raiseAgentCeiling(config) {
+    if (!isLocalRoute(config?.provider)) return;
+    const asked = config.maxTokens ?? 0;
+    if (!(asked >= Math.floor((config.contextWindow ?? 0) * 0.25))) return;
+    const info = await llm.resolveModelInfo(config.provider, config.model).catch(() => null);
+    const window = info?.context?.contextWindow ?? 0;
+    if (!(window > 0)) return;
+    const cap = replyCap(window, asked);
+    if (cap > asked) config.maxTokens = cap;
   }
 
   // The host asks, with /strata-context, how much of the window the chat holds right now: the same measured number compaction decides on

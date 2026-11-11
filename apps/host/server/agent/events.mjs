@@ -15,7 +15,7 @@ import { ToolDraft, cutCalls } from './reply-cut.mjs';
 
 const SHELL = new Set(['pwsh', 'bash', 'job_kill', 'job_output', 'job_list']);
 const WRITE = new Set(['write', 'edit']);
-const READ = new Set(['read', 'glob', 'grep', 'read_image', 'working_directory', 'todo_write', 'get_goal', 'list_agents', 'skill', 'present']);
+const READ = new Set(['read', 'glob', 'grep', 'read_image', 'working_directory', 'todo_write', 'get_goal', 'list_agents', 'skill']);
 
 /** Delegation tools have no card: the helper agents show as rows, and the tool's raw reply ("started subagent <id>") is not for the person. */
 export const NO_CARD = new Set(['subagent', 'subagent_fork', 'send_message', 'interrupt_agent', 'list_agents']);
@@ -52,7 +52,6 @@ const WORDS = {
   working_directory: () => ['Checks which folder it is working in.', ''],
   todo_write: a => ['Updates its to-do list.', Array.isArray(a.todos) ? a.todos.map(t => t?.content ?? t?.title ?? '').filter(Boolean).join('; ') : ''],
   skill: a => ['Uses a saved skill.', a.name ?? a.skill],
-  present: a => ['Shows you a result.', a.file_path ?? a.path ?? a.title],
   create_goal: a => ['Sets a goal to work towards.', a.objective],
   update_goal: a => ['Updates the goal.', a.objective ?? a.status ?? ''],
   get_goal: () => ['Checks the current goal.', ''],
@@ -85,7 +84,6 @@ const VERBS = {
   get_goal: ['Checking the goal', 'Checked the goal', "Couldn't check the goal"],
   skill: ['Loading your skill', 'Loaded your skill', "Couldn't load the skill"],
   todo_write: ['Updating its to-do list', 'Updated its to-do list', "Couldn't update its to-do list"],
-  present: ['Showing you a result', 'Showed you a result', "Couldn't show the result"],
   working_directory: ['Checking the folder', 'Checked the folder', "Couldn't check the folder"],
   job_list: ['Checking background tasks', 'Checked background tasks', "Couldn't check background tasks"],
   job_output: ['Reading a background task', 'Read a background task', "Couldn't read the background task"],
@@ -189,7 +187,13 @@ export function outcomeText(tool, text, args = {}) {
 /** Text of a tool-result message, bounded. */
 export function resultText(message) {
   const parts = Array.isArray(message?.content) ? message.content : [];
-  const text = parts.map(p => (p?.type === 'text' ? p.text : p?.type ? `[${p.type}]` : '')).join('\n').trim();
+  const text = parts
+    .map(p => {
+      if (p?.type === 'text') return p.text;
+      if (p?.type === 'tool-result') return resultText({ content: p.content });   // 0.2.3: the tool's own blocks nest one level down
+      return p?.type ? `[${p.type}]` : '';
+    })
+    .join('\n').trim();
   return clip(text || '(no output)', 4000);
 }
 
@@ -370,12 +374,16 @@ export class TurnProjector {
         break;
       }
       case 'tool/result': {
-        const callId = d.message?.toolCallId;
+        // 0.2.3: the result block nests inside `message.content` (`{type:'tool-result', toolCallId, content}`),
+        // where 0.2.2 carried a top-level `toolCallId`.
+        const resultBlock = (d.message?.content ?? []).find(b => b?.type === 'tool-result');
+        const callId = d.message?.toolCallId ?? resultBlock?.toolCallId;
         const entry = this.tools.get(callId);
         if (!entry) break;
         this.running = this.running.filter(id => id !== callId);
         this.#afterTool();
-        const isError = d.message?.isError === true;
+        // 0.2.3: `isError` rides on the nested `tool-result` block (`message.content[0]`), not on the message.
+        const isError = d.message?.isError === true || resultBlock?.isError === true;
         const denied = this.denied.has(callId);
         const frame = this.#card(callId, {
           state: denied ? 'denied' : isError ? 'error' : 'done',

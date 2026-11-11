@@ -76,7 +76,12 @@ async function rig(t) {
   return { local, remote, bridge, call, ws };
 }
 
-test('the real Harness: the model sees guidance and the discovery list, and a name starts the helper on that model', { skip }, async (t) => {
+// The two real-Harness model-selection tests below are skipped: Harness 0.2.3 removed the per-call
+// `model`/`provider` arguments and the `list_subagent_models` discovery tool (helper model choice now
+// belongs to the child session's own route, chosen via session.selectModel). Re-introducing "ask a
+// helper on model X" needs a product decision on that new seam; the pure resolve/modelProblem tests
+// above keep the app-side machinery honest until then.
+test('the real Harness: the model sees guidance and the discovery list, and a name starts the helper on that model', { skip: '0.2.3 removed the subagent model argument and the discovery tool; helper model choice awaits a product decision on the new seam' }, async (t) => {
   const r = await rig(t);
   const first = await r.call('m1', { description: 'Weather', prompt: 'SCRIPT:echo grey', model: 'DeepSeek V3.2' });
   const tools = JSON.parse([...r.local.requests].reverse().find(q => q.toolNames.length).raw).tools;
@@ -89,7 +94,7 @@ test('the real Harness: the model sees guidance and the discovery list, and a na
   assert.ok(r.remote.requests.length >= 1, `the helper reached the OpenRouter mock (${first.text})`);
 });
 
-test('the real Harness: a close guess and an unknown model are answered in plain words and start nothing', { skip }, async (t) => {
+test('the real Harness: a close guess and an unknown model are answered in plain words and start nothing', { skip: '0.2.3 removed the subagent model argument and the discovery tool; helper model choice awaits a product decision on the new seam' }, async (t) => {
   const r = await rig(t);
   const guess = await r.call('m2', { description: 'Weather', prompt: 'x', model: 'deepseek v3' });
   assert.match(guess.text, /Did you mean DeepSeek V3\.2/);

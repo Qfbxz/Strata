@@ -6,9 +6,9 @@ import { join, resolve } from 'node:path';
 export const HARNESS_BUDGET_PATCH = Object.freeze({
   id: 'strata-pi-ai-context-safety-v2',
   package: '@earendil-works/pi-ai',
-  version: '1.3.0',
+  version: '0.82.1',
   file: 'node_modules/@earendil-works/pi-ai/dist/api/simple-options.js',
-  beforeSha256: '9b3cc0ae6daa86fdc050bc0cb0f3f986401e64ccddbde6757183c9f8ad411be2',
+  beforeSha256: '74dfde37adbd00a6af1fd707c1c5c876577793b078da9fbbd6d40bb75bfb4749',
 });
 
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');

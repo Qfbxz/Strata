@@ -43,6 +43,7 @@ test('the profile adds a response-settings copy of each shapeable route (local, 
       { id: 'cloud', name: 'Cloud', baseUrl: 'https://api.deepseek.com', protocol: 'openai-chat', apiKey: 'k', models: [{ id: 'y' }] },
     ],
     proxyBase: 'http://127.0.0.1:8791/api/internal/agent-llm',
+    presetDir: '/tmp/presets-shape-test',
   });
   const local = profile.routes.find(r => r.kind === 'local');
   assert.deepEqual(Object.keys(local.shaped), ['0', '2048', '8192', '32768']);
@@ -60,7 +61,7 @@ test('the profile adds a response-settings copy of each shapeable route (local, 
   assert.equal(own.models[0].maxTokens, 9830, 'a server on this network keeps 30 percent of its window for the reply so long tasks can be compacted (it was 28672 of 32768: no room, no compaction)');
   assert.match(profile.patch, /"baseURL": "http:\/\/127\.0\.0\.1:8791\/api\/internal\/agent-llm\/strata-local~s8192\/v1"/);
   assert.match(profile.patch, /"x-strata-budget": "8192"/);
-  assert.match(profile.patch, /"provider": "strata-local~s8192"/, 'compaction keeps its timing on the copy too');
+  assert.match(profile.presetFile.content, /"provider": "strata-local~s8192"/, 'compaction keeps its timing on the copy too');
   const plain = buildProfile({ local: [{ id: 'a', modelId: 'm', baseUrl: 'http://127.0.0.1:9001', context: 65536 }], connections: [] });
   assert.equal(plain.routes[0].shaped, undefined); assert.ok(!/~s/.test(plain.patch), 'without a forwarding address nothing changes');
 });

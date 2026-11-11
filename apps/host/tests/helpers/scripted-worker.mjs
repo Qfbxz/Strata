@@ -28,6 +28,7 @@
  *   SCRIPT:call <tool> <json>       one call to any tool with the given JSON arguments
  *   SCRIPT:multi <json>             {"calls":[[tool,args],...],"say":"final text"}: all the calls in one reply, then the text once their results are in
  *   SCRIPT:searchloop               a model that never stops: every reply rewrites a numbered plan and calls web_search again with a new query
+ *   SCRIPT:sameloop                 a model stuck on one identical shell call, one per step (bails out to text after 40 repeats)
  *   SCRIPT:bloat <prompt tokens>    a reply that is only thinking (no answer text), with usage reporting that many prompt tokens (a context at 100%)
  *
  * A request whose last message is a tool result is answered with a text that quotes the result.
@@ -70,7 +71,8 @@ export async function startScriptedWorker({ port = 0, chunkDelayMs = 40, model =
     const body = JSON.parse(raw);
     const messages = body.messages ?? [];
     const last = messages[messages.length - 1] ?? {};
-    const text = m => typeof m?.content === 'string' ? m.content : Array.isArray(m?.content) ? m.content.map(p => p.text ?? '').join(' ') : '';
+    // 0.2.3: a tool message's text nests inside its `tool-result` block (`content[0].content`).
+    const text = m => typeof m?.content === 'string' ? m.content : Array.isArray(m?.content) ? m.content.map(p => p.text ?? (Array.isArray(p?.content) ? p.content.map(q => q.text ?? '').join(' ') : '')).join(' ') : '';
     // The Harness appends runtime-context messages after the prompt, so the newest user message is not
     // the prompt: take the newest one that carries a directive.
     const directive = [...messages].reverse().filter(m => m.role === 'user')
@@ -118,11 +120,19 @@ export async function startScriptedWorker({ port = 0, chunkDelayMs = 40, model =
       if (!closed) finish('stop', tokens ?? parts.length);
     };
 
+    // The upstream harness's own stop paths (the repeat guard's force stop, the turn tool-call budget) inject a
+    // user-role instruction that tells the model to stop calling tools and summarize in text. A scripted model
+    // complies, the way a well-behaved model does, so the pinned end-to-end tests see the turn end deterministically.
+    // It sits before the tool-result handler: the stop instruction arrives together with the results.
+    if (messages.some(m => m.role === 'user' && /停止工具调用|Stop calling tools and summarize/.test(text(m)))) {
+      return say(['Stopping tool calls as instructed. Summary: the progress so far is recorded above.']);
+    }
     // A model that read "[sandbox: escalation available ...]" retries the exact call once with the narrowest wider mode.
     // Only this prompt's own tool results count: a chat that has run tools before carries older ones.
     const promptAt = messages.findLastIndex(m => m.role === 'user' && /SCRIPT:/.test(text(m)));
     const toolMessages = messages.slice(promptAt + 1).filter(m => m.role === 'tool');
-    if (last.role === 'tool' && ['retrywrite', 'retryshell'].includes(directive?.[1]) && toolMessages.length === 1 && /escalation available/.test(text(last))) {
+    const escalationOffer = toolMessages.find(m => /escalation available/.test(text(m)));
+    if (['retrywrite', 'retryshell'].includes(directive?.[1]) && escalationOffer !== undefined) {
       const [file, ...rest] = (directive[2] ?? '').trim().split(/\s+/);
       const value = rest.join(' ') || 'run';
       return toolCall(directive[1] === 'retrywrite' ? 'write' : shellName(), directive[1] === 'retrywrite'
@@ -152,12 +162,25 @@ export async function startScriptedWorker({ port = 0, chunkDelayMs = 40, model =
       send({ tool_calls: [{ index: 0, id: `call_${requests.length}`, type: 'function', function: { name: 'web_search', arguments: argsJson } }] });
       return finish('tool_calls', 60);
     }
+    if (directive?.[1] === 'sameloop') {
+      // A model stuck on one identical shell call, one per step, forever. A bailout after 40 repeats keeps a
+      // harness with no working stop mechanism from looping the test to its timeout: the turn ends without the
+      // upstream stop instruction, which is exactly the drift the pinned test asserts on.
+      const n = requests.filter(r => r.directive === 'sameloop').length;
+      if (n >= 40) return say(['Bailout: this loop has run too long, so I stopped calling the tool.']);
+      const argsJson = JSON.stringify({ command: "printf 'same line' >> loop.txt", description: 'Append one line to loop.txt' });
+      send({ role: 'assistant', content: '', reasoning_content: 'I will run the same command again.' });
+      await delay(chunkDelayMs);
+      send({ tool_calls: [{ index: 0, id: `call_${requests.length}`, type: 'function', function: { name: shellName(), arguments: '' } }] });
+      for (let i = 0; i < argsJson.length; i += 17) { send({ tool_calls: [{ index: 0, function: { arguments: argsJson.slice(i, i + 17) } }] }); await delay(5); }
+      return finish('tool_calls', 30);
+    }
     if (directive?.[1] === 'cutwrite' || directive?.[1] === 'cutalways') {
       // A reply the length limit cuts inside a tool call (AGENT-LOST): some words, then `write` arguments that never close, finish "length".
       // `cutwrite` is cut once and then, asked to carry on, writes the file in a small call; `cutalways` is cut every time.
       const nudged = messages.some(m => m.role === 'user' && /cut off by the output limit/.test(text(m)));
       if (directive[1] === 'cutwrite' && nudged) {
-        if (last.role === 'tool') return say(['Written in parts. The file is complete.']);
+        if (toolMessages.length) return say(['Written in parts. The file is complete.']);
         return toolCall('write', { file_path: (directive[2] ?? '').trim() || 'big.txt', content: 'entry 0001\nentry 0002\n' });
       }
       send({ role: 'assistant', content: 'Writing the whole file in one call now. ' });
@@ -175,10 +198,11 @@ export async function startScriptedWorker({ port = 0, chunkDelayMs = 40, model =
       return finish('stop', 20);
     }
     if (directive?.[1] === 'goalstep') {
-      // A goal round: read the goal, mark it complete, then say so.
+      // A goal round: read the goal, mark it complete, then say so. 0.2.3 trails the tool result with a
+      // time-context user message, so the goal JSON is read from the tool message, not from `last`.
       if (!toolMessages.length) return toolCall('get_goal', {});
-      if (toolMessages.length === 1 && last.role === 'tool') {
-        const t = text(last); const id = /"id"\s*:\s*"([^"]+)"/.exec(t)?.[1]; const revision = Number(/"revision"\s*:\s*(\d+)/.exec(t)?.[1] ?? 1);
+      if (toolMessages.length === 1) {
+        const t = text(toolMessages.at(-1)); const id = /"id"\s*:\s*"([^"]+)"/.exec(t)?.[1]; const revision = Number(/"revision"\s*:\s*(\d+)/.exec(t)?.[1] ?? 1);
         if (id) return toolCall('update_goal', { goal_id: id, revision, action: 'complete' });
       }
       return say(['Step finished. The result is checked.']);
@@ -190,8 +214,15 @@ export async function startScriptedWorker({ port = 0, chunkDelayMs = 40, model =
       try { cfg = JSON.parse((directive[2] ?? '').trim()); } catch { /* a test bug */ }
       return say([String(cfg.say ?? 'Done.')]);
     }
-    if (last.role === 'tool') {
-      const result = text(last).replace(/\s+/g, ' ').slice(0, 120);
+    const resultsAfterPrompt = toolMessages;   // tool messages that followed this prompt's directive
+    // 0.2.3: the subagent settlement is the `subagent` tool result itself (no later user-role notice), so a
+    // spawn re-prompt carries the helpers' reports as tool messages: answer them like the old notice did.
+    if (directive?.[1] === 'spawn' && resultsAfterPrompt.length) {
+      const settled = last.role === 'user' ? text(last) : text(resultsAfterPrompt.at(-1));
+      return say(['Noted: ', settled.replace(/\s+/g, ' ').slice(0, 90)]);
+    }
+    if (resultsAfterPrompt.length) {
+      const result = text(resultsAfterPrompt.at(-1)).replace(/\s+/g, ' ').slice(0, 120);
       return say(['Tool finished. ', `Result: ${result}`]);
     }
     const [name, args] = [directive?.[1], (directive?.[2] ?? '').trim()];
@@ -228,7 +259,8 @@ export async function startScriptedWorker({ port = 0, chunkDelayMs = 40, model =
       if (toolMessages.length) return say([String(cfg.say ?? 'Done.')]);
       send({ role: 'assistant', content: '', reasoning_content: 'I will use the tools.' });
       await delay(chunkDelayMs);
-      (cfg.calls ?? []).forEach(([tool, callArgs], i) => send({ tool_calls: [{ index: i, id: `call_${requests.length}_${i}`, type: 'function', function: { name: tool, arguments: JSON.stringify(callArgs ?? {}) } }] }));
+      const realName = tool => ['plain', 'tool'].includes(tool) ? shellName() : tool;   // the shell scripts' pseudo-names name the real shell tool
+      (cfg.calls ?? []).forEach(([tool, callArgs], i) => send({ tool_calls: [{ index: i, id: `call_${requests.length}_${i}`, type: 'function', function: { name: realName(tool), arguments: JSON.stringify(callArgs ?? {}) } }] }));
       return finish('tool_calls', 20);
     }
     if (name === 'spawn') {
@@ -259,10 +291,10 @@ export async function startScriptedWorker({ port = 0, chunkDelayMs = 40, model =
       let command = shell === 'pwsh' ? `Add-Content -Path '${file}' -Value '${value}'` : `echo ${value} >> ${file}`;
       if (name === 'envdump') command = shell === 'pwsh' ? `Get-ChildItem Env: | ForEach-Object { $_.Name + '=' + $_.Value } | Set-Content -Path '${file}'` : `env > ${file}`;
       const call = { command, description: `Append one line to ${file}` };
-      if (name === 'tool') {
-        call.sandbox_permissions = 'danger-full-access';
-        call.justification = 'The write must not be refused by the file sandbox.';
-      }
+      // The 0.2.2-era escalation fields (sandbox_permissions + justification) are gone: the 0.2.3
+      // sandbox rejects an "escalation" that is not strictly wider than the session's own mode, and
+      // the Manual chats these tests run in are already danger-full-access — the STRATA gate asks on
+      // its own before any change, which is the ask the A-series tests exercise.
       send({ role: 'assistant', content: '', reasoning_content: 'I will write the file with the shell.' });
       await delay(chunkDelayMs);
       const argsJson = JSON.stringify(call);

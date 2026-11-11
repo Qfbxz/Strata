@@ -228,17 +228,17 @@ export function apply(ctx) {
     ctx.tools.register(profileTool);
   });
 
+  // 0.2.3 projection contract: the registry reads `schema` (validated via .parse on every history
+  // page and push) and `view(state)` directly — the 0.2.2-era `stateSchema`/`wire.viewSchema` fields
+  // are gone, and a unit without `schema` crashed the host's history reads.
   const anySchema = { parse: (value) => value };
   const armorDef = {
     key: "armor",
     stateVersion: 3,
-    stateSchema: anySchema,
+    schema: anySchema,
     init: () => ({ running: false, verdict: null, words: [], safe: [], risk: [], domain: null, domainHits: 0 }),
     apply: armorProjectionApply,
-    wire: {
-      viewSchema: anySchema,
-      view: (state) => state,
-    },
+    view: (state) => state,
   };
 
   const registerArmor = (p) => {

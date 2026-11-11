@@ -1,0 +1,23 @@
+{
+  "component": "deepseek-harness",
+  "version": "0.2.3-rc.1",
+  "commit": "095ae0eca31474f380a59bfbb7b54dd86badf41e",
+  "license": "MIT",
+  "platform": "darwin",
+  "node": "v26.13.0",
+  "bytes": 141893322,
+  "files": 23312,
+  "entry": "apps/cli/lib/bin.js",
+  "builtAt": "2026-11-11T05:35:40.241Z",
+  "patches": [
+    {
+      "id": "strata-pi-ai-context-safety-v2",
+      "package": "@earendil-works/pi-ai",
+      "version": "0.82.1",
+      "file": "node_modules/@earendil-works/pi-ai/dist/api/simple-options.js",
+      "beforeSha256": "74dfde37adbd00a6af1fd707c1c5c876577793b078da9fbbd6d40bb75bfb4749",
+      "afterSha256": "166bcff965cefcd510fb577e411c97a264d1c3240f4996b247f4c49f128de960"
+    }
+  ],
+  "note": "Pruned production install (pnpm deploy --prod). No package manager runs on the user's PC."
+}

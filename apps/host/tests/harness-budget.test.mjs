@@ -7,10 +7,10 @@ import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { HARNESS_BUDGET_PATCH, patchStagedHarnessBudget } from '../../desktop/scripts/harness-budget.mjs';
 
-// Exact MIT-licensed pi-ai module (1.1.0 and 1.3.0 carry these identical bytes); arithmetic fixture, not native tokenization.
-const original = readFileSync(new URL('./fixtures/pi-ai-1.1.0-simple-options.js.fixture', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
+// Exact MIT-licensed pi-ai module (0.82.1, the version the 0.2.3-rc.1 source tree resolves); arithmetic fixture, not native tokenization.
+const original = readFileSync(new URL('./fixtures/pi-ai-0.82.1-simple-options.js.fixture', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
-function staged(t, { source = original, manifest = { name: '@earendil-works/pi-ai', version: '1.3.0' } } = {}) {
+function staged(t, { source = original, manifest = { name: '@earendil-works/pi-ai', version: '0.82.1' } } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'strata-harness-budget-'));
   t.after(() => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }));
   const file = join(root, HARNESS_BUDGET_PATCH.file), packageFile = join(root, 'node_modules', '@earendil-works', 'pi-ai', 'package.json');
@@ -73,10 +73,10 @@ test('unknown and nonpositive context paths retain their previous behavior', t =
 test('patch provenance records its identity, exact dependency and before/after hashes', t => {
   const { file, packageFile, provenance } = patched(t);
   assert.equal(sha256(original), HARNESS_BUDGET_PATCH.beforeSha256);
-  assert.deepEqual(provenance, { id: 'strata-pi-ai-context-safety-v2', package: '@earendil-works/pi-ai', version: '1.3.0',
+  assert.deepEqual(provenance, { id: 'strata-pi-ai-context-safety-v2', package: '@earendil-works/pi-ai', version: '0.82.1',
     file: HARNESS_BUDGET_PATCH.file, beforeSha256: sha256(original), afterSha256: sha256(readFileSync(file)) });
   assert.notEqual(provenance.beforeSha256, provenance.afterSha256);
-  assert.deepEqual(JSON.parse(readFileSync(packageFile, 'utf8')), { name: '@earendil-works/pi-ai', version: '1.3.0' });
+  assert.deepEqual(JSON.parse(readFileSync(packageFile, 'utf8')), { name: '@earendil-works/pi-ai', version: '0.82.1' });
   const changed = original.replace('const available = model.contextWindow - estimateContextTokens(context).tokens - CONTEXT_SAFETY_TOKENS;',
     `const remaining = model.contextWindow - estimateContextTokens(context).tokens;
     const safety = model.contextWindow >= 65536 ? CONTEXT_SAFETY_TOKENS
@@ -88,8 +88,8 @@ test('patch provenance records its identity, exact dependency and before/after h
 test('malformed or unexpected dependencies fail before writing', t => {
   const cases = [
     { manifest: { name: '@earendil-works/pi-ai', version: '1.2.0' } },
-    { manifest: { name: '@earendil-works/pi-ai', version: '1.1.0' } },   // 0.2.1-era pin: superseded by 1.3.0 (identical module bytes)
-    { manifest: { name: 'another-package', version: '1.1.0' } },
+    { manifest: { name: '@earendil-works/pi-ai', version: '1.3.0' } },   // 0.2.2-rc.1-era pin: superseded by 0.82.1 (different module bytes, same clamp line)
+    { manifest: { name: 'another-package', version: '0.82.1' } },
     { manifest: null },
     { source: original + '\n' },
     { source: original.replace('CONTEXT_SAFETY_TOKENS = 4096', 'CONTEXT_SAFETY_TOKENS = 1024') },

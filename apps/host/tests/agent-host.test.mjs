@@ -88,7 +88,7 @@ const lines = file => readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean).
 test('status names the component and the routes, and carries no secret', { skip }, async t => {
   const s = await setup(t);
   const status = await s.host.status();
-  assert.equal(status.harness.version, '0.2.1-alpha.3');
+  assert.equal(status.harness.version, '0.2.3-rc.1');
   assert.ok(status.routes.some(r => r.kind === 'api' && r.modelId === 'cloud-model'));
   assert.ok(!JSON.stringify(status).includes('sk-host-test'));
 });

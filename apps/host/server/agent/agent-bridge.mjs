@@ -4,9 +4,11 @@
  * What it owns
  *   - the pinned Harness process (one, lazily started, restarted only when a route it needs changed);
  *   - the stable Strata-chat -> Harness-session map, persisted next to the host's other state;
- *   - one `session/follow` stream per live turn, projected into the NDJSON frames the chat UI renders;
- *   - approvals: the Harness `approval/request` waterfall in, the user's Approve/Deny back out;
- *   - Stop: `session/cancel` for exactly one session, resolved only once the turn has really ended.
+ *   - the two server-push downlink streams (0.2.3), routed by session id into the live turn's or the
+ *     child session's projector, which renders the NDJSON frames the chat UI draws;
+ *   - approvals and the agent's own questions: answerable server-requests in, the person's answer
+ *     back over `POST /api/respond`;
+ *   - Stop: `session.cancel` for exactly one session, resolved only once the turn has really ended.
  *
  * What it deliberately does not do
  *   - it never falls back to another model: a chat picks a route (local instance or saved API
@@ -14,8 +16,8 @@
  *   - it never implements Stop by killing the Harness (that would cancel every other chat);
  *   - it never holds a secret outside the environment of the agent process it starts.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
@@ -162,7 +164,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     renameSync(temp, sessionsFile);
   };
 
-  /** @type {{hp:HarnessProcess, gw:GatewayClient, profile:object, clientId:string|null, generation:number, events:object}|null} */
+  /** @type {{hp:HarnessProcess, gw:GatewayClient, profile:object, generation:number, baselines:Map<string,number>, goals:Map<string,object|null>, permissions:Map<string,string|null>, goals:Map<string,object|null>, permissions:Map<string,string|null>, liveSessions:Set<string>}|null} */
   let rt = null;
   let generation = 0;
   let lastError = null;
@@ -174,7 +176,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
   const queues = new Map();
   const queueView = chatId => (queues.get(chatId) ?? []).map(({ id, text, at, deliverAt }) => ({ id, text, at, deliverAt }));
   const pending = new Map();       // `${sessionId}:${callId}` -> { eventId, sessionId, callId, at }
-  const questions = new Map();     // `${sessionId}:${callId}` -> the agent's own question waiting for the person: { eventId, sessionId, callId, items, at, clientId } (#4244)
+  const questions = new Map();     // `${sessionId}:${callId}` -> the agent's own question waiting for the person: { rpcId, sessionId, callId, items, at } (#4244)
   const chatOfSession = sessionId => Object.keys(sessionMap).find(id => sessionMap[id]?.sessionId === sessionId) ?? null;
   const idleWaiters = new Set();
 
@@ -192,7 +194,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
   /** The agent's profile now, plus where its shaped routes really lead (read by the forwarding endpoint). */
   let shapeTargets = {};
   function buildProfileNow() {
-    const profile = buildProfile({ local: localInstances(), connections: connections(), gate, tools: tools(), skillsDir: skillsDir(), projectInstructions: projectInstructions(), proxyBase, searchMock, defaultLocalId: defaultLocalId() });
+    const profile = buildProfile({ local: localInstances(), connections: connections(), gate, tools: tools(), skillsDir: skillsDir(), projectInstructions: projectInstructions(), proxyBase, searchMock, defaultLocalId: defaultLocalId(), presetDir: join(home, '.agent-presets'), harnessDir: harnessInfo().ok ? harnessInfo().dir : null });
     shapeTargets = profile.shapeTargets ?? {};
     return profile;
   }
@@ -229,6 +231,15 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     if (stale) log(`agent · stopped a leftover Harness process (pid ${stale}) from an earlier run`);
     const patchFile = join(root, `profile-${profile.signature}.patch.yml`);
     writeFileSync(patchFile, profile.patch);
+    // The chat composition (preset.mjs) is a preset file since Harness 0.2.3: written into the harness
+    // home's `.agent-presets` (the plugin's own writable user root, mounted by default), and named
+    // explicitly at session creation. Atomic: a half-written file would break the roster, not one chat.
+    if (profile.presetFile) {
+      mkdirSync(dirname(profile.presetFile.path), { recursive: true });
+      const tmpComposition = `${profile.presetFile.path}.${randomUUID()}.tmp`;
+      writeFileSync(tmpComposition, profile.presetFile.content);
+      renameSync(tmpComposition, profile.presetFile.path);
+    }
     const workdir = join(root, 'run');
     const hp = new HarnessProcess({
       harness: h, home, patchFile, cwd: workdir, env: profile.env, nodePath, logFile: join(root, 'harness.log'), pidFile: join(root, 'harness.pid'),
@@ -239,13 +250,14 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
       },
     });
     const info = await hp.start({ timeoutMs: startTimeoutMs });
-    const gw = new GatewayClient({ baseUrl: info.baseUrl, token: info.token });
-    await gw.connect();
-    const next = { hp, gw, profile, clientId: null, generation: ++generation, events: null };
-    next.events = gw.openStream('$events', {}, {
-      onItem: value => onHostEvent(next, value),
-      onError: e => log(`agent · event stream: ${redact(e.message, Object.values(profile.env))}`),
+    const next = { hp, gw: null, profile, generation: ++generation, baselines: new Map(), goals: new Map(), permissions: new Map(), liveSessions: new Set() };
+    next.gw = new GatewayClient({
+      baseUrl: info.baseUrl,
+      onFrame: (stream, frame, rpcId) => onGatewayFrame(next, stream, frame, rpcId),
+      onState: state => { if (state === 'closed') log('agent · event stream closed; it reconnects by itself'); },
     });
+    await next.gw.connect();
+    next.gw.events();
     rt = next;
     lastError = null;
     log(`agent · Harness ${h.version ?? ''} ready (pid ${hp.pid}, ${profile.routes.length} route(s))`);
@@ -276,7 +288,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
         if (rt?.hp.running) {
           await waitIdle(signal, 120_000);
           const old = rt; rt = null;
-          old.events?.close(); old.gw.close(); await old.hp.stop();
+          old.gw.close(); await old.hp.stop();
         }
         try { return await startRuntime(profile); } catch (e) {
           lastError = redact(String(e.message ?? e), Object.values(profile.env));
@@ -287,31 +299,133 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     }
   }
 
-  function onHostEvent(runtime, value) {
-    if (value.type === 'ready') { runtime.clientId = value.clientId; return; }
-    if (value.type === 'waterfall' && value.event === 'approval/request') {
-      const r = value.request ?? {};
-      if (!r.callId) return;
-      pending.set(`${value.agentId}:${r.callId}`, { eventId: value.eventId, sessionId: value.agentId, callId: r.callId, tool: r.toolName, reason: r.reason ?? null, at: Date.now(), clientId: runtime.clientId });
-    } else if (value.type === 'waterfall' && value.event === 'user-questions/request') {
-      // The agent of a chat that is running in front of the person asks the person: the question goes to the page (the question card above the message box) and the
-      // Harness waits for the answer. Anything else (a helper's question, a chat that is stopping, a request with nothing to show) is declared
-      // unanswerable, which makes the tool return an error the model reads and carries on from, instead of a turn that waits forever.
-      const r = value.request ?? {};
-      const chatId = chatOfSession(value.agentId);
-      const turn = chatId ? chats.get(chatId)?.turn : null;
-      const items = parseQuestions(r.questions);
-      // A goal or a plan step runs without anyone there: a question would stall it, so it is declined at once (the model reads "could not be answered" and goes on).
-      if (!turn || turn.finished || turn.stopping || turn.goalRun || turn.plan || !turn.announceQuestion || !items.length) {
-        void runtime.gw.answerEvent({ clientId: runtime.clientId, eventId: value.eventId, outcome: 'next' }).catch(() => {});
-      } else {
-        const callId = String(r.wait?.callId ?? value.eventId);
-        questions.set(`${value.agentId}:${callId}`, { eventId: value.eventId, sessionId: value.agentId, callId, items, at: Date.now(), clientId: runtime.clientId });
-        turn.announceQuestion({ type: 'agent-question', callId, questions: items });
+  /**
+   * One server-push frame from the Harness's two downlink streams. Durable session events and
+   * chunk deltas route by session id into the live turn's (or a child session's) projector;
+   * answerable asks (approvals, the agent's own questions) land in the pending maps for the chat's
+   * cards; the rest is state this bridge does not consume (queue mirrors, projections, job sets).
+   */
+  function onGatewayFrame(rt, stream, frame, rpcId) {
+    if (process.env.STRATA_FRAME_LOG) {
+      const data = frame.event && ['permission/preset', 'sandbox/mode', 'approval/policy', 'command/run', 'command/done'].includes(frame.event.type) ? ' ' + JSON.stringify(frame.event.data) : frame.type === 'approval/requested' ? ' ' + JSON.stringify({ tool: frame.toolName, reason: frame.reason }) : '';
+      try { appendFileSync(process.env.STRATA_FRAME_LOG, Date.now() + ' ' + stream + ' ' + (frame.type ?? '?') + ' ' + (frame.sessionId ?? '').slice(-8) + ' ' + (frame.event?.type ?? '') + data + '\n'); } catch {}
+    }
+    if (stream === 'mux') {
+      // Cheap mirrors of durable session state that the bridge used to read back through RPCs:
+      // the active permission preset (applyMode) and the goal whole-value (goal flows).
+      if (frame.type === 'session/event') {
+        const e = frame.event;
+        if (e?.type === 'permission/preset') rt.permissions.set(frame.sessionId, e.data?.preset ?? null);
+        else if (e?.type === 'goal/change') {
+          rt.goals.set(frame.sessionId, e.data?.goal ?? null);
+          // The goal bar and the running turn's round status follow the goal events now (0.2.3 has
+          // no goals/get read-back): announce through the chat's goal channel when one exists.
+          const chatId = chatOfSession(frame.sessionId);
+          if (chatId) {
+            const goal = goalObject(rt.goals.get(frame.sessionId) ?? null, chatId);
+            if (goal) onGoal(chatId, goal);
+            chats.get(chatId)?.turn?.announceGoal?.();
+          }
+        }
       }
-    } else if (value.type === 'cancel') {
-      for (const [k, v] of questions) if (v.eventId === value.eventId) { questions.delete(k); chats.get(chatOfSession(v.sessionId))?.turn?.announceQuestion?.({ type: 'agent-question-end', callId: v.callId }); }
-      for (const [k, v] of pending) if (v.eventId === value.eventId) pending.delete(k);
+    }
+    if (stream === 'host') {
+      if (frame.type === 'host/agent-error') log(`agent · agent error: ${redact(String(frame.message ?? ''), Object.values(rt.profile.env))}`);
+      return;
+    }
+    switch (frame.type) {
+      case 'session/subscribed': {
+        rt.baselines.set(frame.sessionId, frame.lastSeq);
+        rt.liveSessions.add(frame.sessionId);
+        // A turn that attached after its session existed starts from the baseline, so the events of
+        // anything that ran before it are dropped by the sequence guard instead of replayed.
+        const turn = turnBySession(frame.sessionId);
+        if (turn && turn.lastSeq < 0) turn.lastSeq = frame.lastSeq;
+        return;
+      }
+      case 'session/event': {
+        const event = frame.event;
+        // A child session announces itself with a durable subagent/descriptor inside its initial turn
+        // (0.2.3; the 0.2.2 `subagent/catalog` parent event is gone). The descriptor's session IS the
+        // child; it belongs to the live turn that has subagent calls in flight.
+        if (event?.type === 'subagent/descriptor' && !turnBySession(frame.sessionId)) {
+          for (const c of chats.values()) {
+            const t = c.turn;
+            if (t && !t.finished && (t.subagentCalls.size > 0 || t.children.size > 0)) {
+              rt.liveSessions.add(frame.sessionId);
+              // Claim the delegation call in spawn order: its prompt names the helper's task (the
+              // 0.2.3 background-spawn result carries a job id, not the child session id).
+              const claimed = t.claimedCalls ??= new Set();
+              let task = null;
+              for (const [callId, call] of t.subagentCalls) {
+                if (claimed.has(callId)) continue;
+                claimed.add(callId);
+                task = call.prompt ?? call.description;
+                break;
+              }
+              t.openChild({ childId: frame.sessionId, label: event.data?.label ?? 'Helper', mode: event.data?.mode ?? 'unknown' });
+              const child = t.children.get(frame.sessionId);
+              if (child && task) child.cp.task = String(task).replace(/\s+/g, ' ').trim().slice(0, 140);
+              break;
+            }
+          }
+          return;
+        }
+        const item = event?.type === 'assistant/chunk'
+          ? { type: 'assistant-stream', frame: { type: 'chunk', chunk: event.data?.chunk ?? {}, attemptId: `t${event.data?.turn}r${event.data?.step}` } }
+          : { type: 'event', event };
+        routeItemTo(frame.sessionId, item);
+        return;
+      }
+      case 'approval/requested': {
+        if (!frame.callId) return;
+        pending.set(`${frame.sessionId}:${frame.callId}`, { rpcId, approvalId: frame.approvalId, sessionId: frame.sessionId, callId: frame.callId, tool: frame.toolName, reason: frame.reason ?? null, at: Date.now() });
+        return;
+      }
+      case 'approval/resolved': {
+        for (const [k, v] of pending) if (v.approvalId === frame.approvalId) pending.delete(k);
+        return;
+      }
+      case 'question/requested': {
+        const r = frame;
+        const chatId = chatOfSession(frame.sessionId);
+        const turn = chatId ? chats.get(chatId)?.turn : null;
+        const items = parseQuestions(r.questions);
+        // A goal or a plan step runs without anyone there: a question would stall it, so it is declined at once (the model reads "could not be answered" and goes on).
+        if (!turn || turn.finished || turn.stopping || turn.goalRun || turn.plan || !turn.announceQuestion || !items.length) {
+          void rt.gw.answer({ rpcId }, { error: { code: 'unavailable', message: 'there is nobody to answer this question' } }).catch(() => {});
+        } else {
+          const callId = rpcId;
+          questions.set(`${frame.sessionId}:${callId}`, { rpcId, sessionId: frame.sessionId, callId, items, at: Date.now() });
+          turn.announceQuestion({ type: 'agent-question', callId, questions: items });
+        }
+        return;
+      }
+      case 'question/resolved': {
+        for (const [k, v] of questions) if (v.rpcId === frame.questionRpcId) { questions.delete(k); chats.get(chatOfSession(v.sessionId))?.turn?.announceQuestion?.({ type: 'agent-question-end', callId: v.callId }); }
+        return;
+      }
+      default: return;   // queue, job and projection mirrors are state this bridge keeps itself
+    }
+  }
+
+  /** The live turn whose session id this is, for the frame router. */
+  function turnBySession(sessionId) {
+    const chatId = chatOfSession(sessionId);
+    const c = chatId ? chats.get(chatId) : null;
+    return c?.turn?.sessionId === sessionId ? c.turn : null;
+  }
+
+  /** Route one session frame to its consumer: a child session's fold, or the parent turn's handle.
+   *  Child sessions are not in the chat→session map (only chats are), so the scan walks the live
+   *  turns' children first; a helper of a finished turn keeps its late frames dropped, as before. */
+  function routeItemTo(sessionId, item) {
+    for (const c of chats.values()) {
+      const turn = c.turn;
+      if (!turn) continue;
+      const child = turn.children.get(sessionId);
+      if (child) { child.fold(item); return; }
+      if (turn.sessionId === sessionId) { turn.routeItem(item); return; }
     }
   }
 
@@ -321,7 +435,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     // in the new folder (the earlier conversation is carried into its first message, as for any fresh session).
     if (known && cwd && known.cwd && resolve(known.cwd) !== resolve(cwd)) { delete sessionMap[c.id]; persist(); known = null; }
     if (known) return { sessionId: known.sessionId, fresh: false };
-    const created = await createSessionWhenReady(() => runtime.gw.rpc('session/create', { request: { cwd } }), { readyMs: sessionReadyMs, retryMs: sessionRetryMs, onWait, cancelled: () => c.cancelStart });
+    const created = await createSessionWhenReady(() => runtime.gw.rpc('session.create', { cwd, agentPreset: 'strata-standard' }), { readyMs: sessionReadyMs, retryMs: sessionRetryMs, onWait, cancelled: () => c.cancelStart });
     if (!created) return null;
     sessionMap[c.id] = { sessionId: created.sessionId, cwd, createdAt: new Date().toISOString() };
     persist();
@@ -333,18 +447,36 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
    * check that it took. A turn never starts in a mode other than the one asked for: if the switch cannot be
    * confirmed the turn fails closed with a typed error instead of running with unknown permissions.
    */
+  /**
+   * Run one slash command through the gateway's remote `commands/execute` face (the command
+   * registry's RPC; `session.prompt` would hand the text to the model). The value carries the
+   * execution receipt: `{commandId, result: {kind, text}}`.
+   */
+  async function runCommand(runtime, sessionId, line, { signal } = {}) {
+    return runtime.gw.rpc('commands/execute', { args: { agentId: sessionId, line, images: [] } }, { signal });
+  }
+
   async function applyMode(runtime, sessionId, mode) {
     const want = MODE_PRESETS[mode].key;
-    const read = async () => {
-      const r = await runtime.gw.rpc('session/projections', { request: { sessionId, keys: ['permissions'] } });
-      return r?.values?.permissions?.currentValue ?? null;
+    // The active preset rides the mux mirror (durable `permission/preset` events). The switch goes
+    // through the gateway's remote `/permission` command, whose receipt names the preset it settled
+    // ("preset strata-manual") — the write side's own words, and the only authority for a session that
+    // was already AT the target: a preset no-op appends no event at all, so a cold mirror cannot be
+    // read back through projections (which expose the sandbox-mode knob, never the preset name).
+    const read = () => runtime.permissions.get(sessionId) ?? null;
+    const waitUntil = async want => {
+      for (let i = 0; i < 60 && read() !== want; i++) await new Promise(r => setTimeout(r, 50));
+      return read();
     };
     try {
-      if (await read() !== want) {
-        const done = await runtime.gw.rpc('commands/execute', { agentId: sessionId, line: `/permission ${want}`, submittedAttachments: [] });
+      if (read() !== want) {
+        const done = await runCommand(runtime, sessionId, `/permission ${want}`);
         if (done?.result?.kind !== 'success') throw new Error(done?.result?.text ?? 'the agent did not recognise the command');
-        const now = await read();
-        if (now !== want) throw new Error(`the session reports "${now}" instead of "${want}"`);
+        runtime.permissions.set(sessionId, want);
+        const now = await waitUntil(want);
+        if (now !== want && !String(done.result.text ?? '').includes(want)) {
+          throw new Error(`the session reports "${now ?? 'unknown'}" instead of "${want}"`);
+        }
       }
     } catch (e) {
       throw new AgentUnavailable(`Strata could not set this chat to ${MODE_PRESETS[mode].name} mode, so nothing ran. Try again.`, 'mode-unavailable', e.message);
@@ -352,7 +484,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     // Manual leaves the sandbox open and relies on the Strata gate to ask first. Without the gate it must not start.
     if (mode === 'manual' && !runtime.gateChecked) {
       try {
-        const probe = await runtime.gw.rpc('commands/execute', { agentId: sessionId, line: '/strata-gate', submittedAttachments: [] });
+        const probe = await runCommand(runtime, sessionId, '/strata-gate');
         if (probe?.result?.kind !== 'success' || !String(probe.result.text ?? '').includes('strata-gate active')) throw new Error('the approval gate is not loaded');
         runtime.gateChecked = true;
       } catch (e) {
@@ -430,7 +562,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     const provider = route.shaped && (budget || sampling) ? route.shaped[budget] : route.route;
     const wanted = `${provider}/${route.modelId}/${level ?? ''}`;
     if (c.route !== wanted || c.routeGeneration !== runtime.generation) {
-      const select = effort => runtime.gw.rpc('session/selectModel', { request: { sessionId, provider, model: route.modelId, ...(effort ? { reasoningEffort: effort } : {}) } });
+      const select = effort => runtime.gw.rpc('session.selectModel', { sessionId, provider, model: route.modelId, ...(effort ? { reasoningEffort: effort } : {}) });
       try {
         try { await select(level); } catch (e) { if (!level || e.code === 'session/not-found') throw e; await select(null); }
       } catch (e) {
@@ -442,6 +574,12 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
 
     // The chat's permission mode is read once, here, for this whole turn. A change the user makes while the
     // turn runs applies to the next one, so a running turn never sees its permissions move under it.
+    // A session resumed under a NEW Harness process must be materialized first (0.2.3: the gateway's
+    // command face only reaches live agents — otherwise a mode switch would land on the default agent).
+    if (!runtime.liveSessions.has(sessionId)) {
+      try { await runtime.gw.rpc('session.create', { cwd: workspacePath ?? join(root, 'workspaces', sessionId), sessionId }); } catch { /* session-conflict = it is already live here */ }
+      runtime.liveSessions.add(sessionId);
+    }
     const appliedMode = planTask ? 'plan' : modeOf(mode);
     await applyMode(runtime, sessionId, appliedMode);
 
@@ -490,9 +628,10 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     if (!goal) { const guardLimits = agentGuard(); guard = new TurnGuard({ plan: !!planTask, contextMax: route.kind === 'local' ? route.contextWindow : 0, limits: { identicalCalls: guardLimits.identicalCalls, compactFailures: guardLimits.compactFailures } }); }   // a saved connection's window is often only assumed: never judged by a guess
     projector.onStatus = update => { if (!turn?.parentOpen && turn?.children.size && [...turn.children.values()].some(h => !h.done) && update.phase === 'waiting') return; reporter.set(update); };
     const turn = {
-      sessionId, projector, route, requestId, live: false, lastSeq: -1,
-      ended: deferred(), follow: null, snapshot: deferred(), finished: false, prompted: false, stopBeforePrompt: false,
+      sessionId, projector, route, requestId, live: false, lastSeq: runtime.baselines.get(sessionId) ?? -1,
+      ended: deferred(), finished: false, prompted: false, stopBeforePrompt: false,
       abortFromRuntime: reason => finishTurn(reason), finish: failure => finishTurn(failure),
+      routeItem: item => handle(item), openChild: d => openChild(d),
       // Helper agents (subagents) the Harness started for this chat, and the state of the run around them.
       children: new Map(), subagentCalls: new Map(), parentOpen: false, stopping: false, settleTimer: null, mode: appliedMode,
       plan: null, advancing: false, goalRun: false, lastActivity: Date.now(), heard: Date.now(), engineMark: null, watchdog: null,
@@ -530,7 +669,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
         }
         if (!h.done && !h.interruptedForStall && turn.lastActivity && Date.now() - turn.lastActivity > 10 * 60_000) {
           h.interruptedForStall = true;
-          void runtime.gw.rpc('subagents/interruptByParent', { childSessionId: h.id, parentSessionId: sessionId, mode: 'continuable' }).catch(() => {});
+          void runtime.gw.rpc('subagent.interrupt', { childSessionId: h.id, parentSessionId: sessionId, mode: 'continuable' }).catch(() => {});
         }
       }
       const toolRunning = [...projector.tools.values()].some(x => x.card?.state === 'running' || x.card?.state === 'proposed') || pending.size > 0 && pendingFor(chatId).length > 0;
@@ -545,8 +684,8 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
       if (Date.now() - turn.lastActivity < limit) return;
       turn.stalledFor = Math.round((Date.now() - turn.lastActivity) / 1000);
       turn.stopping = true;
-      void runtime.gw.rpc('session/cancel', { request: { sessionId } }).catch(() => {});
-      for (const h of turn.children.values()) if (!h.done) void runtime.gw.rpc('subagents/interruptByParent', { childSessionId: h.id, parentSessionId: sessionId, mode: 'continuable' }).catch(() => {});
+      void runtime.gw.rpc('session.cancel', { sessionId }).catch(() => {});
+      for (const h of turn.children.values()) if (!h.done) void runtime.gw.rpc('subagent.interrupt', { childSessionId: h.id, parentSessionId: sessionId, mode: 'continuable' }).catch(() => {});
       const mins = Math.max(1, Math.round(turn.stalledFor / 60));
       turn.finish(`The assistant stopped answering for ${mins > 1 ? mins + ' minutes' : 'a minute'}, so I ended this turn. Anything it already finished is kept. Send your message again to go on.`);
     }, Math.min(15_000, Math.max(200, Math.floor(stallMs / 4))));
@@ -557,8 +696,6 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
       for (const [k, v] of questions) if (v.sessionId === turn.sessionId) questions.delete(k);
       clearTimeout(turn.settleTimer);
       clearInterval(turn.watchdog);
-      turn.follow?.close();
-      for (const child of turn.children.values()) child.follow?.close();
       if (turn.stopping && !failure) projector.ended = turn.guard ? { kind: 'completed' } : { kind: 'aborted', reason: { kind: 'user' } };
       reporter.clear();
       const extra = [];
@@ -605,18 +742,8 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
 
     emit({ type: 'start', model: route.name, contextMax: route.contextWindow, demo: false, remoteModel: route.kind === 'api', agent: true, mode: appliedMode, sessionId, requestId, skills: [], ...(planTask ? { planning: true } : {}) });
 
-    turn.follow = runtime.gw.openStream('session/follow', { request: { address: { kind: 'session', sessionId }, assistantStream: true } }, {
-      onItem: item => {
-        if (item.type === 'snapshot') {
-          if (turn.lastSeq < 0) turn.lastSeq = item.cursor;
-          else for (const r of item.records ?? []) if (r.type === 'event' && r.event.seq > turn.lastSeq) handle({ type: 'event', event: r.event });
-          turn.snapshot.resolve();
-          return;
-        }
-        handle(item);
-      },
-      onError: e => finishTurn(`The agent lost the session stream: ${e.message}`),
-    });
+    // The frames of every session arrive on the runtime's shared downlink streams; this turn's share
+    // is routed in (onGatewayFrame → routeItemTo). There is nothing to subscribe per turn.
 
     /** The guard says stop: end the turn the way Stop does, but as a normal end with a plain message (finishTurn). */
     function trip(reason) {
@@ -634,12 +761,9 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
         const e = item.event;
         if (e.seq <= turn.lastSeq) return;
         turn.lastSeq = e.seq;
-        // The turn is ours from the user message that carries our request id. Until then an older,
-        // detached turn on the same session may still be finishing; its events are not ours.
-        if (!turn.live) {
-          if (e.type === 'user/message' && e.data?.source?.rpcId === requestId) turn.live = true;
-          return;
-        }
+        // Events that predate this turn's prompt are an older turn's (or the session's own history):
+        // the live flag turns them off, and it is set the moment this turn's prompt is accepted.
+        if (!turn.live) return;
       } else if (!turn.live) return;
       for (const f of projector.consume(item)) emit(f);
       if (guard && projector.contextTokens != null) trip(guard.context(projector.contextTokens));
@@ -662,7 +786,7 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
       const id = d.childId;
       if (!id || turn.children.has(id)) return;
       const cp = new ChildProjector({ id, name: d.label || 'Helper' });
-      const child = { id, cp, follow: null, noticed: false, done: false, lastRow: 0, rowPending: false, endedAt: 0 };
+      const child = { id, cp, noticed: false, done: false, lastRow: 0, rowPending: false, endedAt: 0 };
       turn.children.set(id, child);
       emitRow(child, true);
       const fold = item => {
@@ -676,19 +800,10 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
         if (item.type === 'event' && child.done && cp.status === 'working') { child.done = false; }
         if (row) emitRow(child);
       };
-      child.follow = runtime.gw.openStream('session/follow', {
-        request: { address: { kind: 'subagent', parentSessionId: sessionId, childSessionId: id, mode: d.mode ?? 'unknown' }, assistantStream: true },
-      }, {
-        onItem: item => {
-          if (item.type === 'snapshot') { for (const r of item.records ?? []) if (r.type === 'event') fold({ type: 'event', event: r.event }); return; }
-          fold(item);
-        },
-        onError: e => {
-          log(`agent · helper stream ended: ${e.message}`);
-          if (!child.done) { child.done = true; child.endedAt = Date.now(); cp.status = 'failed'; cp.failure = 'Lost contact with this helper.'; cp.endedAt = Date.now(); emitRow(child, true); armSettle(); }
-        },
-      });
-      // A late reader still gets the final row: flush any row held back by the throttle.
+      // The helper's frames arrive on the runtime's shared downlink streams, routed here by session id
+      // (onGatewayFrame → routeItemTo). A helper that vanishes from the streams is caught by the stall
+      // watchdog, not by a socket error.
+      child.fold = fold;
       child.flush = after(500, function tick() { if (!turn.finished && child.rowPending) emitRow(child, true); if (!turn.finished && !child.done) child.flush = after(500, tick); });
     }
 
@@ -701,7 +816,7 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
           turn.cutWaiting = false;
           clearTimeout(turn.settleTimer);
           // After Stop, a helper's report would start a new turn that nobody asked for.
-          if (turn.stopping) void runtime.gw.rpc('session/cancel', { request: { sessionId } }).catch(() => {});
+          if (turn.stopping) void runtime.gw.rpc('session.cancel', { sessionId }).catch(() => {});
           break;
         case 'turn/end':
           turn.parentOpen = false;
@@ -719,7 +834,8 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
           openChild(d);
           break;
         case 'tool/result': {
-          const call = turn.subagentCalls.get(d.message?.toolCallId);
+          const resultBlock = (d.message?.content ?? []).find(b => b?.type === 'tool-result');
+          const call = turn.subagentCalls.get(d.message?.toolCallId ?? resultBlock?.toolCallId);
           const text = (d.message?.content ?? []).map(p => p.text ?? '').join(' ');
           const started = /started subagent ([0-9a-f-]{36})/i.exec(text);
           const child = started ? turn.children.get(started[1]) : null;
@@ -786,7 +902,7 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
     async function startStep(plan, index) {
       plans.update(chatId, p => { p.state = 'running'; p.goalStarted = true; p.steps[index].state = 'running'; });
       const now = plans.get(chatId);
-      await runtime.gw.rpc('goals/create', { agentId: sessionId, request: { objective: stepObjective(now, index) } });
+      await runtime.gw.rpc('goal.create', { sessionId, objective: stepObjective(now, index) });
       written.step = ''; written.stepAt = Date.now();
       emit(stepFrame(now, index));
       emit(publishPlan('step', now));
@@ -827,7 +943,7 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
         if (!list.length) queues.delete(chatId);
         onQueue(chatId, queueView(chatId));
         emit({ type: 'queued-message', state: 'delivered', message: { id: item.id, text: item.text, at: item.at, deliverAt: item.deliverAt }, afterStep, queue: queueView(chatId) });
-        try { await runtime.gw.rpc('session/prompt', { request: { requestId: `queued-${randomUUID()}`, sessionId, mode: 'queue', content: [{ type: 'text', text: item.text }] } }); }
+        try { await runtime.gw.rpc('session.prompt', { sessionId, mode: 'queue', content: [{ type: 'text', text: item.text }] }); }
         catch { emit({ type: 'queued-release', messages: [{ id: item.id, text: item.text }] }); continue; }
         // Wait for the answer: the parent opens a turn for it and closes it again.
         const t0 = Date.now();
@@ -850,10 +966,12 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
         if (open.some(c => !c.done)) return;
         if (!turn.stopping) {
           if (open.some(c => !c.noticed && Date.now() - c.endedAt < 8000)) { armSettle(); return; }
-          // An armed goal starts its next round as soon as the agent is idle: the run is not over until the goal stops.
+          // A goal that still runs starts its next round as soon as the agent is idle: the run is not over
+          // until the goal stops. 0.2.3: `activation` is process-local on the Harness side and no longer
+          // rides the durable change events, so the durable phase is the only thing the bridge can read.
           const current = await goalGet();
           if (turn.finished || turn.parentOpen) return;
-          if (current && current.phase === 'active' && current.activation === 'armed') { turn.settleTimer = after(700, armSettle); return; }
+          if (current && current.phase === 'active') { turn.settleTimer = after(700, armSettle); return; }
           // A reply the length limit cut (AGENT-LOST): the agent lost what it was writing. Say so in the chat and ask it to carry on in smaller pieces, twice at most.
           if (turn.cutWaiting) { turn.settleTimer = after(300, armSettle); return; }
           if (projector.ended?.kind === 'max-tokens' && !turn.goalRun && !turn.stopping && (turn.cuts ?? 0) < MAX_CUT_RETRIES) {
@@ -867,7 +985,7 @@ ${note.text}
 `, key: note.key, values: note.values, noteReason: 'cut' });
             for (const f of projector.clearCut()) emit(f);
             turn.cutWaiting = true;
-            try { await runtime.gw.rpc('session/prompt', { request: { requestId: `cut-${randomUUID()}`, sessionId, mode: 'queue', content: [{ type: 'text', text: cutNudge(cut) }] } }); }
+            try { await runtime.gw.rpc('session.prompt', { sessionId, mode: 'queue', content: [{ type: 'text', text: cutNudge(cut) }] }); }
             catch { turn.cutWaiting = false; finishTurn(null); return; }
             turn.settleTimer = after(500, armSettle);
             return;
@@ -881,7 +999,7 @@ ${note.text}
             if (prompt) {
               if (prompt !== RESEARCH_NUDGE) { r.phase = 'write'; hideDeltas = false; written.all = ''; reporter.set({ phase: 'waiting', code: 'research-writing', text: 'Writing the answer…', key: 'Writing the answer…', values: [], args: {} }); } else r.nudged = true;
               r.waitingStart = true;
-              try { await runtime.gw.rpc('session/prompt', { request: { requestId: `research-${randomUUID()}`, sessionId, mode: 'queue', content: [{ type: 'text', text: prompt }] } }); }
+              try { await runtime.gw.rpc('session.prompt', { sessionId, mode: 'queue', content: [{ type: 'text', text: prompt }] }); }
               catch { r.waitingStart = false; hideDeltas = false; finishTurn(null); return; }
               turn.settleTimer = after(500, armSettle);
               return;
@@ -902,12 +1020,16 @@ ${note.text}
         finishTurn(null);
       });
     }
-    const goalGet = () => runtime.gw.rpc('goals/get', { agentId: sessionId }).catch(() => undefined);
+    const goalGet = () => Promise.resolve(runtime.goals.get(sessionId) ?? null);
     /** The goal's state to the page: a `goal` frame, the SSE event for the bar, and (while a round runs) the status line. */
     async function announceGoal(final = false) {
       const view = await goalGet();
       if (turn.finished && !final) return;
       const goal = goalObject(view, chatId);
+      // 0.2.3 creates the goal through a fire-and-forget dot RPC: the mirror may lag the prompt for
+      // a beat, and the goal/change frame announces the objective the moment it lands. Emitting a
+      // null goal here would race ahead of it as a wrong first frame.
+      if (!goal && !final) return;
       emit({ type: 'goal', goal });
       onGoal(chatId, goal);
       if (!final && goal && goal.phase === 'active' && turn.goalRound) reporter.set({ phase: 'goal', code: 'goal-step', text: 'Working on the goal…', args: { round: turn.goalRound, max: goal.maxRounds } });
@@ -916,11 +1038,6 @@ ${note.text}
     turn.announceQueue = frame => emit(frame);
     turn.announceQuestion = frame => emit(frame);
 
-    const snapshotTimer = {};
-    await Promise.race([turn.snapshot.promise, new Promise((_, rej) => { snapshotTimer.t = after(20_000, () => rej(new Error('the session stream did not open'))); })])
-      .catch(e => { finishTurn(e.message); })
-      .finally(() => clearTimeout(snapshotTimer.t));
-    if (turn.finished) return { error: true };
     if (turn.stopBeforePrompt || c.cancelStart) { projector.ended = { kind: 'aborted', reason: { kind: 'user' } }; finishTurn(null); return { cancelled: true }; }
 
     if (goal) {
@@ -948,7 +1065,10 @@ ${note.text}
       let prompt = message;
       if (fresh && history.length) prompt = withEarlierConversation(history, message);
       try {
-        await runtime.gw.rpc('session/prompt', { request: { requestId, sessionId, mode: 'queue', content: [{ type: 'text', text: prompt }, ...imageParts(images)] } });
+        await runtime.gw.rpc('session.prompt', { sessionId, mode: 'queue', content: [{ type: 'text', text: prompt }, ...imageParts(images)] });
+        // The turn is ours from the moment the prompt is accepted: the sequence baseline drops
+        // everything older, so there is no detached-turn ambiguity left to wait out.
+        turn.live = true;
       } catch (e) {
         finishTurn(`The agent did not accept the message: ${e.message}`);
         return { error: true };
@@ -960,7 +1080,7 @@ ${note.text}
       // Stop landed in the instant between 'prompt sent' and 'prompt accepted'. A cancel before the turn
       // starts arms nothing, so wait for the turn to be ours, then cancel it.
       for (let i = 0; i < 100 && !turn.live && !turn.finished; i++) await new Promise(r => setTimeout(r, 50));
-      if (!turn.finished) await runtime.gw.rpc('session/cancel', { request: { sessionId } }).catch(() => {});
+      if (!turn.finished) await runtime.gw.rpc('session.cancel', { sessionId }).catch(() => {});
     }
 
     // Wait for the turn, or for the client to leave. Leaving does not stop the turn.
@@ -976,20 +1096,20 @@ ${note.text}
   async function startGoal(runtime, sessionId, goal) {
     if (goal.action === 'create') {
       const request = { objective: goal.objective, ...(goal.maxRounds ? { maxGoalRounds: goal.maxRounds } : {}) };
-      await runtime.gw.rpc('goals/create', { agentId: sessionId, request });
+      await runtime.gw.rpc('goal.create', { sessionId, ...request });
       return;
     }
-    const current = await runtime.gw.rpc('goals/get', { agentId: sessionId });
+    const current = runtime.goals.get(sessionId) ?? null;
     if (!current) throw new AgentUnavailable('There is no goal to continue. Start one with /goal followed by what you want done.', 'goal-none');
-    await runtime.gw.rpc('goals/resume', { agentId: sessionId, ref: { id: current.id, revision: current.revision } });
+    await runtime.gw.rpc('goal.resume', { sessionId, ref: { id: current.id, revision: current.revision } });
   }
 
   async function pauseGoal(runtime, sessionId, chatId = null) {
     try {
-      const current = await runtime.gw.rpc('goals/get', { agentId: sessionId });
+      const current = runtime.goals.get(sessionId) ?? null;
       if (current && current.phase === 'active') {
-        await runtime.gw.rpc('goals/pause', { agentId: sessionId, ref: { id: current.id, revision: current.revision } });
-        if (chatId) onGoal(chatId, goalObject(await runtime.gw.rpc('goals/get', { agentId: sessionId }).catch(() => undefined)));
+        await runtime.gw.rpc('goal.pause', { sessionId, ref: { id: current.id, revision: current.revision } });
+        if (chatId) onGoal(chatId, goalObject(runtime.goals.get(sessionId) ?? null));
       }
     } catch { /* no goal service, or nothing to pause */ }
   }
@@ -1010,27 +1130,39 @@ ${note.text}
   async function goalState(chatId) {
     const known = sessionMap[chatId]?.sessionId;
     if (!known || !rt?.hp.running) return null;
-    return goalObject(await rt.gw.rpc('goals/get', { agentId: known }).catch(() => undefined), chatId);
+    return goalObject(rt.goals.get(known) ?? null, chatId);
   }
 
   /** Pause, edit or remove the goal from the goal bar. Instant; resume runs rounds and goes through the chat stream. */
   async function goalControl({ chatId, action, text }) {
     const known = sessionMap[chatId]?.sessionId;
     if (!known || !rt?.hp.running) throw new AgentUnavailable('There is no goal in this chat yet.', 'goal-none');
-    const current = await rt.gw.rpc('goals/get', { agentId: known }).catch(() => undefined);
+    const current = rt.goals.get(known) ?? null;
     if (!current) throw new AgentUnavailable('There is no goal in this chat yet.', 'goal-none');
     const ref = { id: current.id, revision: current.revision };
     try {
-      if (action === 'pause') { if (current.phase === 'active') await rt.gw.rpc('goals/pause', { agentId: known, ref }); }
-      else if (action === 'clear') await rt.gw.rpc('goals/clear', { agentId: known, ref });
+      if (action === 'pause') { if (current.phase === 'active') await rt.gw.rpc('goal.pause', { sessionId: known, ref }); }
+      else if (action === 'clear') await rt.gw.rpc('goal.clear', { sessionId: known, ref });
       else if (action === 'edit') {
         const objective = String(text ?? '').trim().slice(0, 4000);
         if (!objective) throw new AgentUnavailable('A goal needs a few words about what you want done.', 'goal-text');
-        await rt.gw.rpc('goals/edit', { agentId: known, ref, request: { objective } });
+        await rt.gw.rpc('goal.edit', { sessionId: known, ref, objective });
       } else throw new AgentUnavailable('That goal action is not known.', 'goal-action');
     } catch (e) { throw e instanceof AgentUnavailable ? e : new AgentUnavailable(plainGoalError(e), 'goal-failed', e.message); }
+    // The goal/change event rides the mux and may land a beat after the RPC returns: let the mirror
+    // catch up so the announce below reads the committed state, not the one before it.
+    for (let i = 0; i < 40; i++) {
+      const now = rt.goals.get(known) ?? null;
+      const settled = action === 'clear' ? now === null
+        : action === 'pause' ? now?.phase === 'paused'
+        : action === 'resume' ? now?.phase === 'active'
+        : action === 'complete' ? now?.phase === 'complete'
+        : now?.objective === String(text ?? '').trim().slice(0, 4000);
+      if (settled || action === 'explode') break;
+      await new Promise(r => setTimeout(r, 50));
+    }
     if (action === 'clear') { const plan = plans.get(chatId); if (plan && ['running', 'paused'].includes(plan.state)) { plans.update(chatId, p => { p.state = 'stopped'; for (const st of p.steps) if (st.state === 'running') st.state = 'pending'; }); onPlan(chatId, 'stopped', planView(plans.get(chatId))); } }
-    const goal = action === 'clear' ? null : goalObject(await rt.gw.rpc('goals/get', { agentId: known }).catch(() => undefined), chatId);
+    const goal = action === 'clear' ? null : goalObject(rt.goals.get(known) ?? null, chatId);
     onGoal(chatId, goal);
     return { goal };
   }
@@ -1068,20 +1200,20 @@ ${note.text}
     let runtime = rt;
     if (quick) {
       if (!known || !runtime?.hp.running) return say(verb === '' || verb === 'status' ? describeGoal(null) : 'There is no goal in this chat yet.');
-      const current = await runtime.gw.rpc('goals/get', { agentId: known }).catch(() => undefined);
+      const current = runtime.goals.get(known) ?? null;
       const ref = current ? { id: current.id, revision: current.revision } : null;
       try {
         if (verb === '' || verb === 'status') return say(describeGoal(current));
         if (!ref) return say('There is no goal in this chat yet.');
-        if (verb === 'clear') { await runtime.gw.rpc('goals/clear', { agentId: known, ref }); return say('The goal is cleared.'); }
+        if (verb === 'clear') { await runtime.gw.rpc('goal.clear', { sessionId: known, ref }); return say('The goal is cleared.'); }
         if (verb === 'pause') {
-          if (current.phase === 'active') await runtime.gw.rpc('goals/pause', { agentId: known, ref });
-          return say(describeGoal(await runtime.gw.rpc('goals/get', { agentId: known })));
+          if (current.phase === 'active') await runtime.gw.rpc('goal.pause', { sessionId: known, ref });
+          return say(describeGoal(runtime.goals.get(known) ?? null));
         }
-        if (verb === 'complete') { await runtime.gw.rpc('goals/complete', { agentId: known, ref }); return say('The goal is marked complete.'); }
+        if (verb === 'complete') { await runtime.gw.rpc('goal.complete', { sessionId: known, ref }); return say('The goal is marked complete.'); }
         if (verb === 'edit') {
           if (!rest) return say('Type /goal edit followed by the new wording of the goal.');
-          await runtime.gw.rpc('goals/edit', { agentId: known, ref, request: { objective: rest } });
+          await runtime.gw.rpc('goal.edit', { sessionId: known, ref, objective: rest });
           return say(`The goal now reads: "${rest}".`);
         }
       } catch (e) { return say(plainGoalError(e)); }
@@ -1221,16 +1353,20 @@ ${note.text}
 
   /**
    * The person's answer to a question the agent asked (#4244), or a skip. The answer is checked against the questions that were asked, then sent
-   * to the Harness as the result of the waiting `user-questions/request`; a skip declares the question unanswerable, as before, and the model
-   * carries on.
+   * as the result of the answerable server-request the question rode in on; a skip declares the question unanswerable (ok:false), as before, and
+   * the model carries on.
    */
   async function answerQuestion({ chatId, callId, answers, skip = false }) {
     const sessionId = sessionMap[chatId]?.sessionId;
     const key = `${sessionId}:${callId}`;
     const entry = questions.get(key);
     if (!entry || !rt?.hp.running) throw new AgentUnavailable('That question was already answered, or the assistant has gone on.', 'question-gone');
-    const outcome = skip ? 'next' : buildAnswer(entry.items, answers);
-    await rt.gw.answerEvent({ clientId: entry.clientId ?? rt.clientId, eventId: entry.eventId, outcome });
+    // A skip rides the host's only non-answer branch: a `cancelled` error settles the ask with its
+    // own fail-closed text, and the model carries on (the wire rejects every other decline shape).
+    const value = skip
+      ? { error: { code: 'cancelled', message: 'the question was skipped; there is nobody to answer it', details: {} } }
+      : { sessionId: entry.sessionId, answer: buildAnswer(entry.items, answers) };
+    await rt.gw.answer({ rpcId: entry.rpcId }, value);
     questions.delete(key);
     return { ok: true, skipped: !!skip };
   }
@@ -1250,7 +1386,7 @@ ${note.text}
     const parent = sessionMap[chatId]?.sessionId;
     if (!parent || !rt?.hp.running) throw new AgentUnavailable('The assistant is not running in this chat, so it cannot pass a message on. Send a message in the chat first.', 'helper-idle');
     try {
-      const receipt = await rt.gw.rpc('subagents/prompt', { request: { requestId: `helper-${randomUUID()}`, parentSessionId: parent, childSessionId: String(helperId), mode: 'continuable', delivery: delivery === 'steer' ? 'steer' : 'queue', content: [{ type: 'text', text: clean }] } });
+      const receipt = await rt.gw.rpc('subagent.prompt', { parentSessionId: parent, childSessionId: String(helperId), mode: 'continuable', content: [{ type: 'text', text: clean }] });
       return { ok: true, messageId: receipt?.messageId ?? null, delivery: delivery === 'steer' ? 'steer' : 'queue' };
     } catch (e) {
       log(`agent · message for a helper refused: ${String(e?.message ?? e).slice(0, 200)}`);
@@ -1317,7 +1453,7 @@ ${note.text}
         for (const [key, entry] of [...pending.entries()]) {
           if (entry.sessionId !== sessionId && !helpers?.has(entry.sessionId)) continue;
           pending.delete(key);
-          try { await rt.gw.answerEvent({ clientId: entry.clientId ?? rt.clientId, eventId: entry.eventId, outcome: want === 'bypass' ? 'allowed-once' : 'rejected' }); settled++; } catch { /* already answered */ }
+          try { await rt.gw.answer({ rpcId: entry.rpcId }, { sessionId: entry.sessionId, approvalId: entry.approvalId, outcome: want === 'bypass' ? 'allowed-once' : 'rejected' }); settled++; } catch { /* already answered */ }
         }
       }
     }
@@ -1332,18 +1468,19 @@ ${note.text}
     const [maybeChild] = String(callId).split(':');
     const ownHelper = callId.includes(':') && chats.get(chatId)?.turn?.children.has(maybeChild);
     const key = ownHelper ? callId : `${sessionId}:${callId}`;
-    // The durable `approval/asked` (which makes the card say "needs approval") and the waterfall frame
-    // (which makes it answerable) travel on different streams; a fast click can beat the second one.
+    // The durable `approval/asked` (which makes the card say "needs approval") and the answerable
+    // mux frame travel apart; a fast click can beat the frame, and the suite's parallel Harness
+    // processes add seconds of load, so the wait is generous.
     let entry = sessionId ? pending.get(key) : null;
-    for (let i = 0; !entry && sessionId && i < 40; i++) {
-      await new Promise(r => setTimeout(r, 50));
+    for (let i = 0; !entry && sessionId && i < 100; i++) {
+      await new Promise(r => setTimeout(r, 100));
       entry = pending.get(key);
     }
     if (!entry) throw new AgentUnavailable('That question is no longer waiting for an answer.', 'approval-gone');
     if (!rt?.hp.running) throw new AgentUnavailable('That question expired because the coding assistant restarted. Ask again.', 'approval-gone');
     pending.delete(key);
     try {
-      await rt.gw.answerEvent({ clientId: entry.clientId ?? rt.clientId, eventId: entry.eventId, outcome: decision === 'approve' ? 'allowed-once' : 'rejected' });
+      await rt.gw.answer({ rpcId: entry.rpcId }, { sessionId: entry.sessionId, approvalId: entry.approvalId, outcome: decision === 'approve' ? 'allowed-once' : 'rejected' });
     } catch (e) {
       throw new AgentUnavailable('Your answer could not be delivered. Ask again.', 'approval-gone', e.message);
     }
@@ -1357,7 +1494,7 @@ ${note.text}
   /** What the chat holds now and the model's window, as the context plugin measures them (null when it cannot be read). */
   async function contextOf(runtime, sessionId) {
     try {
-      const r = await runtime.gw.rpc('commands/execute', { agentId: sessionId, line: '/strata-context', submittedAttachments: [] });
+      const r = await runCommand(runtime, sessionId, '/strata-context');
       if (r?.result?.kind !== 'success') return null;
       const v = JSON.parse(String(r.result.text));
       return Number.isFinite(v.tokens) ? { tokens: Math.round(v.tokens), window: Number(v.window) > 0 ? Math.round(v.window) : 0 } : null;
@@ -1395,7 +1532,7 @@ ${note.text}
   async function compactChat(runtime, sessionId) {
     const before = await contextOf(runtime, sessionId);
     let result;
-    try { result = (await runtime.gw.rpc('commands/execute', { agentId: sessionId, line: '/compact', submittedAttachments: [] }))?.result; }
+    try { result = (await runCommand(runtime, sessionId, '/compact'))?.result; }
     catch (e) { return { ok: false, reason: /not.found|no such/i.test(String(e.message)) ? 'nothing' : 'failed', before, text: String(e.message ?? e) }; }
     const text = String(result?.text ?? '');
     log('agent · compact: ' + (result?.kind ?? 'none') + ' ' + text.slice(0, 140));
@@ -1445,7 +1582,7 @@ ${note.text}
   /** Summarise the older part of a session with the Harness's own /compact. Best effort: the next message compacts again by itself when it must. */
   async function compactSession(runtime, sessionId) {
     try {
-      const r = await runtime.gw.rpc('commands/execute', { agentId: sessionId, line: '/compact', submittedAttachments: [] });
+      const r = await runCommand(runtime, sessionId, '/compact');
       log(`agent · compact after a stopped turn: ${r?.result?.kind ?? 'done'} ${String(r?.result?.text ?? '').slice(0, 120)}`);
     } catch (e) { log(`agent · compact after a stopped turn failed: ${e.message}`); }
   }
@@ -1454,7 +1591,25 @@ ${note.text}
     const c = chats.get(chatId);
     const turn = c?.turn;
     if (!turn && c?.starting) { c.cancelStart = true; return { stopped: true, ended: 'cancelled-before-start', ms: 0 }; }
-    if (!turn || !rt) return { stopped: false, reason: 'no active turn' };
+    if (!turn || !rt) {
+      // 0.2.3: a goal's later rounds run as Harness turns of their own, so between two of them the chat has
+      // no bridge turn to cancel. Stop must still pause an active goal — pausing is what keeps the driver
+      // from starting the next round; without it the button does nothing in exactly that window. The RPC's
+      // resolution is the pause being applied; the local goal mirror trails it by a beat, so the answer
+      // comes from the RPC, not from re-reading the mirror.
+      const sessionId = c ? sessionMap[c.id]?.sessionId : sessionMap[chatId]?.sessionId;
+      if (sessionId && rt) {
+        try {
+          const current = rt.goals.get(sessionId) ?? null;
+          if (current && current.phase === 'active') {
+            await rt.gw.rpc('goal.pause', { sessionId, ref: { id: current.id, revision: current.revision } });
+            onGoal(chatId, goalObject(rt.goals.get(sessionId) ?? null));
+            return { stopped: true, ended: 'goal-paused', ms: 0 };
+          }
+        } catch { /* no goal service, or nothing to pause */ }
+      }
+      return { stopped: false, reason: 'no active turn' };
+    }
     const t0 = Date.now();
     if (!turn.prompted) {
       // The Harness has not been given the prompt yet, so there is nothing to cancel there.
@@ -1465,8 +1620,8 @@ ${note.text}
     turn.stopping = true;
     await pauseGoal(rt, turn.sessionId, chatId);
     // Helpers first: a helper still working would otherwise report back and wake the parent again.
-    await Promise.allSettled([...turn.children.values()].filter(h => !h.done).map(h => rt.gw.rpc('subagents/interruptByParent', { childSessionId: h.id, parentSessionId: turn.sessionId, mode: 'continuable' })));
-    await rt.gw.rpc('session/cancel', { request: { sessionId: turn.sessionId } }).catch(e => { if (turn.parentOpen) throw e; });
+    await Promise.allSettled([...turn.children.values()].filter(h => !h.done).map(h => rt.gw.rpc('subagent.interrupt', { childSessionId: h.id, parentSessionId: turn.sessionId, mode: 'continuable' })));
+    await rt.gw.rpc('session.cancel', { sessionId: turn.sessionId }).catch(e => { if (turn.parentOpen) throw e; });
     // Nothing is running in the parent (it was waiting for its helpers): the run ends once they are all down.
     if (!turn.parentOpen) { clearTimeout(turn.settleTimer); turn.settleTimer = after(300, () => { if (!turn.finished && !turn.parentOpen && [...turn.children.values()].every(h => h.done)) turn.finish(null); }); }
     let timer; const result = await Promise.race([turn.ended.promise, new Promise(r => { timer = after(waitMs, () => r(null)); })]);
@@ -1518,7 +1673,7 @@ ${note.text}
 
   async function close() {
     const r = rt; rt = null;
-    if (r) { r.events?.close(); r.gw.close(); await r.hp.stop(); }
+    if (r) { r.gw.close(); await r.hp.stop(); }
   }
 
   /** Let go of a chat's Harness session mapping (a task starts every run in a session of its own). */
@@ -1528,24 +1683,10 @@ ${note.text}
   async function childTranscript(parentSessionId, childSessionId) {
     const rt = rtOf(parentSessionId);
     if (!rt?.gw) throw new Error('The harness is not running.');
-    const rows = [];
-    await new Promise(resolve => {
-      let settled = false;
-      const done = () => { if (!settled) { settled = true; follow.close(); resolve(); } };
-      const follow = rt.gw.openStream('session/follow', {
-        request: { address: { kind: 'subagent', parentSessionId, childSessionId }, assistantStream: false },
-      }, {
-        onItem: item => {
-          if (item.type !== 'snapshot' || settled) return;
-          rows.push(...foldChildRecords(item.records ?? []));
-          done();
-        },
-        onError: () => done(),
-        onClose: () => done(),
-      });
-      setTimeout(done, 5000);
-    });
-    return rows;
+    // The log dialog reads the whole transcript; the history RPC pages by whole messages, so a
+    // wide ceiling here keeps the one-page shape the dialog had under the follow snapshot.
+    const page = await rt.gw.rpc('subagent.history', { parentSessionId, childSessionId, maxMessages: 500 });
+    return foldChildRecords((page?.events ?? []).map(entry => ({ type: 'event', event: entry.event })));
   }
   return { compactCommand, messageHelper, childTranscript, answerQuestion, goalState, goalControl, harnessDir, status, turnOf, runningTurns, attach, runTurn, goalCommand, planCommand, researchCommand, llmTarget, setPlanBriefing, resetSession, reopenPlan, skipStep, planGoal, planControl, planState, queueMessage, cancelQueued, takeQueue, forget, approve, setMode, stop, pendingFor, pendingAll, close, sessionOf: chatId => sessionMap[chatId]?.sessionId ?? null, workingFolder: chatId => sessionMap[chatId]?.cwd ?? null, isRunning: chatId => !!chats.get(chatId)?.turn, _debug: () => ({ rt, sessionMap }) };
 }

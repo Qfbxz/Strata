@@ -47,11 +47,11 @@ async function rig(t) {
     });
     return frames;
   };
-  /** The preset the Harness itself reports for the chat's session. */
+  /** The preset the Harness itself reports for the chat's session: the history tail's projections block (0.2.3 has no per-key projections RPC). */
   const preset = async chatId => {
     const { rt } = bridge._debug();
-    const r = await rt.gw.rpc('session/projections', { request: { sessionId: bridge.sessionOf(chatId), keys: ['permissions'] } });
-    return r.values.permissions.currentValue;
+    const r = await rt.gw.rpc('session.history', { sessionId: bridge.sessionOf(chatId) });
+    return r.projections?.values?.permissions?.currentValue ?? null;
   };
   return { worker, bridge, dir, ws, run, preset };
 }
@@ -238,6 +238,6 @@ test('MODE the mode survives a restart of the agent process: the chat resumes in
   assert.equal(bridge2.sessionOf('m-restart'), session, 'the same session');
   assert.equal(lines(join(r.ws, 'resumed.txt')), 1);
   const { rt } = bridge2._debug();
-  const now = await rt.gw.rpc('session/projections', { request: { sessionId: session, keys: ['permissions'] } });
-  assert.equal(now.values.permissions.currentValue, MODE_PRESETS.bypass.key);
+  const now = await rt.gw.rpc('session.history', { sessionId: session });
+  assert.equal(now.projections?.values?.permissions?.currentValue, MODE_PRESETS.bypass.key);
 });

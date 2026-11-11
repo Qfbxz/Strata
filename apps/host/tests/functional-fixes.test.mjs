@@ -114,8 +114,9 @@ test('item 8 / T9: starting a program that prints nothing is reported as started
 test('item 7/10: our prompt has no internal terms and is short', () => {
   assert.ok(AGENT_PROMPT.length < 1600, `${AGENT_PROMPT.length} chars`);
   assert.doesNotMatch(AGENT_PROMPT, /DSH|DeepSeek|sandbox|isolated session|file policy|Harness/i);
-  // O6 / #3576: the prompt points at the present tool for local files and never tells the model to claim a window opened
-  assert.match(AGENT_PROMPT, /use the present tool/);
+  // O6 / #3576: the prompt never tells the model to claim a window opened. The present tool
+  // sentence is gone since 0.2.3: the upstream package was removed, so no tool backs it up.
+  assert.doesNotMatch(AGENT_PROMPT, /present tool/);
   assert.match(AGENT_PROMPT, /Never say a window opened, a page rendered/);
   assert.doesNotMatch(AGENT_PROMPT, /say plainly that it is open|do not say you could not confirm/i);
 });
@@ -132,7 +133,8 @@ test('items 3, 7, 10: what the agent sends the model is small, plain, and carrie
   const req = worker.requests.find(r => r.toolNames.length);
   assert.ok(req, 'a request with tools');
   assert.equal(req.params.chat_template_kwargs.enable_thinking, false, 'Thinking Off reaches the model request');
-  for (const kept of ['pwsh', 'read', 'write', 'edit', 'glob', 'grep', 'workflow', 'create_goal', 'update_goal', 'get_goal', 'skill', 'subagent_fork']) assert.ok(req.toolNames.includes(kept), `${kept} is offered (owner decision: the goal, skill, workflow and fork tools stay)`);
+  // 0.2.3 offers one shell per platform: darwin carries bash, not pwsh (the rc.1 surface offered both).
+  for (const kept of ['bash', 'read', 'write', 'edit', 'glob', 'grep', 'workflow', 'create_goal', 'update_goal', 'get_goal', 'skill', 'subagent_fork']) assert.ok(req.toolNames.includes(kept), `${kept} is offered (owner decision: the goal, skill, workflow and fork tools stay)`);
 });
 
 // The Reasoning menu in the agent: every level reaches the model server as chat_template_kwargs, and an unset menu is Medium (owner decision).

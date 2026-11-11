@@ -98,7 +98,7 @@ const text = frames => frames.filter(f => f.type === 'delta').map(f => f.text).j
 
 test('two helpers run at the same time as two rows, the run ends when both have reported, and the delegation tool shows no raw card', { skip }, async (t) => {
   const r = await rig(t);
-  const { frames } = await r.run('kids', 'SCRIPT:spawn 2 slow 40');
+  const { frames } = await r.run('kids', 'SCRIPT:spawn 2 slow 70');
   const byId = rows(frames);
   assert.equal(byId.size, 2);
   const names = [...byId.values()].map(history => history.at(-1).name).sort();
@@ -107,7 +107,7 @@ test('two helpers run at the same time as two rows, the run ends when both have 
     assert.ok(history.some(a => a.status === 'working'), 'it worked');
     assert.equal(history.at(-1).status, 'completed');
     assert.ok(history.at(-1).tokens > 0 && history.at(-1).durationMs > 0);
-    assert.match(history[1]?.description ?? history[0].description, /SCRIPT:slow 40/, 'the row names its task');
+    assert.match(history[1]?.description ?? history[0].description, /SCRIPT:slow 70/, 'the row names its task');
   }
   // concurrent: both were working before either finished (by the order the frames arrived in, not by the clock: a loaded computer delays a frame, it does not reorder it)
   const agentFrames = frames.filter(f => f.type === 'agent');
@@ -124,10 +124,10 @@ test('two helpers run at the same time as two rows, the run ends when both have 
   assert.equal(r.worker.requests.filter(q => q.directive === 'slow').length, 2);
 });
 
-test('helpers are limited to the Harness cap (4, or the slot count if larger); the fifth is refused with a message the model reads', { skip }, async (t) => {
+test('helpers are not capped any more (the 0.2.2 jobs-layer cap is gone upstream): five spawned helpers all run', { skip }, async (t) => {
   const r = await rig(t, { slots: 2 });
   const { frames } = await r.run('few', 'SCRIPT:spawn 5 slow 30');
-  assert.equal(rows(frames).size, 4);
+  assert.equal(rows(frames).size, 5);
 });
 
 test('Manual: a helper that wants to change a file reaches the person as the same single Approve card, and the answer is honoured', { skip }, async (t) => {
@@ -189,12 +189,16 @@ test('/goal: sets a goal, runs its rounds in the chat, says how it ended, refuse
   assert.ok(ran.frames.some(f => f.type === 'status' && f.phase === 'goal' && f.code === 'goal-step' && /^Working on the goal…$/.test(f.text) && f.args.round >= 1), 'a goal-step status was sent');
   const goalFrames = ran.frames.filter(f => f.type === 'goal');
   assert.ok(goalFrames.length >= 2 && goalFrames[0].goal.objective === 'say hello a few times' && goalFrames[0].goal.maxRounds === 3, 'the goal frame carries the objective and the round limit');
-  assert.equal(goalFrames.at(-1).goal.phase, 'blocked'); assert.match(goalFrames.at(-1).goal.blocked, /most steps/);
+  // 0.2.3: every round is its own Harness turn and the round-limit settlement trails the creating
+  // turn's done, so the recorded frames stop before it — poll the live goal until the driver blocks it
+  // (three scripted rounds measured ~60 s end to end; the window is generous for a loaded computer).
+  let live = null;
+  for (let i = 0; i < 240 && (live = await r.bridge.goalState('g').catch(() => null))?.phase !== 'blocked'; i++) await new Promise(wait => setTimeout(wait, 500));
+  assert.equal(live?.phase, 'blocked'); assert.match(live.blocked, /most steps/);
   assert.equal(ran.frames.filter(f => f.type === 'status').at(-1).phase, 'idle', 'the status line is cleared before the end');
   assert.ok(ran.frames.findIndex(f => f.type === 'status' && f.phase === 'idle') < ran.frames.findIndex(f => f.type === 'done'));
-  assert.match(text(ran.frames), /The goal stopped: it worked for the most steps/);
   assert.equal(ran.frames.at(-1).type, 'done');
-  assert.match(text(await say('')), /stopped/);
+  assert.match(text(await say('')), /stopped.*most steps/s);
   assert.match((await say('a different goal')).find(f => f.type === 'error').message, /already has a goal/);
   assert.match(text(await say('clear')), /cleared/);
   // a long goal is paused by Stop, and can be resumed

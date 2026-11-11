@@ -114,6 +114,20 @@ if (browserDir) {
   } else console.log('browser tool server NOT added: Playwright libraries missing from the package store');
 } else console.log('browser tool server NOT added: @playwright/mcp is not in the source checkout');
 
+// --- the web fetch provider --------------------------------------------------------------------------------
+// 0.2.3 ships no fetch provider by default (deliberate: it defers SSRF protection to the deployment).
+// The Strata profile turns web fetch on (`fetchProvider: 'http'`), so the provider package is copied
+// from the source checkout's workspace into the staged bundle.
+{
+  const providerDir = join(src, 'packages', 'web', 'web-fetch-http');
+  if (existsSync(providerDir)) {
+    const to = join(out, 'node_modules', '@deepseek-ai', 'dsh-web-fetch-http');
+    mkdirSync(join(to, '..'), { recursive: true });
+    cpSync(realpathSync(providerDir), to, { recursive: true, dereference: true, filter: f => !relative(realpathSync(providerDir), f).split(sep).includes('node_modules') });
+    console.log('web fetch provider added: @deepseek-ai/dsh-web-fetch-http');
+  } else console.log('web fetch provider NOT added: packages/web/web-fetch-http is not in the source checkout');
+}
+
 // --- one real folder per package, no links -------------------------------------------------------------------------------
 // The installer copies files; pnpm's layout is links. See flatten-pnpm.mjs. The two packages the app does not use are never copied.
 const flat = flattenPnpm(out, { skip: /libreoffice-kit|sherpa-onnx/i });
@@ -144,6 +158,26 @@ function prune(dir) {
   }
 }
 prune(out);
+
+// --- the app's fleet plugins --------------------------------------------------------------------------------------------
+// Three plugins the app always mounts (profile.mjs) are not part of the Harness's dependency closure, so
+// `pnpm deploy` never carries them: `--plugins <dir>` (or STRATA_HARNESS_PLUGINS) names an archive with one
+// directory per package (each with its package.json; nested node_modules ride along), and each lands in the
+// staged node_modules by its package name. A missing archive is reported, not fatal: the profile then mounts
+// fewer plugins and the boot proof still runs.
+const pluginsDir = resolve(opt('plugins', process.env.STRATA_HARNESS_PLUGINS ?? ''));
+const fleet = pluginsDir && existsSync(pluginsDir)
+  ? readdirSync(pluginsDir, { withFileTypes: true }).filter(e => e.isDirectory() && existsSync(join(pluginsDir, e.name, 'package.json'))).map(e => e.name)
+  : [];
+if (pluginsDir && !fleet.length) console.log('fleet plugins NOT added: no package directories under the plugins archive');
+for (const name of fleet) {
+  const to = join(out, 'node_modules', ...name.split('/'));
+  mkdirSync(join(to, '..'), { recursive: true });
+  rmSync(to, { recursive: true, force: true });
+  cpSync(join(pluginsDir, name), to, { recursive: true, dereference: true });
+}
+if (fleet.length) console.log(`fleet plugins added: ${fleet.join(', ')}`);
+
 
 // --- reconcile runtime imports -------------------------------------------------------------------------------------------
 // (2026-11-09, rc.1) The 0.2.2 packaging moved some runtime imports (dsh-client-store, dsh-client-ui-primitives,

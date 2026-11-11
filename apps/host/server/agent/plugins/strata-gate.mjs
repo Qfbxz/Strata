@@ -451,7 +451,8 @@ export function apply(ctx, config = {}) {
       const parent = ctx.sessions.get(parentId);
       if (parent) return effectivePreset(parent, depth + 1);
     }
-    return ctx.permissionPresets.current(session);
+    // 0.2.3: `current` folds `session.events` (the 0.2.2 signature took the session itself).
+    return ctx.permissionPresets.current(session.events);
   };
 
   ctx.on('tools/pre-execute', async (exec, next) => {

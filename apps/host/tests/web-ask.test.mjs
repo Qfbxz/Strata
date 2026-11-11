@@ -53,7 +53,7 @@ function rig({ preset = MANUAL_PRESET, answers = ['allowed-once'], config = {} }
   let policy = new Map();
   const ctx = {
     sessions: { get: id => sessions.get(id) },
-    permissionPresets: { current: session => session.preset ?? preset },
+    permissionPresets: { current: events => events?.preset ?? preset },
     approval: {
       overrideOf: session => policy.get(session.id) ?? null,
       request: async req => { asked.push(req.reason); await new Promise(r => setTimeout(r, 5)); return answers[Math.min(asked.length - 1, answers.length - 1)]; },
@@ -62,7 +62,7 @@ function rig({ preset = MANUAL_PRESET, answers = ['allowed-once'], config = {} }
     inject: () => {},
   };
   apply(ctx, config);
-  const session = (id, extra = {}) => { const s = { id, header: {}, append: (type, data) => { if (type === 'approval/policy') policy.set(id, data.policy); }, ...extra }; sessions.set(id, s); return s; };
+  const session = (id, extra = {}) => { const s = { id, header: {}, events: { preset: extra.preset }, append: (type, data) => { if (type === 'approval/policy') policy.set(id, data.policy); }, ...extra }; sessions.set(id, s); return s; };
   const call = async (sessionObj, exec) => {
     let n = 0;
     const result = await handlers[0]({ ...exec, callId: `c${++n}${Math.random()}`, agent: { session: sessionObj } }, async () => ({ kind: 'allow' }));

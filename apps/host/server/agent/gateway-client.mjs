@@ -1,16 +1,22 @@
 /**
- * A client for the Harness Gateway (the `dsh web` HTTP + WebSocket surface).
+ * A client for the Harness Gateway (the `dsh web` HTTP + server-push surface, 0.2.3+).
  *
- * Two carriers, both authenticated by the cookie the launch URL's token buys:
- *   - HTTP unary RPC:   POST /api/<method>  with the gateway's envelope
- *   - WebSocket mux:    /api/remote.mux     carrying many independent logical streams
+ * Three carriers, all trusted by the loopback fence (there is no launch token since 0.2.3):
+ *   - HTTP unary RPC:   POST /api/<dot.method> with the four-quadrant envelope; the payload is the
+ *                       business payload directly (the carrier no longer wraps a `request` object).
+ * - HTTP respond:     POST /api/respond answers one answerable server-request (an approval or a
+ *                       question ask) by echoing its rpcId with the business answer.
+ * - WebSocket streams: /api/events.mux (all-session frames: durable session events, chunk deltas,
+ *                       approvals, questions, queue state) and /api/events.host (host-level frames:
+ *                       session lifecycle, running flips, agent errors). Server-push only — the
+ *                       protocol rejects any client message on the socket.
  *
- * The streams used here are `$events` (Host notifications and the approval waterfall) and
- * `session/follow` (a session's durable event log plus live assistant frames).
- *
- * Node 24's global WebSocket accepts a `headers` option, which is how the cookie reaches the upgrade.
- * No dependency is added to the host.
+ * Reference contract: the Harness's own browser client (dsh-client-connection src/client +
+ * dsh-host-apiproxy src/fetch/client.ts). Frames ride `data: <ServerRequest JSON>` with blank-line
+ * framing; the wire envelope is `{type:'server-request', rpcId, payload}`.
  */
+
+import { appendFileSync } from 'node:fs';
 
 export class GatewayError extends Error {
   constructor(message, { code = 'gateway/error', details } = {}) {
@@ -21,37 +27,49 @@ export class GatewayError extends Error {
   }
 }
 
+/** Milliseconds a unary call may take before the transport gives up (bounded RPCs need a ceiling). */
+const UNARY_TIMEOUT_MS = 120_000;
+/** Reconnect backoff for the two downlinks: first retry, growth factor, and the cap. */
+const BACKOFF_FIRST_MS = 500;
+const BACKOFF_FACTOR = 2;
+const BACKOFF_MAX_MS = 10_000;
+
 export class GatewayClient {
-  #base; #token; #cookie = null; #rpcId = 0; #ws = null; #wsReady = null; #streams = new Map(); #nextStream = 0;
-  #closed = false; #reconnectTimer = null; #onState;
+  #base; #rpcId = 0; #closed = false; #onFrame; #onState; #pumps = new Map();
 
   /**
-   * @param {{baseUrl: string, token: string, onState?: (state: 'open'|'closed') => void}} options
+   * @param {{baseUrl: string, onFrame?: (stream: 'mux'|'host', frame: object) => void,
+   *          onState?: (state: 'open'|'closed') => void}} options
+   *   `onFrame` receives every decoded server-push frame (already narrowed out of its envelope).
    */
-  constructor({ baseUrl, token, onState = () => {} }) {
+  constructor({ baseUrl, onFrame = () => {}, onState = () => {} }) {
     this.#base = baseUrl.replace(/\/+$/, '');
-    this.#token = token;
+    this.#onFrame = onFrame;
     this.#onState = onState;
   }
 
-  /** Exchange the launch token for the API cookie. */
+  /** Prove unary reachability with the host handshake. There is no token to exchange since 0.2.3. */
   async connect() {
-    const res = await fetch(`${this.#base}/?token=${encodeURIComponent(this.#token)}`, { redirect: 'manual' });
-    const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0];
-    if (!cookie.startsWith('dsh-auth-')) throw new GatewayError(`the agent refused the launch token (HTTP ${res.status})`, { code: 'gateway/auth' });
-    this.#cookie = cookie;
+    return this.rpc('host.describe', {});
   }
 
-  /** One unary call. Resolves with the value, rejects with a GatewayError carrying the gateway's code. */
-  async rpc(method, args = {}, { signal } = {}) {
-    if (!this.#cookie) throw new GatewayError('not connected', { code: 'gateway/not-connected' });
+  /**
+   * One unary call. Resolves with the value, rejects with a GatewayError carrying the gateway's code.
+   * @param {string} method the dotted wire method (`session.create`, `goal.pause`, ...)
+   * @param {object} payload the business payload directly
+   */
+  async rpc(method, payload = {}, { signal } = {}) {
+    if (this.#closed) throw new GatewayError('closed', { code: 'gateway/closed' });
     const rpcId = `h${++this.#rpcId}`;
+    const timeout = AbortSignal.timeout(UNARY_TIMEOUT_MS);
+    const requestSignal = signal ? AbortSignal.any([timeout, signal]) : timeout;
     const res = await fetch(`${this.#base}/api/${method}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', cookie: this.#cookie },
-      body: JSON.stringify({ type: 'client-request', rpcId, method, payload: { args } }),
-      signal,
-    });
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'client-request', rpcId, method, payload }),
+      signal: requestSignal,
+    }).catch(e => { throw new GatewayError(`${method}: the agent could not be reached (${e.message})`, { code: 'gateway/transport' }); });
+    if (!res.ok) throw new GatewayError(`${method}: HTTP ${res.status}`, { code: 'gateway/bad-response' });
     let body;
     try { body = await res.json(); } catch { throw new GatewayError(`${method}: the agent returned a non-JSON answer (HTTP ${res.status})`, { code: 'gateway/bad-response' }); }
     const result = body?.result;
@@ -63,85 +81,72 @@ export class GatewayClient {
   }
 
   /**
-   * Open a logical stream on the mux. Handlers: `onItem(value)`, `onEnd()`, `onError(error)`.
-   * The stream is re-opened after a socket reconnect and `onItem` receives it from the start again
-   * (a `session/follow` opens with a fresh snapshot, so callers de-duplicate by sequence number).
+   * Answer one answerable server-request (an approval or a question ask). `ok:false` declines it:
+   * the ask fails closed instead of carrying an answer the person never gave.
+   * @param {{rpcId: string}} request the server-request envelope the ask rode in
+   * @param {object|{error:{code:string,message:string}}} value the business answer, or an error to decline
    */
-  openStream(endpoint, args, handlers) {
-    const streamId = `s${++this.#nextStream}`;
-    const entry = { streamId, endpoint, args, ...handlers, closed: false };
-    this.#streams.set(streamId, entry);
-    void this.#ensureSocket().then(() => this.#sendOpen(entry), () => {});
-    return {
-      streamId,
-      close: () => {
-        entry.closed = true;
-        this.#streams.delete(streamId);
-        if (this.#ws?.readyState === 1) {
-          try { this.#ws.send(JSON.stringify({ type: 'cancel', streamId })); } catch { /* socket going away */ }
-        }
-      },
-    };
+  async answer(request, value) {
+    const declined = value && typeof value === 'object' && 'error' in value;
+    const message = declined
+      ? { type: 'client-response', rpcId: request.rpcId, result: { ok: false, error: value.error } }
+      : { type: 'client-response', rpcId: request.rpcId, result: { ok: true, value } };
+    const res = await fetch(`${this.#base}/api/respond`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(message),
+    }).catch(e => { throw new GatewayError(`respond: the agent could not be reached (${e.message})`, { code: 'gateway/transport' }); });
+    if (!res.ok) throw new GatewayError(`respond: HTTP ${res.status}`, { code: 'gateway/bad-response' });
+    const receipt = await res.json().catch(() => ({}));
+    if (process.env.STRATA_FRAME_LOG) { try { appendFileSync(process.env.STRATA_FRAME_LOG, Date.now() + ' respond ' + JSON.stringify(receipt) + ' ' + message.rpcId.slice(0, 12) + '\n'); } catch {} }
+    return receipt;
   }
 
-  /** Answer one forwarded approval waterfall. `outcome` is `allowed-once`, `rejected`, or `next`. */
-  async answerEvent({ clientId, eventId, outcome }) {
-    const wire = outcome === 'next' ? { kind: 'next' } : { kind: 'result', value: outcome };
-    return this.rpc('$events/result', { clientId, eventId, outcome: wire });
+  /**
+   * Open both server-push sockets and keep them fed. Each socket reconnects on loss with capped
+   * exponential backoff; `onFrame` sees every decoded frame. Frames between a loss and the reopened
+   * socket's subscription baseline are recovered by the caller through `session.history`.
+   * @returns a close that ends both sockets and stops reconnecting.
+   */
+  events() {
+    for (const [stream, path] of [['mux', '/api/events.mux'], ['host', '/api/events.host']]) {
+      this.#pump(stream, path, 0);
+    }
+    return () => { this.#closed = true; this.#pumps.clear(); };
+  }
+
+  async #pump(stream, path, attempt) {
+    if (this.#closed) return;
+    const socket = new WebSocket(`${this.#base.replace(/^http/, 'ws')}${path}`);
+    this.#pumps.set(stream, socket);
+    let opened = false;
+    let backoffTimer = null;
+    socket.onopen = () => {
+      opened = true;
+      this.#onState('open');
+    };
+    socket.onmessage = event => {
+      let full;
+      let frame;
+      try { full = JSON.parse(String(event.data)); frame = full?.payload; } catch { return; }   // one corrupt frame must not kill the stream
+      if (frame && typeof frame === 'object') this.#onFrame(stream, frame, full.rpcId);
+    };
+    socket.onclose = () => {
+      if (this.#pumps.get(stream) === socket) this.#pumps.delete(stream);
+      if (this.#closed) return;
+      if (opened) this.#onState('closed');
+      const nextAttempt = opened ? 0 : attempt + 1;
+      const delay = Math.min(BACKOFF_MAX_MS, BACKOFF_FIRST_MS * BACKOFF_FACTOR ** Math.min(nextAttempt, 6)) / 2 + Math.random() * 250;
+      backoffTimer = setTimeout(() => { if (!this.#closed) this.#pump(stream, path, nextAttempt); }, delay);
+      backoffTimer.unref?.();
+    };
+    socket.onerror = () => { /* the close handler reconnects */ };
   }
 
   close() {
     this.#closed = true;
-    clearTimeout(this.#reconnectTimer);
-    for (const s of this.#streams.values()) s.closed = true;
-    this.#streams.clear();
-    try { this.#ws?.close(); } catch { /* already closed */ }
-    this.#ws = null;
-  }
-
-  // -- socket ---------------------------------------------------------------------------------------
-
-  #ensureSocket() {
-    if (this.#closed) return Promise.reject(new GatewayError('closed', { code: 'gateway/closed' }));
-    if (this.#ws && this.#ws.readyState === 1) return Promise.resolve();
-    if (this.#wsReady) return this.#wsReady;
-    this.#wsReady = new Promise((resolve, reject) => {
-      const url = `${this.#base.replace(/^http/, 'ws')}/api/remote.mux`;
-      const ws = new WebSocket(url, { headers: { cookie: this.#cookie } });
-      this.#ws = ws;
-      ws.onopen = () => { this.#wsReady = null; this.#onState('open'); resolve(); };
-      ws.onmessage = e => this.#onMessage(String(e.data));
-      ws.onerror = () => { /* the close handler reports it */ };
-      ws.onclose = () => {
-        const wasReady = this.#wsReady;
-        this.#wsReady = null;
-        if (this.#ws === ws) this.#ws = null;
-        this.#onState('closed');
-        if (wasReady) reject(new GatewayError('the agent socket closed before it opened', { code: 'gateway/socket' }));
-        if (this.#closed) return;
-        // Streams are re-opened by a new socket; a dropped socket must not strand a follower.
-        clearTimeout(this.#reconnectTimer);
-        if (this.#streams.size) this.#reconnectTimer = setTimeout(() => {
-          this.#ensureSocket().then(() => { for (const s of this.#streams.values()) this.#sendOpen(s); }).catch(() => {
-            for (const s of [...this.#streams.values()]) s.onError?.(new GatewayError('the agent socket could not be re-opened', { code: 'gateway/socket' }));
-          });
-        }, 500);
-      };
-    });
-    return this.#wsReady;
-  }
-
-  #sendOpen(entry) {
-    if (entry.closed || this.#ws?.readyState !== 1) return;
-    this.#ws.send(JSON.stringify({ type: 'open', streamId: entry.streamId, endpoint: entry.endpoint, payload: { args: entry.args } }));
-  }
-
-  #onMessage(text) {
-    let m; try { m = JSON.parse(text); } catch { return; }
-    const s = this.#streams.get(m.streamId);
-    if (!s) return;
-    if (m.type === 'item') s.onItem?.(m.value);
-    else if (m.type === 'end') { this.#streams.delete(s.streamId); s.onEnd?.(); }
-    else if (m.type === 'error') s.onError?.(new GatewayError(m.error?.message ?? 'stream failed', { code: m.error?.code, details: m.error?.details }));
+    for (const socket of this.#pumps.values()) { try { socket.close(); } catch { /* already closing */ } }
+    this.#pumps.clear();
+    this.#onState('closed');
   }
 }

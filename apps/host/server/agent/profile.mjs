@@ -65,23 +65,51 @@ export const INFINITE_GEN_PLUGIN = fileURLToPath(new URL('./plugins/dsh-infinite
  * its dsh.engines declaration relaxed to this harness: the host half is complete (a host store
  * seeded from ~/.ssh/config, an ssh2 pool with jump hosts and tunnels, the /api/dsh-ssh routes, a
  * WebSocket terminal over webServer.registerUpgrade, and six ssh_* tools), the browser terminal UI
- * is the profile-bundles half, later. Registered always-on next to the gate. */
+ * is the profile-bundles half, later. NOT mounted since 0.2.3: the archived assembly is incomplete
+ * (ssh2's own dependencies are missing), so the package cannot load; a complete assembly re-mounts
+ * it through `stagedPluginEntry(harnessDir, SSH_PLUGIN)` next to the other fleet plugins. */
 export const SSH_PLUGIN = '@linxin666/dsh-ssh';
 /** The auto-continue plugin (dsh-client-auto-continue v0.17.3, the owner's 自动回复): zero hard
  * dependencies, apply injects settings + agents + webServer itself. Its agent/inbox trigger event
  * is renamed to this harness's word (spliced) in the vendored copy; the main session/event bus
- * drives it regardless. */
-export const AUTO_CONTINUE_PLUGIN = 'dsh-client-auto-continue';   // lives in the harness bundle's node_modules (installed beside @deepseek-ai/*), so its imports of dsh-tools and friends resolve from the harness itself
+ * drives it regardless. All three fleet plugins live in the harness bundle's node_modules
+ * (stage-harness.mjs `--plugins` copies them there); `stagedPluginEntry` resolves their names to
+ * the staged entry files, because 0.2.3 imports patch rows from the profile directory, where
+ * bundle package names no longer resolve. */
+export const AUTO_CONTINUE_PLUGIN = 'dsh-client-auto-continue';
 /** The auto-memory plugin (dsh-auto-memory v1.3.0, the owner's 自动记忆): Claude Code style
  * typed memory files with a MEMORY.md index injected into the system prompt. Its only
  * dependencies beyond the harness (@deepseek-ai/schemastery, yaml) are already in the bundle,
  * so it installs beside auto-continue with nothing else to ship. */
 export const AUTO_MEMORY_PLUGIN = 'dsh-auto-memory';
+
+/**
+ * The staged entry file of a fleet plugin, from the bundle's own package manifest. Plugin rows are
+ * imported from the profile directory since Harness 0.2.3, where a bundle package NAME does not
+ * resolve; the file path does, and the plugin's own imports still resolve from its real directory.
+ * Without a harness dir (unit callers) the bare name stands.
+ * @param {string|null} harnessDir the staged bundle root
+ * @param {string} name the plugin's package name
+ * @returns {string} an absolute entry file, or the bare name
+ */
+export function stagedPluginEntry(harnessDir, name) {
+  if (!harnessDir) return name;
+  const scope = name.split('/');
+  // flatten-pnpm may move a scoped archive (e.g. @linxin666/dsh-ssh) to its unscoped basename: try both.
+  const roots = [join(harnessDir, 'node_modules', ...scope), join(harnessDir, 'node_modules', scope.at(-1))];
+  for (const root of roots) {
+    try {
+      const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+      return join(root, typeof manifest.main === 'string' ? manifest.main : 'index.js');
+    } catch { /* not here: the boot names the missing plugin loudly */ }
+  }
+  return name;
+}
 /** The persona resolver (agents/ folders, Claude-Code style): a helper spawned with
  * `persona: "<agents id>"` gets that agent's instructions injected instead of the bare name.
  * The id must match an `<id>.md` file or `<id>/AGENT.md` folder in the agents folders the
  * profile is given; anything else passes through untouched. */
-export const PERSONA_PLUGIN = 'strata-persona';   // lives beside the host plugins, loaded by absolute path
+export const PERSONA_PLUGIN = fileURLToPath(new URL('./plugins/strata-persona.mjs', import.meta.url));
 /** The app's web search (DuckDuckGo, or the person's own Exa / Perplexity key), registered with the Harness's web seam. */
 /** Compaction that measures the real prompt and summarises in pieces that fit the window (plugins/strata-context.mjs). */
 export const CONTEXT_PLUGIN = fileURLToPath(new URL('./plugins/strata-context.mjs', import.meta.url));
@@ -226,7 +254,7 @@ export function outputBudget(context, maxOutput = null) {
 /** What a local model, or an OpenAI-style server on this network, takes for the thinking level (see the comment where a local route is built). */
 const THINKING_COMPAT = { supportsStore: false, thinkingFormat: 'chat-template', chatTemplateKwargs: { enable_thinking: { $var: 'thinking.enabled' }, reasoning_effort: { $var: 'thinking.effort', omitWhenOff: true } } };
 
-export function buildProfile({ local = [], connections = [], gate = true, tools = NO_TOOLS_SETTINGS, skillsDir = null, proxyBase = null, searchMock = null, defaultLocalId = null, agentsDirs = () => [], projectInstructions = true }) {
+export function buildProfile({ local = [], connections = [], gate = true, tools = NO_TOOLS_SETTINGS, skillsDir = null, proxyBase = null, searchMock = null, defaultLocalId = null, agentsDirs = () => [], projectInstructions = true, presetDir = null }) {
   const providers = {};
   const env = {};
   const routes = [];
@@ -244,7 +272,7 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
       const key = `${route}~s${budget}`;
       providers[key] = { ...def, displayName: `${def.displayName} (with your response settings)`, baseURL: `${proxyBase}/${key}/v1`, ...(budget ? { headers: { ...(def.headers ?? {}), 'x-strata-budget': String(budget) } } : {}) };
       shapeTargets[key] = realBase;
-      for (const m of def.models) { const w = m.contextWindow, out = m.maxTokens; compaction.push({ provider: key, model: m.id, headroomTokens: compactionHeadroom(w, out) }); }
+      for (const m of def.models) { const w = m.contextWindow, out = m.maxTokens; compaction.push({ provider: key, model: m.id, retainTokens: compactionHeadroom(w, out) }); }
       keys[budget] = key;
     }
     return keys;
@@ -274,7 +302,7 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
         reasoning: true, reasoningEfforts: LOCAL_EFFORTS,
       }],
     };
-    compaction.push({ provider: route, model: inst.modelId, headroomTokens: compactionHeadroom(context, localOutputBudget(context)) });
+    compaction.push({ provider: route, model: inst.modelId, retainTokens: compactionHeadroom(context, localOutputBudget(context)) });
     slots = Math.max(slots, Number.isFinite(inst.slots) && inst.slots >= 1 ? Math.floor(inst.slots) : 1);
     const shaped = addShaped(route, providers[route], inst.baseUrl);
     routes.push({ route, fp: fingerprint(providers[route], env[keyEnv]), kind: 'local', connectionName: 'this computer', instanceId: inst.id, modelId: inst.modelId, name: inst.label || inst.modelId, contextWindow: context, ...(shaped ? { shaped } : {}) });
@@ -320,7 +348,7 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     };
     const fp = fingerprint(providers[route], conn.apiKey ?? '');
     const shaped = ownServer ? addShaped(route, providers[route], baseURL) : null;
-    for (const m of conn.models) { const ctx = m.contextMax ?? ASSUMED_API_CONTEXT; compaction.push({ provider: route, model: m.id, headroomTokens: compactionHeadroom(ctx, reply(m)) }); }
+    for (const m of conn.models) { const ctx = m.contextMax ?? ASSUMED_API_CONTEXT; compaction.push({ provider: route, model: m.id, retainTokens: compactionHeadroom(ctx, reply(m)) }); }
     for (const m of conn.models) routes.push({ route, fp, kind: 'api', connectionId: conn.id, connectionName: conn.name, modelId: m.id, name: m.name || m.id, contextWindow: m.contextMax ?? ASSUMED_API_CONTEXT, ...(shaped ? { shaped } : {}) });
   });
 
@@ -346,12 +374,25 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
   const searchOn = !tools.off.has('search');
   const keyed = ['exa', 'perplexity', 'deepseek'].includes(tools.search.provider) && tools.search.key ? tools.search.provider : null;
   if (searchOn && keyed) env.STRATA_SEARCH_KEY = tools.search.key;
+  // 0.2.3 ships no fetch provider (deliberate: it defers SSRF protection to the deployment), so the
+  // deployment mounts `dsh-web-fetch-http` itself whenever fetch is on; `fetchProvider: 'http'` in the
+  // web row then names this provider.
+  const fetchRows = [{ id: 'web-fetch-http', name: '@deepseek-ai/dsh-web-fetch-http' }];
   const webRows = !searchOn ? [] : keyed === 'deepseek'
-    ? [{ id: 'web', config: { searchProvider: 'deepseek-official', fetchProvider: 'http' } }, { id: 'web-search-deepseek', config: { apiKeyEnv: 'STRATA_SEARCH_KEY' } }]
+    ? [{ id: 'web', config: { searchProvider: 'deepseek-official', fetchProvider: 'http' } }, { id: 'web-search-deepseek', config: { apiKeyEnv: 'STRATA_SEARCH_KEY' } }, { insert: fetchRows }]
     : [{ id: 'web', config: { searchProvider: keyed ?? DDG_PROVIDER_ID, fetchProvider: 'http' } }, { id: 'web-search-deepseek', disabled: true },
-      { insert: [{ id: 'strata-web-search', name: SEARCH_PLUGIN, config: { provider: keyed ?? 'duckduckgo', keyEnv: 'STRATA_SEARCH_KEY', ...(searchMock ? { mock: searchMock } : {}) } }] }];
+      { insert: [...fetchRows, { id: 'strata-web-search', name: SEARCH_PLUGIN, config: { provider: keyed ?? 'duckduckgo', keyEnv: 'STRATA_SEARCH_KEY', ...(searchMock ? { mock: searchMock } : {}) } }] }];
   /** The models a helper agent may be started on: the table the model-choice plugin and the Harness's allow-list are written from. */
   const subagentRoutes = routes.map(r => ({ provider: r.route, model: r.modelId, name: r.name, connection: r.connectionName, local: r.kind === 'local' }));
+  // The chat composition (preset.mjs) is a preset file since Harness 0.2.3: buildProfile hands the rows back and
+  // the bridge writes them under `presetDir`; the row below mounts that root with our composition as the default.
+  // Without a `presetDir` (unit callers) no preset is mounted and no composition file is described.
+  const standard = standardPreset({ off: tools.off, search: searchOn, skillsDir, compaction });
+  const presetFile = presetDir ? {
+    path: join(presetDir, 'strata-standard', 'agent.cordis.yml'),
+    content: JSON.stringify(standard.plugins, null, 2) + '\n',
+  } : null;
+  const presetRow = presetFile ? [{ id: 'agent-presets', name: '@deepseek-ai/dsh-agent-presets', config: { default: 'strata-standard', roots: [{ path: presetDir, trust: 'user' }] } }] : [];
   const entries = [
     ...(defaultRoute ? [{ id: 'agent-default-model', name: '@deepseek-ai/dsh-agent-default-model', config: { provider: defaultRoute.route, model: defaultRoute.modelId } }] : []),
     { id: 'llm-pi-ai', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers } },
@@ -363,8 +404,12 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     ...(gate ? [{ insert: [{ id: 'strata-gate', name: GATE_PLUGIN, config: { web: { provider: SEARCH_NAMES[keyed ?? 'builtin'], skipAsk: tools.webWithoutAsking === true } } }] }] : []),
     // the owner's auto-continue plugin: every agent session gains it (zero deps; tools + systemPrompt
     // sections + the armor session projection; the input-box badge is the browser half, later)
+    // the owner's fleet plugins: infinite generation (vendored in the host, absolute path), and
+    // auto-continue + auto-memory (staged into the bundle by stage-harness.mjs `--plugins`; the bridge
+    // links them into the profile directory's node_modules, which is where 0.2.3 resolves patch-row
+    // imports). The ssh plugin is not mounted: its vendored assembly is incomplete (ssh2's own
+    // dependencies are missing), and the 0.2.2 bundle it shipped in carried it as a dead row too.
     { insert: [{ id: 'dsh-infinite-gen-4', name: INFINITE_GEN_PLUGIN }] },
-    { insert: [{ id: 'ssh', name: SSH_PLUGIN }] },
     { insert: [{ id: 'auto-continue', name: AUTO_CONTINUE_PLUGIN }] },
     // the owner's auto-memory plugin: typed memory files + the MEMORY.md index injected into the system prompt
     { insert: [{ id: 'auto-memory', name: AUTO_MEMORY_PLUGIN }] },
@@ -390,13 +435,14 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { insert: [{ id: 'strata-ask-user', name: ASK_USER_PLUGIN, config: { maxQuestions: 8 } }] },
     // Compaction decides from what the model server measured, and its summary requests always fit the window (plugins/strata-context.mjs).
     { insert: [{ id: 'strata-context', name: CONTEXT_PLUGIN, config: {} }] },
-    // Helper agents on a model the person names: every model the app can reach is allowed, and the plugin makes the choice forgiving (plugins/strata-models.mjs).
+    // Helper agents on a model the person names: Harness 0.2.3 removed the subagent tool's per-call
+    // `model`/`provider` arguments and the `list_subagent_models` discovery tool, so plugins/strata-models.mjs
+    // has no seam to wrap any more. It stays unmounted (its guidance would name a parameter that is gone)
+    // until a product decision re-introduces helper model choice on the 0.2.3 surface (session.selectModel).
     ...(subagentRoutes.length ? [{ id: 'subagent-model-selection-settings', config: { enabled: true, allowedModels: subagentRoutes.map(r => ({ provider: r.provider, model: r.model })) } }] : []),
-    ...(subagentRoutes.length ? [{ insert: [{ id: 'strata-models', name: MODELS_PLUGIN, config: { routes: subagentRoutes } }] }] : []),
     ...(mcp.length || ownRows.length ? [{ insert: [...mcp, ...ownRows] }] : []),
     ...webRows,
     // The reminder tools would be a second scheduler beside the app's Tasks. The tool groups the person switched off in Settings -> Tools are left out.
-    { id: 'preset-standard', name: '@deepseek-ai/dsh-agent-preset', config: standardPreset({ off: tools.off, search: searchOn, skillsDir, compaction }) },
     // Strata names its chats itself; the Harness's own title request would be an extra model call on
     // every first prompt (and, for an API route, an unrequested one).
     // The person's Settings switch covers agent chats too: without it the Harness would still read CLAUDE.md and AGENTS.md.
@@ -411,11 +457,12 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
   const patch = `# Generated by the Strata host. Contains credential NAMES only, never values.\n${json}\n`;
   // The signature decides whether the running agent must be restarted. It covers the secret values
   // through a hash so a changed key is noticed, and the hash is never reversible into the key.
-  const signature = createHash('sha256').update(patch).update(JSON.stringify(Object.entries(env).sort())).digest('hex').slice(0, 16);
+  // The composition file rides in it too: a changed preset restarts the agent with the new one.
+  const signature = createHash('sha256').update(patch).update(presetFile?.content ?? '').update(JSON.stringify(Object.entries(env).sort())).digest('hex').slice(0, 16);
   // What the agent is offered (tool groups, web search, tool servers, the person's own tools) decides whether a running agent must be
   // restarted for the next message; the routes are compared separately (a changed context size alone does not restart it).
-  const toolsSignature = createHash('sha256').update(JSON.stringify([mcp, ownRows, webRows, entries.find(e => e.id === 'preset-standard'), env.STRATA_SEARCH_KEY ?? '', mcpEnv])).digest('hex').slice(0, 16);
-  return { patch, env, routes, defaultRoute, signature, toolsSignature, shapeTargets, mcpSkipped };
+  const toolsSignature = createHash('sha256').update(JSON.stringify([mcp, ownRows, webRows, presetFile?.content ?? '', env.STRATA_SEARCH_KEY ?? '', mcpEnv])).digest('hex').slice(0, 16);
+  return { patch, env, routes, defaultRoute, signature, toolsSignature, shapeTargets, mcpSkipped, presetFile };
 }
 
 /** Find the route for a chat's model choice. */

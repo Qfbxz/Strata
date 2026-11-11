@@ -81,10 +81,10 @@ test('a skill from a folder carries its companion files: reference guides ride a
 
 test('the agent profile tells the skills plugin to scan the app skill folder', () => {
   const dir = '/data/agent/skills-live';
-  const entries = JSON.parse(buildProfile({ local: [], connections: [], skillsDir: dir }).patch.split('\n').slice(1).join('\n'));
-  const plugins = entries.find(e => e.id === 'preset-standard').config.plugins;
-  assert.deepEqual(plugins.find(p => p.id === 'skill-filesystem').config, { customSkillDirs: [dir] });
-  assert.ok(plugins.some(p => p.id === 'tool-skill'), 'the skill loader tool is in the preset');
+  const profile = buildProfile({ local: [], connections: [], skillsDir: dir, presetDir: '/tmp/presets-skills-test' });
+  const composition = JSON.parse(profile.presetFile.content);
+  assert.deepEqual(composition.find(p => p.id === 'skill-filesystem').config, { customSkillDirs: [dir] });
+  assert.ok(composition.some(p => p.id === 'tool-skill'), 'the skill loader tool is in the preset');
 });
 
 test('real Harness: a skill saved in the app is in the catalog, loads by name, and one added later is seen without a restart', { skip }, async (t) => {
