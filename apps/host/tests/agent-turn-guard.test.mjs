@@ -61,34 +61,6 @@ test('a nearly full context stops the turn; a normal one does not', () => {
   assert.equal(new TurnGuard({ contextMax: 0 }).context(1e9), null, 'an unknown window is never guessed');
 });
 
-test('twelve identical calls in a row stop the turn; a different call starts the count again', () => {
-  const g = new TurnGuard();
-  const read = (i, path) => ({ id: `t${i}`, name: 'read', state: 'done', args: { path } });
-  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 1; i++) assert.equal(g.card(read(i, '/same.txt')), null, `${i + 1} of ${GUARD_LIMITS.identicalCalls}`);
-  assert.equal(g.card(read(100, '/same.txt')), 'repeat');
-  assert.equal(g.card(read(101, '/same.txt')), 'repeat', 'once stopped it stays stopped');
-  const h = new TurnGuard();
-  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 1; i++) assert.equal(h.card(read(i, '/same.txt')), null);
-  assert.equal(h.card(read(50, '/other.txt')), null, 'a different call is a different call: the count starts again');
-  for (let i = 0; i < GUARD_LIMITS.identicalCalls - 1; i++) assert.equal(h.card(read(200 + i, '/same.txt')), null, `${i + 1} of ${GUARD_LIMITS.identicalCalls} after the break`);
-  assert.equal(h.card(read(300, '/same.txt')), 'repeat');
-});
-
-test('the repeat limit is a setting: the bridge can tighten or loosen it', () => {
-  const strict = new TurnGuard({ limits: { identicalCalls: 3 } });
-  for (let i = 0; i < 2; i++) assert.equal(strict.card({ id: `t${i}`, name: 'read', state: 'done', args: { path: '/x' } }), null);
-  assert.equal(strict.card({ id: 't9', name: 'read', state: 'done', args: { path: '/x' } }), 'repeat');
-  const loose = new TurnGuard({ limits: { identicalCalls: 0 } });
-  for (let i = 0; i < GUARD_LIMITS.identicalCalls + 5; i++) assert.equal(loose.card({ id: `t${i}`, name: 'read', state: 'done', args: { path: '/x' } }), null, '0 disables the backstop');
-});
-
-test('the same tool with different arguments is not a repeat; running cards are not counted yet', () => {
-  const g = new TurnGuard();
-  for (let i = 0; i < GUARD_LIMITS.identicalCalls + 3; i++) assert.equal(g.card({ id: `r${i}`, name: 'read', state: 'done', args: { path: `/file-${i}.txt` } }), null, 'different files are different calls');
-  const w = new TurnGuard();
-  for (let i = 0; i < GUARD_LIMITS.identicalCalls + 3; i++) assert.equal(w.card({ id: `w${i}`, name: 'read', state: 'running', args: { path: '/same' } }), null, 'a running card is not a finished call');
-});
-
 test('the repeat note is a plain sentence with a next step and a key', () => {
   const frame = guardNote('repeat');
   assert.equal(frame.type, 'delta'); assert.equal(frame.own, true);
@@ -141,20 +113,21 @@ async function rig(t, options = {}) {
 }
 const words = frames => frames.filter(f => f.type === 'delta').map(f => f.text).join('');
 
-test('a scripted turn that repeats the same shell call twelve times is stopped with the repeat note; twelve different files are not', { skip }, async (t) => {
-  const r = await rig(t, { guard: { identicalCalls: 12 } });
+test('a scripted turn that repeats the same shell call ends without hanging (the Harness repeat guard stops it, not the app); twelve different calls run to the end', { skip }, async (t) => {
+  // P5: the app no longer counts identical calls (HARNESS_ROADMAP H1 retired; Harness 0.2.3 reminds from
+  // the third identical call and cancels the turn soon after, measured at streak ~5). The acceptance from
+  // phase 1 stands: the loop ends, it does not hang.
+  const r = await rig(t);
   const out = [];
   const same = Array.from({ length: 12 }, () => ['plain', { command: "printf 'same line' >> loop.txt" }]);
   await r.bridge.runTurn({ ...r.base('p1', f => out.push(f)), mode: 'bypass', message: 'SCRIPT:multi ' + JSON.stringify({ calls: same, say: 'done looping' }) });
-  const notes = out.filter(f => f.type === 'delta' && f.own).map(f => f.text).join('\n');
-  console.error('DBG cards:', out.filter(f => f.type === 'agent-tool').length, 'notes:', JSON.stringify(notes.slice(0, 160)), 'errors:', JSON.stringify(out.filter(f => f.type === 'error').map(f => (f.message ?? '').slice(0, 80))));
-  console.error('DBG logs:', JSON.stringify(r.logs.filter(l => /guard|stop/i.test(l)).slice(0, 6)));
   assert.ok(out.find(f => f.type === 'done'), 'the turn ended instead of hanging');
-  const r2 = await rig(t, { guard: { identicalCalls: 12 } });
+  assert.equal(out.at(-1).type, 'done');
+  const r2 = await rig(t);
   const out2 = [];
   const different = Array.from({ length: 12 }, (_, i) => ['plain', { command: `printf 'line ${i}' >> file-${i}.txt` }]);
   await r2.bridge.runTurn({ ...r2.base('p2', f => out2.push(f)), mode: 'bypass', message: 'SCRIPT:multi ' + JSON.stringify({ calls: different, say: 'done reading' }) });
-  assert.equal(out2.filter(f => f.type === 'delta' && f.own).length, 0, 'different files are never a repeat');
+  assert.equal(out2.filter(f => f.type === 'delta' && f.own).length, 0, 'different files never trip anything');
   assert.ok(out2.find(f => f.type === 'done'), 'the turn ended normally');
 });
 

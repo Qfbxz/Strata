@@ -3,10 +3,9 @@
  * validation). Both backstops are on by default with the roadmap's defaults (HARNESS_ROADMAP.md 阶段一 H1/H2); a threshold of 0 turns that
  * backstop off, and then the host behaves exactly as it did before the backstop existed.
  *
- *   identicalCalls  the same tool with the same arguments, this many times in a row, ends the turn (0 = the loop runs on)
  *   compactFailures automatic summarizing fails this many times in a row before the host stops retrying it in that chat (0 = never stops)
  */
-const DEFAULTS = Object.freeze({ identicalCalls: 12, compactFailures: 3 });
+const DEFAULTS = Object.freeze({ compactFailures: 3 });
 
 /** The saved thresholds merged over the defaults: unknown keys dropped, anything but a whole number ≥ 0 treated as unset. */
 export function guardSettingsView(saved) {

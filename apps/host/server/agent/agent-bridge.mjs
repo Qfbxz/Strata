@@ -625,7 +625,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     }
 
     const projector = new TurnProjector({ policy: MODE_PRESETS[appliedMode].approval, window: route.contextWindow });
-    if (!goal) { const guardLimits = agentGuard(); guard = new TurnGuard({ plan: !!planTask, contextMax: route.kind === 'local' ? route.contextWindow : 0, limits: { identicalCalls: guardLimits.identicalCalls, compactFailures: guardLimits.compactFailures } }); }   // a saved connection's window is often only assumed: never judged by a guess
+    if (!goal) { const guardLimits = agentGuard(); guard = new TurnGuard({ plan: !!planTask, contextMax: route.kind === 'local' ? route.contextWindow : 0, limits: { compactFailures: guardLimits.compactFailures } }); }   // a saved connection's window is often only assumed: never judged by a guess
     projector.onStatus = update => { if (!turn?.parentOpen && turn?.children.size && [...turn.children.values()].some(h => !h.done) && update.phase === 'waiting') return; reporter.set(update); };
     const turn = {
       sessionId, projector, route, requestId, live: false, lastSeq: runtime.baselines.get(sessionId) ?? -1,
