@@ -9076,11 +9076,13 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 
 .feature-flags__title { font-weight: 600; font-size: 13px; padding: 0 4px; }
 
-.feature-flags__label { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.feature-flags__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; }
 
-.feature-flags__hint { line-height: 1.5; }
+.feature-flags__name { font-weight: 500; min-width: 0; }
 
-.feature-flags__paths { display: grid; gap: 6px; min-width: 0; }
+.feature-flags__hint { grid-column: 1 / -1; line-height: 1.5; }
+
+.feature-flags__paths { grid-column: 1 / -1; display: grid; gap: 6px; min-width: 0; }
 
 .feature-flags__paths .st-input { width: 100%; }
 

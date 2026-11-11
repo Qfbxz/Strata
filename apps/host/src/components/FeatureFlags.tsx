@@ -28,11 +28,12 @@ interface SmallModelView {
     pushedToServer?: boolean;
 }
 
-/** One row: a labelled control on the right, name and hint on the left. */
+/** One row: the name on the left, the control on the right (never squeezed), the hint full-width below. */
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return <label className="feature-flags__row">
-        <span className="feature-flags__label">{label && <strong>{tr(label)}</strong>}{hint && <small className="muted feature-flags__hint">{tr(hint)}</small>}</span>
+        <span className="feature-flags__name">{tr(label)}</span>
         {children}
+        {hint ? <small className="muted feature-flags__hint">{tr(hint)}</small> : null}
     </label>;
 }
 
@@ -67,8 +68,8 @@ export function FeatureFlagsSetting() {    const [features, setFeatures] = useSt
             .then(r => r.json()).then(d => setSmall(d)).catch(() => {});
     }
     const switchRow = (s: { key: string; label: string }) => <label key={s.key} className="feature-flags__row">
+        <span className="feature-flags__name">{tr(s.label)}</span>
         <button className="st-toggle" role="switch" aria-checked={features ? !!features[s.key] : false} aria-label={tr(s.label)} disabled={!features} onClick={() => toggle(s.key)}/>
-        <span>{tr(s.label)}</span>
     </label>;
     return <span className="row feature-flags">
         <Section title="What the assistant reads and runs">
