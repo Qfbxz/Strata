@@ -241,6 +241,13 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     const workdir = join(root, 'run');
     const hp = new HarnessProcess({
       harness: h, home, patchFile, cwd: workdir, env: profile.env, nodePath, logFile: join(root, 'harness.log'), pidFile: join(root, 'harness.pid'),
+      // The fleet auto-continue plugin's tool-repeat loop guard (identical call AND result, default 5)
+      // cancels a turn before the Harness's own repeat guard finishes its ladder (reminders at 3/5/8,
+      // force stop at 12 with the model-visible instruction) — the upstream stop was unreachable.
+      // Above 12 the fleet guard yields the in-turn loop to the Harness and keeps covering loops that
+      // outlive a restart. The settings service resolves schema defaults over a patch row's config, so
+      // this goes through the settings user layer, seeded into a fresh Harness home.
+      settingsSeed: 'auto-continue:\n  loopToolRepeat: 13\n',
       onExit: exit => {
         log(`agent · the Harness process exited (code ${exit.code})`);
         if (rt?.hp === hp) { lastError = 'The agent process stopped.'; rt = null; }
@@ -378,6 +385,10 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
       case 'approval/requested': {
         if (!frame.callId) return;
         pending.set(`${frame.sessionId}:${frame.callId}`, { rpcId, approvalId: frame.approvalId, sessionId: frame.sessionId, callId: frame.callId, tool: frame.toolName, reason: frame.reason ?? null, at: Date.now() });
+        // The ask card is the dispatch's to show, not the audit event's: 0.2.3's session approval cache
+        // resolves an already-approved shape before dispatching (only the asked/decided audit pair lands),
+        // and a card rendered from the bare event would ask for an answer no channel can carry.
+        routeItemTo(frame.sessionId, { type: 'event', event: { seq: 0, time: Date.now(), type: 'approval/dispatched', data: { callId: frame.callId, reason: frame.reason ?? null } } });
         return;
       }
       case 'approval/resolved': {
@@ -561,8 +572,22 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     const wanted = `${provider}/${route.modelId}/${level ?? ''}`;
     if (c.route !== wanted || c.routeGeneration !== runtime.generation) {
       const select = effort => runtime.gw.rpc('session.selectModel', { sessionId, provider, model: route.modelId, ...(effort ? { reasoningEffort: effort } : {}) });
+      // A chat from before an app/Harness restart still carries a session id this Harness process has not
+      // materialized yet, so the first select lands on session/not-found.  Materialize it right there and
+      // select again - instead of failing the person's first message with "could not use <model>"
+      // (glm-5.3-flash report, 2026-11-11: every old chat hit this exactly once; the second message worked).
+      const materialize = async () => {
+        await runtime.gw.rpc('session.create', { cwd: workspacePath ?? join(root, 'workspaces', sessionId), sessionId });
+        runtime.liveSessions.add(sessionId);
+      };
       try {
-        try { await select(level); } catch (e) { if (!level || e.code === 'session/not-found') throw e; await select(null); }
+        try {
+          await select(level);
+        } catch (e) {
+          if (e.code === 'session/not-found') { await materialize(); await select(level); }
+          else if (level) { await select(null); }   // an effort the route lacks falls back to the model's own default
+          else { throw e; }
+        }
       } catch (e) {
         if (e.code === 'session/not-found') { delete sessionMap[c.id]; persist(); }
         throw new AgentUnavailable(`The coding assistant could not use ${route.name}. Pick the model again and retry.`, 'model-unavailable', e.message);
