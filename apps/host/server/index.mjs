@@ -23,7 +23,6 @@ import { officeSkills } from './agent/plugins/office-skills.mjs';
 import { featuresView, sanitizeFeatures } from './feature-flags.mjs';
 import { smallModelView, sanitizeSmallModel, smallModelConfigLeaves } from './small-model.mjs';
 import { rewriteMessages, parseRewrite, wrapForMainModel } from './prompt-rewrite.mjs';
-import { guardSettingsView, sanitizeGuardSettings } from './agent/guard-settings.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
 import { tuningDir } from './platform-paths.mjs';
@@ -214,7 +213,6 @@ async function pictureRefusal(connection, model) {
 }
 const agent = createAgentBridge({
   tools: () => agentTools.profileView(),
-  agentGuard: () => guardSettingsView(store.get().agentGuard),
   skillsDir: () => AGENT_SKILLS,
   projectInstructions: () => features().projectInstructions,
   agentsDirs: () => features().agents ? [join(store.DATA_DIR, 'agents'), join(WORKSPACE, 'agents')] : [],
@@ -2266,11 +2264,6 @@ async function api(req, res, path, method, url) {  if(path==='/api/fonts'&&metho
   }
   if (path === '/api/hooks' && method === 'GET') return json(res, 200, hooksOnDisk());
   if (path === '/api/features' && method === 'GET') return json(res, 200, featuresView(store.get().features));
-  if (path === '/api/agent-guard' && method === 'GET') return json(res, 200, guardSettingsView(store.get().agentGuard));
-  if (path === '/api/agent-guard' && method === 'PUT') {
-    try { const saved = sanitizeGuardSettings(await readBody(req)); store.update({ agentGuard: saved }); return json(res, 200, guardSettingsView(saved)); }
-    catch (e) { return error(res, 400, e.message); }
-  }
   if (path === '/api/features' && method === 'PUT') {
     try { const saved = sanitizeFeatures(await readBody(req)); store.update({ features: saved }); try { rescanSkills(); } catch (e) { console.warn('skills · could not rescan after a feature change:', e.message); } return json(res, 200, featuresView(saved)); }
     catch (e) { return error(res, 400, e.message); }

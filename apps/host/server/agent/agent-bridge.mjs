@@ -32,7 +32,6 @@ import { DeliverableTracker, ActivityGroups, FolderClaims } from './deliverables
 import { SkillsUsed, skillInfoFrom } from './skills-used.mjs';
 import { turnEngineSpeed } from './engine-speed.mjs';
 import { TurnGuard, guardNote, GUARD_NOTES } from './turn-guard.mjs';
-import { CompactBreaker } from './compact-breaker.mjs';
 import { cutNotice, cutNudge } from './reply-cut.mjs';
 
 /** How often one turn asks the agent to carry on after a reply the length limit cut (each time in smaller pieces). */
@@ -133,7 +132,7 @@ export function isAutoContinueSplice(payloadText) {
   const t = String(payloadText ?? '');
   return t.includes('"Continue"') || t.includes('继续。你上一轮') || t.includes('宿主在你上一轮运行期间重启');
 }
-export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = null, gate = true, localInstances, connections, tools = () => undefined, defaultLocalId = () => null, skillsDir = () => null, projectInstructions = () => true, agentGuard = () => ({}), onGoal = () => {}, onPlan = () => {}, onQueue = () => {}, proxyBase = null, searchMock = null, expertSampling = () => null, engineProgress = () => null, engineGraceMs = 30 * 60_000, stallMs = 4 * 60_000, stallToolMs = 20 * 60_000, env = process.env, nodePath = process.execPath, log = () => {}, startTimeoutMs = 120_000, sessionReadyMs = 60_000, sessionRetryMs = 1_500 }) {
+export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = null, gate = true, localInstances, connections, tools = () => undefined, defaultLocalId = () => null, skillsDir = () => null, projectInstructions = () => true, onGoal = () => {}, onPlan = () => {}, onQueue = () => {}, proxyBase = null, searchMock = null, expertSampling = () => null, engineProgress = () => null, engineGraceMs = 30 * 60_000, stallMs = 4 * 60_000, stallToolMs = 20 * 60_000, env = process.env, nodePath = process.execPath, log = () => {}, startTimeoutMs = 120_000, sessionReadyMs = 60_000, sessionRetryMs = 1_500 }) {
   const root = join(dataDir, 'agent');
   const home = join(root, 'home');
   const sessionsFile = join(root, 'sessions.json');
@@ -170,7 +169,6 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
   let lastError = null;
   let starting = null;
   const chats = new Map();         // chatId -> { turn, route, routeGeneration }
-  const breaker = new CompactBreaker(agentGuard());   // H2: automatic summarizing that keeps failing is stopped per chat
   const plans = new PlanStore(join(root, 'plans.json'));
   /** chatId -> messages the person typed while a goal ran: [{ id, text, at, deliverAt }]; delivered between steps or when the goal ends */
   const queues = new Map();
@@ -608,24 +606,19 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
           renameSync(tmpSnapshot, join(root, 'context-budget.json'));
         } catch { /* the tool answers "not known yet" without a snapshot; a write must never break a turn */ }
       }
-      if (fit?.action === 'summarize' && breaker.blocked(sessionId)) {
-        // H2: automatic summarizing keeps failing for this chat. One plain card, and the message is sent as it is: the chat stays usable.
-        reporter.clear();
-        const text = fill(FIT_TEXT.compactFailed, []);
-        emit({ type: 'error', message: text, key: FIT_TEXT.compactFailed, code: 'COMPACT_BREAKER' });
-        return { error: text };
-      }
+      // Automatic summarizing on repeated failures is the Harness compaction's own breaker now
+      // (HARNESS_ROADMAP P5 retired the host one): the summariser stops after three failures in a row
+      // and the turn goes on without the summary.
       if (fit?.action === 'summarize') {
         reporter.set({ phase: 'compacting', code: 'compacting', text: FIT_TEXT.summarizing, key: FIT_TEXT.summarizing, values: [] });
         const done = await compactChat(runtime, sessionId);
         reporter.clear();
-        if (done.ok) { breaker.success(sessionId); emit(summarizedNote(done.before, done.after, fit.window)); }
-        else breaker.failure(sessionId);
+        if (done.ok) emit(summarizedNote(done.before, done.after, fit.window));
       }
     }
 
     const projector = new TurnProjector({ policy: MODE_PRESETS[appliedMode].approval, window: route.contextWindow });
-    if (!goal) { const guardLimits = agentGuard(); guard = new TurnGuard({ plan: !!planTask, contextMax: route.kind === 'local' ? route.contextWindow : 0, limits: { compactFailures: guardLimits.compactFailures } }); }   // a saved connection's window is often only assumed: never judged by a guess
+    if (!goal) { guard = new TurnGuard({ plan: !!planTask, contextMax: route.kind === 'local' ? route.contextWindow : 0 }); }   // a saved connection's window is often only assumed: never judged by a guess
     projector.onStatus = update => { if (!turn?.parentOpen && turn?.children.size && [...turn.children.values()].some(h => !h.done) && update.phase === 'waiting') return; reporter.set(update); };
     const turn = {
       sessionId, projector, route, requestId, live: false, lastSeq: runtime.baselines.get(sessionId) ?? -1,
@@ -1566,7 +1559,6 @@ ${note.text}
     try { ({ rt: runtime } = await ensureRuntime(choice, signal)); } catch { return say(FIT_TEXT.compactFailed); }
     const done = await compactChat(runtime, known);
     if (done.ok) {
-      breaker.success(known);
       const note = summarizedNote(done.before, done.after, 0);
       return say(note.key, note.values);
     }

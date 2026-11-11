@@ -104,7 +104,7 @@ async function rig(t, options = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'strata-guard-'));
   const ws = join(dir, 'ws'); mkdirSync(ws, { recursive: true });
   const logs = [];
-  const bridge = createAgentBridge({ dataDir: dir, agentGuard: () => options.guard ?? {}, localInstances: () => [{ id: 'i', label: 'S', baseUrl: worker.url, modelId: 'scripted-model', context: options.context ?? 32768, slots: 2 }], connections: () => [],
+  const bridge = createAgentBridge({ dataDir: dir, localInstances: () => [{ id: 'i', label: 'S', baseUrl: worker.url, modelId: 'scripted-model', context: options.context ?? 32768, slots: 2 }], connections: () => [],
     // these chats are in Manual and search without a person at the card: the Settings switch that skips the web question is on
     tools: () => ({ off: new Set(), search: { provider: 'builtin', key: '' }, servers: {}, webWithoutAsking: true }),
     env: process.env, startTimeoutMs: 90_000, searchMock: 'limited', log: l => logs.push(l) });
