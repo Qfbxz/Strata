@@ -3581,7 +3581,7 @@
  "s9093": "Choisir le modèle du chat en tapant son nom",
  "s9094": "Utiliser un modèle par son nom",
  "s9095": "Utiliser un modèle par son nom…",
- "s9098": "Ce que l'assistant lit et exécute",
+ "s9098": "Ce que l’assistant lit et exécute",
  "s9099": "Reformulation des messages",
  "s9100": "Modèle secondaire léger",
  "s9101": "Enregistré. Pris en compte au prochain démarrage du modèle.",
@@ -3590,5 +3590,7 @@
  "s9104": "Parcourir…",
  "s9105": "Téléchargement de {0}…",
  "s9106": "Télécharger le modèle léger (4,5 Go)",
- "s9107": "Qwen3-VL-4B avec son projeteur d'images, enregistré dans le dossier des modèles. Tourne sur cette machine ; rien n'en sort."
+ "s9107": "Qwen3-VL-4B avec son projeteur d’images, enregistré dans le dossier des modèles. Tourne sur cette machine ; rien n’en sort.",
+ "s9108": "Détecté sur cette machine : {0} ({1} Mo) avec son projeteur d’images — rien à saisir.",
+ "s9109": "Avancé : les chemins exacts"
 }

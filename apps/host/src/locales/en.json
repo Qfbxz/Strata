@@ -3590,5 +3590,7 @@
  "s9104": "Browse…",
  "s9105": "Downloading {0}…",
  "s9106": "Download the small model (4.5 GB)",
- "s9107": "Qwen3-VL-4B with its picture projector, saved into the models folder. Runs on this machine; nothing leaves it."
+ "s9107": "Qwen3-VL-4B with its picture projector, saved into the models folder. Runs on this machine; nothing leaves it.",
+ "s9108": "Detected on this machine: {0} ({1} MB) with its picture projector — nothing to type.",
+ "s9109": "Advanced: the exact paths"
 }

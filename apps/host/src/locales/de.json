@@ -3590,5 +3590,7 @@
  "s9104": "Durchsuchen…",
  "s9105": "{0} wird geladen…",
  "s9106": "Das kleine Modell laden (4,5 GB)",
- "s9107": "Qwen3-VL-4B mit seinem Bildprojektor, gespeichert im Modellordner. Läuft auf diesem Rechner; nichts verlässt ihn."
+ "s9107": "Qwen3-VL-4B mit seinem Bildprojektor, gespeichert im Modellordner. Läuft auf diesem Rechner; nichts verlässt ihn.",
+ "s9108": "Auf diesem Rechner erkannt: {0} ({1} MB) mit seinem Bildprojektor — nichts einzutragen.",
+ "s9109": "Erweitert: die genauen Pfade"
 }

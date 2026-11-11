@@ -3590,5 +3590,7 @@
  "s9104": "Examinar…",
  "s9105": "Descargando {0}…",
  "s9106": "Descargar el modelo pequeño (4,5 GB)",
- "s9107": "Qwen3-VL-4B con su proyector de imágenes, guardado en la carpeta de modelos. Se ejecuta en esta máquina; nada sale de ella."
+ "s9107": "Qwen3-VL-4B con su proyector de imágenes, guardado en la carpeta de modelos. Se ejecuta en esta máquina; nada sale de ella.",
+ "s9108": "Detectado en esta máquina: {0} ({1} MB) con su proyector de imágenes — no hay nada que escribir.",
+ "s9109": "Avanzado: las rutas exactas"
 }
