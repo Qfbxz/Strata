@@ -31,6 +31,7 @@ import { runAcpTurn } from './agent/acp/turns.mjs';
 import { availableBackends, backendOf } from './agent/acp/backends.mjs';
 import { advice, estimateTokens } from './context-tiers.mjs';
 import { mcpSkippedNotices } from './agent/profile.mjs';
+import { choiceOf, resolveChatModel } from './agent/model-routes.mjs';
 import { createAgentTools } from './agent/tools-settings.mjs';
 import { withPlainStatus } from './agent/status.mjs';
 import { findBrowser, findPlaywrightMcp } from './agent/browser-probe.mjs';
@@ -2213,6 +2214,27 @@ async function api(req, res, path, method, url) {  if(path==='/api/fonts'&&metho
 
   // --- agent --------------------------------------------------------------
   if (path === '/api/agent/status' && method === 'GET') return json(res, 200, agent.status());
+  // The model picker's by-name field (Settings switch `modelByName`, default off): whatever the person
+  // typed about a model becomes either the structured choice the chat send route already applies
+  // through the Harness `session.selectModel` seam, or the plain words of what fits instead.
+  // Nothing is switched here; the choice takes effect with the chat's next message.
+  if (path === '/api/agent/model-by-name' && method === 'POST') {
+    if (!features().modelByName) return error(res, 403, 'The by-name model picker is switched off. Turn it on in Settings, under what the assistant reads and runs.');
+    const body = await readBody(req);
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return error(res, 400, 'Type a model name, for example "DeepSeek V3.2" or "local".');
+    // An unavailable agent carries no routes at all: an empty table answers with the plain
+    // "nothing is set up" words instead of failing the request.
+    const routes = agent.status().routes ?? [];
+    const found = resolveChatModel(routes.filter(r => !String(r.route ?? '').includes('~')), name);
+    if (found.status === 'exact') {
+      const choice = choiceOf(found.route);
+      if (!choice) return json(res, 200, { status: 'none', asked: found.asked, message: `"${found.asked}" names a response-settings copy of a model, not a model. Pick the model itself.` });
+      return json(res, 200, { status: 'exact', asked: found.asked, message: found.message, choice, model: { name: found.route.name, id: found.route.modelId, connection: found.route.connectionName, local: found.route.local } });
+    }
+    return json(res, 200, { status: found.status, asked: found.asked, message: found.message,
+      ...(found.options ? { options: found.options.map(r => { const choice = choiceOf(r); return { name: r.name, id: r.modelId, connection: r.connectionName, local: !!r.local, ...(choice ? { choice } : {}) }; }) } : {}) });
+  }
   // The assistant's model requests, with the person's Response settings added (llm-shape.mjs). This computer only.
   const llmRoute = /^\/api\/internal\/agent-llm\/([A-Za-z0-9_.~-]+)(\/.*)$/.exec(path);
   if (llmRoute) { llmProxy(req, res, llmRoute[1], llmRoute[2] + (url.search ?? '')); return undefined; }

@@ -2,6 +2,8 @@
  * The feature switches behind the new file-loading surfaces, one persisted object the Settings
  * page edits and the host reads. Every switch defaults to on: the features themselves are opt-in
  * by what the person drops on disk, so an all-on default is still the unchanged default path.
+ * The one exception is `modelByName` (default off): it adds a visible entry to the chat's model
+ * picker instead of reacting to files, so it ships dark until the person switches it on.
  */
 const DEFAULTS = Object.freeze({
   agents: true,              // <data>/agents + workspace agents personas and catalog
@@ -11,6 +13,7 @@ const DEFAULTS = Object.freeze({
   skillsNative: true,        // the native skill-pack folders list as read-only skills
   branchChip: true,          // the ⑂ branch chip beside the project chip
   checkpoints: true,         // the restore-point picker beside the branch chip
+  modelByName: false,        // the by-name field in the chat's model picker (session.selectModel)
 });
 
 const KEYS = Object.keys(DEFAULTS);

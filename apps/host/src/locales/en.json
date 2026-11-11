@@ -3577,5 +3577,8 @@
   "s9088": "llama-server binary",
   "s9089": "small model GGUF",
   "s9090": "picture projector GGUF",
-  "s9092": "Rewrite vague messages with the small model before the main one"
+  "s9092": "Rewrite vague messages with the small model before the main one",
+  "s9093": "Pick a chat model by typing its name",
+  "s9094": "Use a model by name",
+  "s9095": "Use a model by name…"
 }

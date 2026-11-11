@@ -213,7 +213,7 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
       detail: lastError ?? null,
       harness: { version: h.version },
       runtime: rt?.hp.running ? { pid: rt.hp.pid, generation: rt.generation } : null,
-      routes: profile.routes.map(({ route, kind, modelId, name, contextWindow }) => ({ route, kind, modelId, name, contextWindow })),
+      routes: profile.routes.map(({ route, kind, modelId, name, contextWindow, connectionName, connectionId, instanceId }) => ({ route, kind, modelId, name, contextWindow, connectionName, connectionId, instanceId })),
       // tool servers that could not be wired (a name the rule does not allow, no program or address): the chat says so
       skippedServers: profile.mcpSkipped ?? [],
       activeTurns: activeTurns(),

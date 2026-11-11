@@ -44,14 +44,6 @@ export const MODE_PRESETS = Object.freeze({
   bypass: { key: 'strata-bypass', sandbox: 'danger-full-access', approval: 'never', name: 'Bypass', description: 'Full access without approval prompts. Files and commands anywhere on this computer run without asking.' },
 });
 export const DEFAULT_MODE = 'manual';
-/** Helper agents running at once when no local engine sets the limit (the Harness's own default). */
-export const DEFAULT_API_HELPERS = 8;
-/**
- * Helpers a local chat may have at once: at least the engine's request slots, and never fewer than this. With one slot the engine
- * serves its requests one after the other (its queue is unbounded), so the extra helpers show as waiting for their turn instead
- * of being refused.
- */
-export const MIN_LOCAL_HELPERS = 4;
 /** The preset for a chat's stored mode. Anything unknown (older values such as `auto`) gets the strictest ask-first mode. */
 export const modeOf = value => (Object.hasOwn(MODE_PRESETS, value) ? value : DEFAULT_MODE);
 
@@ -113,7 +105,6 @@ export const PERSONA_PLUGIN = fileURLToPath(new URL('./plugins/strata-persona.mj
 /** The app's web search (DuckDuckGo, or the person's own Exa / Perplexity key), registered with the Harness's web seam. */
 /** Compaction that measures the real prompt and summarises in pieces that fit the window (plugins/strata-context.mjs). */
 export const CONTEXT_PLUGIN = fileURLToPath(new URL('./plugins/strata-context.mjs', import.meta.url));
-export const MODELS_PLUGIN = fileURLToPath(new URL('./plugins/strata-models.mjs', import.meta.url));
 export const SEARCH_PLUGIN = fileURLToPath(new URL('./plugins/strata-search.mjs', import.meta.url));
 /** Tool results over ~8k chars spill to disk and the inline result keeps head+tail+path (plugins/strata-spill.mjs). */
 export const SPILL_PLUGIN = fileURLToPath(new URL('./plugins/strata-spill.mjs', import.meta.url));
@@ -259,8 +250,6 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
   const env = {};
   const routes = [];
   const mcpEnv = {};
-  // Helper agents: at least as many as the engine has request slots (a local model); API models take the Harness's own limit.
-  let slots = 0;
   /** Per-model compaction timing (see compactionHeadroom). */
   const compaction = [];
   /** Routes the person's Response settings can reach: a copy of the provider whose address is this host's forwarding endpoint (see llm-shape.mjs). */
@@ -303,7 +292,6 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
       }],
     };
     compaction.push({ provider: route, model: inst.modelId, retainTokens: compactionHeadroom(context, localOutputBudget(context)) });
-    slots = Math.max(slots, Number.isFinite(inst.slots) && inst.slots >= 1 ? Math.floor(inst.slots) : 1);
     const shaped = addShaped(route, providers[route], inst.baseUrl);
     routes.push({ route, fp: fingerprint(providers[route], env[keyEnv]), kind: 'local', connectionName: 'this computer', instanceId: inst.id, modelId: inst.modelId, name: inst.label || inst.modelId, contextWindow: context, ...(shaped ? { shaped } : {}) });
   });
@@ -382,8 +370,6 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     ? [{ id: 'web', config: { searchProvider: 'deepseek-official', fetchProvider: 'http' } }, { id: 'web-search-deepseek', config: { apiKeyEnv: 'STRATA_SEARCH_KEY' } }, { insert: fetchRows }]
     : [{ id: 'web', config: { searchProvider: keyed ?? DDG_PROVIDER_ID, fetchProvider: 'http' } }, { id: 'web-search-deepseek', disabled: true },
       { insert: [...fetchRows, { id: 'strata-web-search', name: SEARCH_PLUGIN, config: { provider: keyed ?? 'duckduckgo', keyEnv: 'STRATA_SEARCH_KEY', ...(searchMock ? { mock: searchMock } : {}) } }] }];
-  /** The models a helper agent may be started on: the table the model-choice plugin and the Harness's allow-list are written from. */
-  const subagentRoutes = routes.map(r => ({ provider: r.route, model: r.modelId, name: r.name, connection: r.connectionName, local: r.kind === 'local' }));
   // The chat composition (preset.mjs) is a preset file since Harness 0.2.3: buildProfile hands the rows back and
   // the bridge writes them under `presetDir`; the row below mounts that root with our composition as the default.
   // Without a `presetDir` (unit callers) no preset is mounted and no composition file is described.
@@ -398,7 +384,6 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { id: 'llm-pi-ai', name: '@deepseek-ai/dsh-llm-pi-ai', config: { providers } },
     // The chat modes. Replacing the table also drops the Harness's own three presets: a chat is always in one of ours.
     { id: 'permission', config: { presets: Object.fromEntries(Object.values(MODE_PRESETS).map(({ key, sandbox, approval, name, description }) => [key, { sandbox, approval, name, description }])), defaultPreset: MODE_PRESETS[DEFAULT_MODE].key } },
-    { id: 'subagent', config: { maxActiveSubagents: slots > 0 ? Math.max(slots, MIN_LOCAL_HELPERS) : DEFAULT_API_HELPERS } },
     // Manual asks before a change runs, so the person sees one Approve/Deny card and nothing has happened yet.
     // Its web question names the search service the person chose (a keyed one only when its key is saved), and the person's switch skips the question.
     ...(gate ? [{ insert: [{ id: 'strata-gate', name: GATE_PLUGIN, config: { web: { provider: SEARCH_NAMES[keyed ?? 'builtin'], skipAsk: tools.webWithoutAsking === true } } }] }] : []),
@@ -441,11 +426,10 @@ export function buildProfile({ local = [], connections = [], gate = true, tools 
     { insert: [{ id: 'strata-ask-user', name: ASK_USER_PLUGIN, config: { maxQuestions: 8 } }] },
     // Compaction decides from what the model server measured, and its summary requests always fit the window (plugins/strata-context.mjs).
     { insert: [{ id: 'strata-context', name: CONTEXT_PLUGIN, config: {} }] },
-    // Helper agents on a model the person names: Harness 0.2.3 removed the subagent tool's per-call
-    // `model`/`provider` arguments and the `list_subagent_models` discovery tool, so plugins/strata-models.mjs
-    // has no seam to wrap any more. It stays unmounted (its guidance would name a parameter that is gone)
-    // until a product decision re-introduces helper model choice on the 0.2.3 surface (session.selectModel).
-    ...(subagentRoutes.length ? [{ id: 'subagent-model-selection-settings', config: { enabled: true, allowedModels: subagentRoutes.map(r => ({ provider: r.provider, model: r.model })) } }] : []),
+    // Helper model choice lives on the app's own seam now (Harness 0.2.3 removed the subagent tool's
+    // per-call `model`/`provider` arguments and the discovery tool): the model picker's by-name field
+    // resolves what the person typed (server/agent/model-routes.mjs) and the chat send path applies it
+    // to the chat's own session with `session.selectModel`. A helper runs on its chat's model.
     ...(mcp.length || ownRows.length ? [{ insert: [...mcp, ...ownRows] }] : []),
     ...webRows,
     // The reminder tools would be a second scheduler beside the app's Tasks. The tool groups the person switched off in Settings -> Tools are left out.

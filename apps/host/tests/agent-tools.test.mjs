@@ -100,19 +100,19 @@ test('every plugin the composition names exists in the pinned bundle, so an upst
   }
 });
 
-test('the profile loads the gate by path, sizes helper agents to the engine slots and keeps no secret', () => {
+test('the profile loads the gate by path, writes no dead helper-cap row (the 0.2.2 jobs cap is gone upstream) and keeps no secret', () => {
   const p = buildProfile({ local: [{ id: 'a', baseUrl: 'http://127.0.0.1:1/v1', modelId: 'm', context: 32768, slots: 2, key: 'sekret-key-123' }], presetDir: '/tmp/presets-profile-test' });
   const entries = JSON.parse(p.patch.split('\n').slice(1).join('\n'));
   assert.deepEqual(entries.find(e => e.insert)?.insert, [{ id: 'strata-gate', name: GATE_PLUGIN, config: { web: { provider: 'DuckDuckGo, or Bing when DuckDuckGo is busy', skipAsk: false } } }]);
   assert.ok(existsSync(GATE_PLUGIN));
-  assert.equal(entries.find(e => e.id === 'subagent').config.maxActiveSubagents, 4, 'at least the 4 helpers; more only with more slots');
+  assert.equal(entries.find(e => e.id === 'subagent'), undefined, 'helper concurrency is the Harness runtime\'s own now; the profile writes no cap row');
   const composition = JSON.parse(p.presetFile.content);
   assert.equal(composition.some(x => x.id === 'tool-schedule'), false, 'the composition leaves scheduling to the app');
   assert.equal(entries.find(e => e.id === 'agent-presets'), undefined, 'the roster row belongs to the bundle; the app ships a composition file instead');
   assert.equal(p.presetFile.path, join('/tmp/presets-profile-test', 'strata-standard', 'agent.cordis.yml'));
   assert.ok(!p.patch.includes('sekret-key-123'));
   const api = buildProfile({ local: [], connections: [{ id: 'c1', name: 'C', baseUrl: 'https://x/v1', protocol: 'openai-chat', models: [{ id: 'm' }] }] });
-  assert.equal(JSON.parse(api.patch.split('\n').slice(1).join('\n')).find(e => e.id === 'subagent').config.maxActiveSubagents, 8, 'API models take the Harness limit');
+  assert.equal(JSON.parse(api.patch.split('\n').slice(1).join('\n')).find(e => e.id === 'subagent'), undefined, 'no dead cap row on an API-only setup either');
 });
 
 test('tool failures are said in plain words with the original text kept after them', () => {

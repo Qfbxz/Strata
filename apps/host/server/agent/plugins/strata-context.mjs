@@ -1,5 +1,5 @@
 /**
- * Strata's context plugin for the Harness (plain ESM, loaded by absolute path from the profile, like strata-gate and strata-models).
+ * Strata's context plugin for the Harness (plain ESM, loaded by absolute path from the profile, like strata-gate).
  *
  * What it fixes (2026-10-22 hands-on test, Gyro-S at 64K):
  *   1. Compaction decided from the Harness's own price of the conversation, 4 characters a token. Code, logs and JSON are about twice as
@@ -12,7 +12,7 @@
  *      the summary replaces it), the pieces are summarised one after the other, each building on the summary before it, and a piece the
  *      server still refuses is halved and tried again.
  *
- * How. It wraps `tokenMeter.measure` and `llm.stream` in place, once each (the same way strata-models wraps the subagent tools). Only a
+ * How. It wraps `tokenMeter.measure` and `llm.stream` in place, once each. Only a
  * request the Harness marks `purpose: 'compaction'` is touched in `llm.stream`. Nothing in the Harness is rewritten: a Harness update
  * that renames either leaves compaction as it was, and the test that runs the real Harness fails.
  */

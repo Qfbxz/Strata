@@ -3577,5 +3577,8 @@
   "s9088": "llama-server-Programm",
   "s9089": "GGUF des kleinen Modells",
   "s9090": "Bildprojektor-GGUF",
-  "s9092": "Vague Nachrichten vor dem Hauptmodell vom kleinen Modell umformulieren"
+  "s9092": "Vague Nachrichten vor dem Hauptmodell vom kleinen Modell umformulieren",
+  "s9093": "Chat-Modell wählen, indem Sie seinen Namen eintippen",
+  "s9094": "Modell nach Name verwenden",
+  "s9095": "Modell nach Name verwenden…"
 }

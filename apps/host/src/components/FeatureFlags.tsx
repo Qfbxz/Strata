@@ -13,6 +13,7 @@ const SWITCHES: { key: string; label: string }[] = [
     { key: 'promptRewrite', label: "Rewrite vague messages with the small model before the main one" },
     { key: 'branchChip', label: "Branch chip in the composer" },
     { key: 'checkpoints', label: "Restore-point picker in the composer" },
+    { key: 'modelByName', label: "Pick a chat model by typing its name" },
 ];
 
 interface Features { [key: string]: boolean }

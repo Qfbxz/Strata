@@ -1,11 +1,13 @@
 /**
- * Which model did the person (or the assistant) mean when a helper agent is started with a model?
+ * Which model did the person mean, when they name one in the model picker's by-name field?
  *
- * The Harness's `subagent` tool wants an exact `provider` route key and an exact model id. People say "ask DeepSeek", "use the local
- * model", "ask deepseek/deepseek-v3.2" or a display name in other letters; a route key such as `api-1b2c3d4e-5f` is something no
- * model can guess. This module turns what was asked into one route, or into a plain answer that says what to do next.
+ * People say "ask DeepSeek", "use the local model", "deepseek/deepseek-v3.2" or a display name in
+ * other letters; a route key such as `api-1b2c3d4e-5f` is something nobody can guess. This module
+ * turns what was asked into one route, or into a plain answer that says what to do next. The
+ * picker hands the route's choice to the chat send path, which applies it to the chat's Harness
+ * session through `session.selectModel` (Harness 0.2.3); until the next message nothing is switched.
  *
- * Pure and dependency free: the profile writes the route table, the `strata-models` Harness plugin and the tests call it.
+ * Pure and dependency free: the profile writes the route table, the model picker and the tests call it.
  *
  * A route is `{ provider, model, name, connection, local }`:
  *   provider    the route key in the Harness profile (what the Harness needs)
@@ -132,20 +134,70 @@ export function resolveModel(routes, request = {}) {
 export const asked = request => [request.provider, request.model].filter(v => typeof v === 'string' && v.trim()).join(' / ');
 
 /**
- * The text the `subagent` tool answers with when the model could not be settled. `null` when the call can go ahead (the caller then
- * uses the `exact` route or inherits). Plain words, with the next step; never a route key as the only thing said.
+ * What is said when a model name could not be settled (`null` when it can go ahead). Plain words, with
+ * what fits and the next step; never a route key as the only thing said. Read by the person through the
+ * model picker's by-name field (and kept word-for-word testable here).
  */
 export function modelProblem(routes, request) {
   const result = resolveModel(routes, request);
   const what = asked(request);
   if (result.status === 'inherit' || result.status === 'exact') return null;
-  if (!routes.length) return 'No other model is set up. Nothing was started. Add a model in Models, or start the helper without naming a model.';
+  if (!routes.length) return 'No other model is set up. Nothing was switched. Add a model in Models, or keep the chat on this one.';
   if (result.status === 'confirm') {
     const r = result.route;
-    return `No model is called "${what}". Nothing was started. Did you mean ${r.name} (${r.local ? 'running on this computer' : r.connection})? Ask the person "Did you mean ${r.name}?" and, when they agree, call subagent again with provider "${r.provider}" and model "${r.model}".`;
+    return `No model is called "${what}". Nothing was switched. Did you mean ${r.name} (${r.local ? 'running on this computer' : r.connection})? Ask for it again by that name to use it.`;
   }
   if (result.status === 'ambiguous') {
-    return `More than one model fits "${what}". Nothing was started. Ask the person which one they mean, then call subagent again with that model's provider and model:\n${routeList(result.options, { max: 8 })}`;
+    return `More than one model fits "${what}". Nothing was switched. These fit:\n${routeList(result.options, { max: 8 })}\nName one of them by its name or id.`;
   }
-  return `No model is called "${what}". Nothing was started. These are the models that can be used:\n${routeList(routes)}\nChoose one of them, or tell the person it is not set up (they can add it in Models).`;
+  return `No model is called "${what}". Nothing was switched. These are the models that can be used:\n${routeList(routes)}\nName one of them, or add the model you want in Models.`;
+}
+
+/**
+ * The model-picker rows the app's profile carries, in the shape `resolveModel` reads, with the app's
+ * own ids riding along: the picker resolves a name back to a choice the chat send route applies
+ * through the Harness `session.selectModel` seam (the 0.2.3 replacement for the removed per-call
+ * model argument of the subagent tool).
+ * @param {Array<{route:string,kind:string,modelId:string,name:string,connectionName:string,connectionId?:string,instanceId?:string}>} profileRoutes
+ * @returns {Array<{provider:string,model:string,name:string,connection:string,local:boolean,connectionId?:string,instanceId?:string}>}
+ */
+export const pickerRoutes = profileRoutes => profileRoutes.map(r => ({
+  provider: r.route, model: r.modelId, name: r.name, connection: r.connectionName, local: r.kind === 'local',
+  ...(r.connectionId ? { connectionId: r.connectionId } : {}),
+  ...(r.instanceId ? { instanceId: r.instanceId } : {}),
+}));
+
+/**
+ * Resolve what the person typed into the model picker's by-name field against the profile's routes.
+ * The returned `route`/`options` are the enriched rows, so `choiceOf` turns an exact hit into the
+ * structured choice the chat send route already takes; `message` carries the plain words of
+ * `modelProblem` for the cases that settled nothing.
+ * @param {Array} profileRoutes the profile's route rows (the rows `agent.status().routes` carries)
+ * @param {string} name whatever the person typed ("deepseek v3", "DeepSeek: V3.2", "local")
+ * @returns {{status:'inherit'|'exact'|'confirm'|'ambiguous'|'none', route?:object, others?:object[], options?:object[], asked:string, message?:string}}
+ */
+export function resolveChatModel(profileRoutes, name) {
+  const routes = pickerRoutes(profileRoutes);
+  const request = { model: String(name ?? '') };
+  const result = resolveModel(routes, request);
+  const what = asked(request);
+  if (result.status === 'inherit') return { status: 'inherit', asked: what };
+  if (result.status === 'exact' || result.status === 'confirm') {
+    const r = result.route;
+    const where = r.local ? 'running on this computer' : r.connection;
+    return { ...result, asked: what, message: result.status === 'confirm' ? `Did you mean ${r.name} (${where})? Nothing was switched yet.` : `${r.name} (${where}).` };
+  }
+  return { ...result, asked: what, message: modelProblem(routes, request) };
+}
+
+/**
+ * The chat send route's structured model choice for one resolved route row: an API model by
+ * connection and model id, a local engine model by its instance id.
+ * @param {{connectionId?:string,instanceId?:string,model?:string}} route an enriched route row (as `pickerRoutes` builds them)
+ * @returns {{connectionId:string,modelId:string}|{instanceId:string}|null} null for a row that is neither
+ */
+export function choiceOf(route) {
+  if (route?.connectionId && route.model) return { connectionId: route.connectionId, modelId: route.model };
+  if (route?.instanceId) return { instanceId: route.instanceId };
+  return null;
 }

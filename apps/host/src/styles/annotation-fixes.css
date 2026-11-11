@@ -335,6 +335,12 @@ html[data-motion='reduced'] .voice-wave span, html[data-motion='reduced'] .agent
 
 .model-picker-manage { border-top: 1px solid var(--st-line); margin-top: 6px; padding-top: 12px; }
 
+.model-byname { display: grid; gap: 6px; border-top: 1px solid var(--st-line); margin-top: 6px; padding-top: 12px; }
+
+.model-byname__answer { display: grid; gap: 4px; }
+
+.model-byname__answer p { margin: 0; white-space: pre-line; }
+
 .dictation-feedback { position: fixed; right: 24px; bottom: 110px; width: min(320px, calc(100dvw - 32px)); max-height: calc(100dvh - 48px); overflow: auto; z-index: var(--layer-popover); padding: 16px; border: 1px solid var(--st-line); border-radius: 18px; background: var(--st-surface); box-shadow: var(--st-sh-pop); animation: st-enter 200ms var(--st-ease-enter) both; }
 
 .dictation-feedback__head { display: flex; align-items: center; gap: 8px; }

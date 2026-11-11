@@ -3577,5 +3577,8 @@
   "s9088": "programa llama-server",
   "s9089": "GGUF do modelo pequeno",
   "s9090": "GGUF do projetor de imagens",
-  "s9092": "Reescrever mensagens vagas com o modelo pequeno antes do principal"
+  "s9092": "Reescrever mensagens vagas com o modelo pequeno antes do principal",
+  "s9093": "Escolher o modelo do chat digitando o nome dele",
+  "s9094": "Usar um modelo pelo nome",
+  "s9095": "Usar um modelo pelo nome…"
 }

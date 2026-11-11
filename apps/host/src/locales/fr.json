@@ -3577,5 +3577,8 @@
   "s9088": "programme llama-server",
   "s9089": "GGUF du modèle léger",
   "s9090": "GGUF du projeteur d’images",
-  "s9092": "Reformuler les messages vagues avec le modèle léger avant le principal"
+  "s9092": "Reformuler les messages vagues avec le modèle léger avant le principal",
+  "s9093": "Choisir le modèle du chat en tapant son nom",
+  "s9094": "Utiliser un modèle par son nom",
+  "s9095": "Utiliser un modèle par son nom…"
 }
