@@ -60,6 +60,8 @@ export function FeatureFlagsSetting() {    const [features, setFeatures] = useSt
     const [small, setSmall] = useState<SmallModelView | null>(null);
     const [library, setLibrary] = useState<{ path: string; name: string; mb: number }[]>([]);
     useEffect(() => { fetch('/api/small-model/library').then(r => r.json()).then(d => setLibrary(d.ggufs ?? [])).catch(() => {}); }, []);
+    const [found, setFound] = useState<{ exe: string | null; model: string | null; modelName: string | null; modelMb: number | null; mmproj: string | null; mmprojName: string | null; mmprojMb: number | null; found: boolean } | null>(null);
+    useEffect(() => { fetch('/api/small-model/discover').then(r => r.json()).then(d => setFound(d)).catch(() => {}); }, []);
     useEffect(() => { fetch('/api/small-model').then(r => r.json()).then(d => setSmall(d)).catch(() => {}); }, []);
     function saveSmall(patch: Partial<SmallModelView>) {
         if (!small) return;
@@ -82,33 +84,41 @@ export function FeatureFlagsSetting() {    const [features, setFeatures] = useSt
             </Row>
         </Section>
         <Section title="Small model sidecar">
-            <Row label="Small model sidecar">
-                <button className="st-toggle" role="switch" aria-checked={!!small?.enabled} aria-label={tr("Small model sidecar")} disabled={!small} onClick={() => saveSmall({ enabled: !small?.enabled })} />
-            </Row>
-            <Row label="Stop the small model after (seconds)">
-                <input className="st-input" style={{ width: 72 }} inputMode="numeric" aria-label={tr("Stop the small model after (seconds)")} value={small?.idleUnloadS ?? ''} disabled={!small} onChange={e => { const n = parseFloat(e.target.value); if (Number.isFinite(n) && n >= 0) saveSmall({ idleUnloadS: n }); }} />
-            </Row>
-            <Row label="Small model files">
-                <span className="feature-flags__paths">
+            <div className="feature-flags__row">
+                <span className="feature-flags__name">{tr("Small model sidecar")}</span>
+                <button className="st-toggle" role="switch" aria-checked={!!small?.enabled} aria-label={tr("Small model sidecar")} disabled={!small} onClick={() => { const turningOn = !small?.enabled; if (turningOn && !small?.model && found?.found) { saveSmall({ enabled: true, exe: found.exe ?? '', model: found.model ?? '', mmproj: found.mmproj ?? '' }); return; } saveSmall({ enabled: turningOn }); }} />
+            </div>
+            {small?.enabled && found && <p className="feature-flags__found">
+                {found.found
+                    ? tr("Detected on this machine: {0} ({1} MB) with its picture projector — nothing to type.", [found.modelName ?? '', String(found.modelMb ?? '')])
+                    : tr("No small model found on this machine yet — install one into the models folder, or set the three paths below.")}
+            </p>}
+            {small?.enabled && <div className="feature-flags__row">
+                <span className="feature-flags__name">{tr("Stop the small model after (seconds)")}</span>
+                <input className="st-input" style={{ width: 72 }} inputMode="numeric" aria-label={tr("Stop the small model after (seconds)")} value={small?.idleUnloadS ?? ''} onChange={e => { const n = parseFloat(e.target.value); if (Number.isFinite(n) && n >= 0) saveSmall({ idleUnloadS: n }); }} />
+            </div>}
+            {small?.enabled && <details className="feature-flags__advanced">
+                <summary>{tr("Advanced: the exact paths")}</summary>
+                <div className="feature-flags__paths">
+                    <span className="feature-flags__pickrow">
+                        <input className="st-input" aria-label={tr("llama-server binary")} placeholder="/path/to/llama-server" value={small?.exe ?? ''} onChange={e => setSmall(s => s ? { ...s, exe: e.target.value } : s)} onBlur={() => saveSmall({})} />
+                        <button type="button" className="st-btn" onClick={() => { fetch('/api/small-model/pick', { method: 'POST' }).then(r => r.json()).then(d => { if (d.path) saveSmall({ exe: d.path }); }).catch(() => {}); }}>{tr("Browse…")}</button>
+                    </span>
                     {(['model', 'mmproj'] as const).map(which => {
                         const options = library.filter(g => which === 'mmproj' ? g.name.toLowerCase().startsWith('mmproj') : !g.name.toLowerCase().startsWith('mmproj'));
                         const value = which === 'model' ? small?.model ?? '' : small?.mmproj ?? '';
                         const known = options.some(o => o.path === value);
                         return <span key={which} className="feature-flags__pickrow">
-                            {options.length > 0 && <select className="st-select" aria-label={tr(which === 'model' ? "small model GGUF" : "picture projector GGUF")} value={known ? value : ''} disabled={!small} onChange={e => { const v = e.target.value; if (v) saveSmall({ [which]: v } as Partial<SmallModelView>); }}>
+                            {options.length > 0 && <select className="st-select" aria-label={tr(which === 'model' ? "small model GGUF" : "picture projector GGUF")} value={known ? value : ''} onChange={e => { const v = e.target.value; if (v) saveSmall({ [which]: v } as Partial<SmallModelView>); }}>
                                 <option value="">{tr("From the model library…")}</option>
                                 {options.map(o => <option key={o.path} value={o.path}>{o.name} ({o.mb} MB)</option>)}
                             </select>}
-                            <input className="st-input" aria-label={tr(which === 'model' ? "small model GGUF" : "picture projector GGUF")} placeholder={which === 'model' ? 'Qwen3-VL-4B Q8_0.gguf' : 'mmproj Q8_0.gguf'} value={value} disabled={!small} onChange={e => setSmall(s => s ? { ...s, [which]: e.target.value } : s)} onBlur={() => saveSmall({})} />
+                            <input className="st-input" aria-label={tr(which === 'model' ? "small model GGUF" : "picture projector GGUF")} placeholder={which === 'model' ? 'Qwen3-VL-4B Q8_0.gguf' : 'mmproj Q8_0.gguf'} value={value} onChange={e => setSmall(s => s ? { ...s, [which]: e.target.value } : s)} onBlur={() => saveSmall({})} />
                         </span>;
                     })}
-                    <span className="feature-flags__pickrow">
-                        <input className="st-input" aria-label={tr("llama-server binary")} placeholder="/path/to/llama-server" value={small?.exe ?? ''} disabled={!small} onChange={e => setSmall(s => s ? { ...s, exe: e.target.value } : s)} onBlur={() => saveSmall({})} />
-                        <button type="button" className="st-btn" disabled={!small} onClick={() => { fetch('/api/small-model/pick', { method: 'POST' }).then(r => r.json()).then(d => { if (d.path) saveSmall({ exe: d.path }); }).catch(() => {}); }}>{tr("Browse…")}</button>
-                    </span>
                     {small?.pushedToServer != null && <span className="muted feature-flags__hint">{tr(small.pushedToServer ? "Saved. Used from the next start of the model." : "Saved here. The model server is not running, so this is used from its next start.")}</span>}
-                </span>
-            </Row>
+                </div>
+            </details>}
         </Section>
         {tr(problem ? <span className="small inline-error" role="alert">{problem}</span> : null)}
     </span>;

@@ -2309,6 +2309,40 @@ async function api(req, res, path, method, url) {  if(path==='/api/fonts'&&metho
     }
     return json(res, 200, { ggufs: ggufs.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 200) });
   }
+  if (path === '/api/small-model/discover' && method === 'GET') {
+    // Find the three pieces so the person never types a path: the sidecar binary in the places this
+    // checkout/App keeps it, and a VL model + its projector among the installed GGUFs (biggest wins).
+    const candidates = [];
+    const repo = packaged ? null : resolve(import.meta.dirname, '..', '..');
+    const exeSpots = [
+      repo && join(repo, 'build-small', 'bin', 'llama-server'),
+      repo && join(repo, 'build-metal', 'bin', 'llama-server'),
+      join(root, 'llama-server'),
+      '/usr/local/bin/llama-server',
+    ].filter(Boolean);
+    for (const spot of exeSpots) { try { if (statSync(spot).isFile()) { candidates.push({ exe: spot }); break; } } catch { /* not there */ } }
+    const scored = [];
+    for (const dir of new Set([store.MODELS_DIR, join(store.MODELS_DIR, 'small-model')].map(d => resolve(String(d))))) {
+      try {
+        for (const name of readdirSync(dir)) {
+          if (!name.toLowerCase().endsWith('.gguf')) continue;
+          const low = name.toLowerCase();
+          const path = join(dir, name);
+          let mb = 0; try { mb = Math.round(statSync(path).size / 1048576); } catch { /* vanished */ continue; }
+          if (low.includes('mmproj')) { if (mb >= 200) scored.push({ mmproj: path, mmprojName: name, mmprojMb: mb }); }
+          else if (low.includes('vl')) scored.push({ model: path, modelName: name, modelMb: mb });
+        }
+      } catch { /* folder missing */ }
+    }
+    const model = scored.filter(s => s.model).sort((a, b) => b.modelMb - a.modelMb)[0];
+    const mmproj = scored.filter(s => s.mmproj).sort((a, b) => b.mmprojMb - a.mmprojMb)[0];
+    return json(res, 200, {
+      exe: candidates[0]?.exe ?? null,
+      model: model?.model ?? null, modelName: model?.modelName ?? null, modelMb: model?.modelMb ?? null,
+      mmproj: mmproj?.mmproj ?? null, mmprojName: mmproj?.mmprojName ?? null, mmprojMb: mmproj?.mmprojMb ?? null,
+      found: !!(candidates[0]?.exe && model && mmproj),
+    });
+  }
   if (path === '/api/small-model/pick' && method === 'POST') {
     const picked = await chooseFile('Choose the small model file');
     if (!picked) return json(res, 501, { error: { message: 'this platform has no file chooser; type the path in' } });
