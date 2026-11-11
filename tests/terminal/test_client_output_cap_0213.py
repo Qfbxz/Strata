@@ -17,8 +17,10 @@ def render(name, context):
 
 class OutputCap(unittest.TestCase):
     def test_the_cap_grows_with_the_window_and_the_tested_window_keeps_4096(self):
-        caps = {c: harness.target(URL, None, "m", c).output_cap for c in (8192, 32768, 65536, 131072, 204800, 524288)}
-        self.assertEqual(caps, {8192: 4096, 32768: 4096, 65536: 8192, 131072: 16384, 204800: 25600, 524288: 65536})
+        caps = {c: harness.target(URL, None, "m", c).output_cap
+                for c in (8192, 32768, 65536, 131072, 204800, 262144, 524288, 786432, 1048576)}
+        self.assertEqual(caps, {8192: 4096, 32768: 4096, 65536: 8192, 131072: 16384, 204800: 25600,
+                                262144: 32768, 524288: 65536, 786432: 98304, 1048576: 131072})
 
     def test_opencode_gets_room_for_a_compaction_summary_on_a_wide_server(self):
         text = render("opencode", 131072)["files"][0]["text"]

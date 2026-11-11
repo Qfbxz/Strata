@@ -686,7 +686,11 @@ UNSLOTH_MIN_RAM_GB = 48         # the RAM-budget mode below which setup says an 
 # the trained range are out of spec.
 # 204800 (200K) sits between 128K and 256K: it is inside the trained 262144, so it needs no rope scaling and
 # costs ~2.8 GB of 8-bit KV with IQ3_S (vs ~3.6 GB at 256K) - a middle step for PCs that cannot hold 256K.
-CONTEXTS = [8192, 32768, 65536, 131072, 204800, 262144, 393216, 524288]
+# 786432 (768K) and 1048576 (1M) extend the ladder for the unified-memory Macs: measured on an M3 Max 128 GB
+# with IQ3_S (token_chain, ntok 8, 2026-11-11) 69.9 / 66.1 / 63.1 / 61.2 tok/s at 256K / 512K / 768K / 1M -
+# a flat 12.5% falloff across the range, every step real.  The model's trained range covers 1M; 1M of 8-bit
+# QSA KV is ~14.6 GB next to the ~55 GB of weights.
+CONTEXTS = [8192, 32768, 65536, 131072, 204800, 262144, 393216, 524288, 786432, 1048576]
 # The model families: the same architecture, weights in the same three GSQ-RCO sizes, different files.
 FAMILIES = {
     "qwen": {"title": "Qwen3.8-Flash-Next", "by": "Qwen; GSQ-RCO quants by ISTA-DASLab",
