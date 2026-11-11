@@ -41,8 +41,12 @@ export function apply(ctx) {
   if (meter && typeof meter.measure === 'function' && !wrapped.has(meter)) {
     wrapped.add(meter);
     const original = meter.measure;
-    meter.measure = function measure(session, requestHeader) {
-      const m = original.call(this, session, requestHeader);
+    meter.measure = function measure(session, requestHeader, reportedTokens) {
+      // 0.2.3 W6: a provider count anchors the measurement exactly (the Harness compaction passes the
+      // adapter's countTokens result here) - the density calibration is a fallback for engines without
+      // a counter, and it must not distort an exact anchor.
+      const m = original.call(this, session, requestHeader, reportedTokens);
+      if (reportedTokens !== undefined) return m;
       const sample = samples.get(session);
       if (!sample) return m;
       const now = m.surfaceTokens + estimateTools(requestHeader ?? session.requestHeader?.());

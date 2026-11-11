@@ -295,3 +295,41 @@ test('the summary request asks for the language of the conversation and leaves t
   assert.deepEqual(withSummaryLanguage([{ role: 'assistant', content: 'x' }]), [{ role: 'assistant', content: 'x' }]);
   assert.deepEqual(withSummaryLanguage([]), []);
 });
+
+test('the density calibration forks on the counter: a provider-reported anchor stays exact, a heuristic meter is corrected (P6)', async () => {
+  const { apply: applyContext } = await import('../server/agent/plugins/strata-context.mjs');
+  const seen = [];
+  const fakeMeter = {
+    /** The Harness price of the pretend surface, and the arguments the wrap forwards. */
+    measure(session, requestHeader, reportedTokens) {
+      seen.push({ session, requestHeader, reportedTokens });
+      return { surfaceTokens: 1000, totalTokens: 1100, nodes: [{ seq: 1, heuristicTokens: 1000, tokens: 1000 }] };
+    },
+  };
+  const handlers = {};
+  const ctx = {
+    tokenMeter: fakeMeter,
+    on: (name, h) => { handlers[name] = h; },
+    inject: () => {},
+    logger: {},
+    llm: {
+      stream: () => { throw new Error('not driven here'); },
+      prepareCall: () => { throw new Error('not driven here'); },
+      resolveModelInfo: async () => ({ context: { contextWindow: 32768 } }),
+    },
+  };
+  applyContext(ctx);
+  const session = { id: 'fork', requestHeader: () => ({}) };
+  // Record one measured sample: the engine said 2000 real tokens for a prompt priced at 1000 (density 2).
+  // The answered message lands as seq 2; the sample prices the surface before it (the seq-1 node).
+  handlers['session/event'](session, { type: 'assistant/message', seq: 2, data: { usage: { inputTokens: 2000 } } });
+  // Heuristic state (no counter): the measured part is exact, the rest is priced at the sample's density.
+  const corrected = fakeMeter.measure(session);
+  assert.equal(corrected.totalTokens, 2000, `1000 now, all measured at 2000 (got ${corrected.totalTokens})`);
+  assert.deepEqual(corrected.nodes.map(n => n.tokens), [2000], 'the nodes carry the density too');
+  // Counter state (W6): the provider count anchors the measurement exactly, nothing is scaled.
+  const exact = fakeMeter.measure(session, undefined, 1500);
+  assert.equal(seen.at(-1).reportedTokens, 1500, 'the reported count reaches the Harness meter');
+  assert.equal(exact.totalTokens, 1100, 'the exact anchor is not density-corrected');
+  assert.deepEqual(exact.nodes.map(n => n.tokens), [1000], "the exact anchor nodes are untouched");
+});
