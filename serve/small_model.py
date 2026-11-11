@@ -155,9 +155,13 @@ class SmallModel:
 
     def chat(self, messages: list, **fields) -> str:
         """One completion from the sidecar: -> the assistant text.  Extra OpenAI fields pass
-        through; a None field is dropped (it means "the sidecar's own default")."""
+        through; a None field is dropped (it means "the sidecar's own default").  The small-task
+        routes (titles, summaries, picture descriptions) run with thinking off by default - a
+        thinking model would spend the token cap inside <think> and return no content at all
+        (Qwen3-VL measured); an explicit chat_template_kwargs wins."""
         self._ensure()
         self.touch()
+        fields.setdefault('chat_template_kwargs', {'enable_thinking': False})
         body = {k: v for k, v in {"messages": messages, **fields}.items() if v is not None}
         req = urllib.request.Request(self.url + "/v1/chat/completions",
                                      data=json.dumps(body).encode(), method="POST",

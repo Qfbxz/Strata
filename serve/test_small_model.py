@@ -83,6 +83,24 @@ class ChatProxy(unittest.TestCase):
         self.assertEqual(sent["max_tokens"], 24)
         self.assertNotIn("temperature", sent)
 
+    def test_thinking_is_off_for_the_short_task_routes_unless_asked(self):
+        # Qwen3-VL thinks by default: a 16-token title would be spent inside <think> with no
+        # content at all.  The sidecar asks for no thinking unless the caller turns it on.
+        s = small_of()
+        calls = []
+        with mock.patch("serve.small_model._post", capture_post(calls)):
+            s.chat([{"role": "user", "content": "title this"}])
+        kw = calls[0]["body"].get("chat_template_kwargs")
+        self.assertIsInstance(kw, dict, "chat_template_kwargs is sent")
+        self.assertIs(kw.get("enable_thinking"), False, "thinking defaults to off")
+
+        calls2 = []
+        with mock.patch("serve.small_model._post", capture_post(calls2)):
+            s.chat([{"role": "user", "content": "think hard"}],
+                   chat_template_kwargs={"enable_thinking": True})
+        self.assertIs(calls2[0]["body"]["chat_template_kwargs"].get("enable_thinking"), True,
+                      "an explicit on wins over the default")
+
     def test_an_http_error_raises_with_the_server_saying(self):
         s = small_of()
         def boom(url, req, timeout=None):
