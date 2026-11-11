@@ -75,7 +75,7 @@ test('a tool call walks running -> proposed -> done with its approval, and carri
   const p = new TurnProjector({ startedAt: 0 });
   const call = p.consume(ev('tool/call', { callId: 'c1', name: 'pwsh', arguments: JSON.stringify({ command: 'ls', description: 'List files' }) }, 1, 1000));
   assert.equal(call[0].tool.state, 'running'); assert.equal(call[0].tool.scope, 'shell'); assert.equal(call[0].tool.preview, 'ls');
-  const asked = p.consume(ev('approval/asked', { id: 'ap1', callId: 'c1', reason: 'escalate sandbox' }));
+  const asked = p.consume(ev('approval/dispatched', { id: 'ap1', callId: 'c1', reason: 'escalate sandbox' }));
   assert.equal(asked[0].tool.state, 'proposed'); assert.match(asked[0].tool.effect, /escalate/);
   const decided = p.consume(ev('approval/decided', { id: 'ap1', outcome: 'allowed-once' }));
   assert.equal(decided[0].tool.state, 'running');
@@ -86,7 +86,7 @@ test('a tool call walks running -> proposed -> done with its approval, and carri
 test('a rejected approval ends as denied even though the Harness returns an error result', () => {
   const p = new TurnProjector({ startedAt: 0 });
   p.consume(ev('tool/call', { callId: 'c2', name: 'pwsh', arguments: '{}' }));
-  p.consume(ev('approval/asked', { id: 'ap2', callId: 'c2' }));
+  p.consume(ev('approval/dispatched', { id: 'ap2', callId: 'c2' }));
   assert.equal(p.consume(ev('approval/decided', { id: 'ap2', outcome: 'rejected' }))[0].tool.state, 'denied');
   const res = p.consume(ev('tool/result', { message: { toolCallId: 'c2', isError: true, content: [{ type: 'text', text: 'the user rejected tool' }] } }));
   assert.equal(res[0].tool.state, 'denied');

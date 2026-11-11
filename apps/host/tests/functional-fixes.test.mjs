@@ -78,7 +78,7 @@ test('item 7: tool rows say what happened in plain words, with what it was about
   const p = new TurnProjector({ startedAt: 0 });
   const call = p.consume(ev('tool/call', { callId: 'w1', name: 'write', arguments: JSON.stringify({ file_path: 'C:/work/notes.md', content: 'x' }) }))[0].tool;
   assert.equal(call.verb, 'Writing a file'); assert.equal(call.target, 'C:/work/notes.md');
-  const asked = p.consume(ev('approval/asked', { id: 'a1', callId: 'w1', reason: 'Create or replace the file C:/work/notes.md' }))[0].tool;
+  const asked = p.askDispatched('w1', 'Create or replace the file C:/work/notes.md').tool;
   assert.equal(asked.state, 'proposed'); assert.equal(asked.target, 'C:/work/notes.md', 'the approval card shows the file');
   const ok = p.consume(ev('tool/result', { message: { toolCallId: 'w1', content: [{ type: 'text', text: 'written' }] } }))[0].tool;
   assert.equal(ok.verb, 'Wrote a file');

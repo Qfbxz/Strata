@@ -71,6 +71,7 @@ export class ChildProjector {
     this.endedAt = null;
     this.tools = new Map();         // callId -> { card, calledAt, asked }
     this.asked = new Map();         // approval id -> callId
+    this.dispatchedAsks = new Set(); // callIds whose ask the approval service dispatched to an answerer (a cache hit never dispatches)
     this.lastEmit = 0;
   }
 
@@ -91,6 +92,20 @@ export class ChildProjector {
   }
 
   #cardId(callId) { return `${this.id}:${callId}`; }
+
+  /** The approval service dispatched this helper ask to an answerer: propose the card exactly once. */
+  askDispatched(callId, reason) {
+    this.dispatchedAsks.add(callId);
+    return this.#maybeProposeAsk(callId, reason);
+  }
+
+  #maybeProposeAsk(callId, reason) {
+    if (!callId || !this.tools.has(callId) || !this.dispatchedAsks.has(callId)) return null;
+    this.dispatchedAsks.delete(callId);
+    const entry = this.tools.get(callId);
+    entry.asked = true;
+    return this.#card(callId, { state: 'proposed', effect: clip(`${this.name} asks: ${reason ?? 'to use a tool'}`, 400) });
+  }
 
   #card(callId, patch) {
     const entry = this.tools.get(callId);
@@ -143,12 +158,20 @@ export class ChildProjector {
         row = true;
         break;
       }
+      // The helper's ask card is the dispatch's to show: a 0.2.3 cache hit appends the audit pair
+      // but never dispatches, and a card without an answer channel would dead-end.
       case 'approval/asked': {
         if (!d.callId || !this.tools.has(d.callId)) break;
         this.asked.set(d.id, d.callId);
-        const entry = this.tools.get(d.callId);
-        entry.asked = true;
-        const frame = this.#card(d.callId, { state: 'proposed', effect: clip(`${this.name} asks: ${d.reason ?? 'to use a tool'}`, 400) });
+        const frame = this.#maybeProposeAsk(d.callId, d.reason);
+        if (frame) frames.push(frame);
+        break;
+      }
+      case 'approval/dispatched': {
+        if (!d.callId) break;
+        if (d.id) this.asked.set(d.id, d.callId);
+        this.dispatchedAsks.add(d.callId);   // claimed even if the tool/call event has not landed yet (separate sockets race)
+        const frame = this.#maybeProposeAsk(d.callId, d.reason);
         if (frame) frames.push(frame);
         break;
       }
@@ -168,6 +191,7 @@ export class ChildProjector {
         const callId = d.message?.toolCallId ?? resultBlock?.toolCallId;
         const entry = this.tools.get(callId);
         if (!entry) break;
+        this.dispatchedAsks.delete(callId);
         if (entry.asked) {
           const wasDenied = entry.card.state === 'denied';
           const isError = d.message?.isError === true || resultBlock?.isError === true;

@@ -91,7 +91,7 @@ test('projector: a tool that asks shows "waiting for your answer", and a helper 
   const seen = [];
   p.onStatus = u => seen.push(u);
   p.consume({ type: 'event', event: { type: 'tool/call', time: 1, data: { callId: 'c1', name: 'pwsh', arguments: JSON.stringify({ command: 'rm x' }) } } });
-  p.consume({ type: 'event', event: { type: 'approval/asked', time: 2, data: { id: 'ap1', callId: 'c1', reason: 'Run a command' } } });
+  p.consume({ type: 'event', event: { type: 'approval/dispatched', time: 2, data: { callId: 'c1', reason: 'Run a command' } } });
   assert.deepEqual([seen.at(-1).phase, seen.at(-1).text], ['approval', 'Waiting for your answer…']);
   p.consume({ type: 'event', event: { type: 'approval/decided', time: 3, data: { id: 'ap1', outcome: 'allowed-once' } } });
   assert.equal(seen.at(-1).phase, 'tool', 'back to the running tool after the answer');

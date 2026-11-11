@@ -58,7 +58,8 @@ test('only a helper request that needs the person becomes a card, and its id nam
   assert.deepEqual(cp.consume(ev('tool/call', { callId: 'k1', name: 'read', arguments: '{"file_path":"a"}' })).frames, [], 'a read is not a card');
   cp.consume(ev('tool/result', { message: { toolCallId: 'k1', content: [{ type: 'text', text: 'x' }] } }));
   cp.consume(ev('tool/call', { callId: 'k2', name: 'write', arguments: '{"file_path":"C:/a.txt","content":"x"}' }));
-  const asked = cp.consume(ev('approval/asked', { id: 'a1', callId: 'k2', reason: 'Create or replace the file C:/a.txt' })).frames[0].tool;
+  const asked = cp.askDispatched('k2', 'Create or replace the file C:/a.txt').tool;
+  assert.deepEqual(cp.consume(ev('approval/asked', { id: 'a1', callId: 'k2', reason: 'Create or replace the file C:/a.txt' })).frames, [], 'the audit pair alone proposes nothing more');
   assert.equal(asked.id, 'child-1:k2'); assert.equal(asked.state, 'proposed'); assert.match(asked.effect, /^Writer asks: Create or replace the file/);
   assert.equal(cp.consume(ev('approval/decided', { id: 'a1', outcome: 'rejected' })).frames[0].tool.result, 'Denied. Nothing ran.');
   const done = cp.consume(ev('tool/result', { message: { toolCallId: 'k2', isError: true, content: [{ type: 'text', text: 'Error: the user rejected tool "write"' } ] } })).frames[0].tool;

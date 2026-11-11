@@ -180,7 +180,7 @@ test('the methodology section rides in the requests', { skip }, async (t) => {
   assert.ok(r.worker.requests.some(q => q.raw.includes('Explore before concluding')), 'the system prompt carries the methodology rules');
 });
 
-test.skip('an approved call shape is not asked again in the same chat', { skip: '0.2.3 caches approved shapes session-scoped, but the cached-shape lookup did not suppress the second identical ask over the live bridge (observed: the second ask proposed again and ran after answering). The cache internals are pinned by the static approval pin; the per-session no-re-ask behavior needs a wp9-side scenario.' }, async (t) => {
+test('an approved call shape is not asked again in the same chat', async (t) => {
   const r = await rig(t);
   const approve = (frames, chatId) => f => {
     frames.push(f);

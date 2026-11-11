@@ -225,6 +225,7 @@ export class TurnProjector {
     this.ended = null;               // the turn/end reason, once seen
     this.denied = new Set();         // callIds a human or the policy rejected
     this.asked = new Map();          // approval id -> callId
+    this.dispatchedAsks = new Set(); // callIds whose ask the approval service actually dispatched to an answerer (a cache hit never dispatches)
     this.onStatus = null;            // (update) => void: what the assistant is doing now (status.mjs); set by the bridge
     this.reasoning = new TokenCount();
     this.composing = new Map();      // callId -> ToolDraft: a tool call the model is still writing (still here at a cut reply = it was lost)
@@ -350,13 +351,23 @@ export class TurnProjector {
         break;
       }
       case 'approval/asked': {
+        // The proposed card waits for the dispatch (approval/dispatched), not for this audit event:
+        // 0.2.3's session approval cache resolves an already-approved shape straight from `decide` —
+        // the asked/decided pair still lands for replay, but no answerer is dispatched and a card
+        // without an answer channel would flash and dead-end.
         if (!d.callId) break;
         this.asked.set(d.id, d.callId);
-        if (this.policy === 'never') break;
-        const entry = this.tools.get(d.callId);
-        this.#status({ phase: 'approval', code: 'waiting-approval', text: 'Waiting for your answer…', args: { tool: entry?.card.name ?? '' } });
-        const patch = { state: 'proposed', effect: clip(d.reason ?? entry?.card.effect ?? 'Needs your approval.', 400) };
-        const frame = this.#card(d.callId, patch);
+        const frame = this.#maybeProposeAsk(d.callId, d.reason);
+        if (frame) out.push(frame);
+        break;
+      }
+      case 'approval/dispatched': {
+        if (!d.callId) break;
+        // The dispatch names the audit ask it claims, so the later decided event can find its call
+        // without the asked event having been seen first.
+        if (d.id) this.asked.set(d.id, d.callId);
+        this.dispatchedAsks.add(d.callId);   // claimed even if the tool/call event has not landed yet (separate sockets race)
+        const frame = this.#maybeProposeAsk(d.callId, d.reason);
         if (frame) out.push(frame);
         break;
       }
@@ -381,6 +392,7 @@ export class TurnProjector {
         const entry = this.tools.get(callId);
         if (!entry) break;
         this.running = this.running.filter(id => id !== callId);
+        this.dispatchedAsks.delete(callId);
         this.#afterTool();
         // 0.2.3: `isError` rides on the nested `tool-result` block (`message.content[0]`), not on the message.
         const isError = d.message?.isError === true || resultBlock?.isError === true;
@@ -425,6 +437,20 @@ export class TurnProjector {
   }
 
   /** An approval was decided. `outcome` is the Harness vocabulary. */
+  /** The approval service dispatched this ask to an answerer: the person can actually answer it. Propose the card exactly once. */
+  askDispatched(callId, reason) {
+    this.dispatchedAsks.add(callId);
+    return this.#maybeProposeAsk(callId, reason);
+  }
+
+  #maybeProposeAsk(callId, reason) {
+    if (!callId || this.policy === 'never' || !this.dispatchedAsks.has(callId)) return null;
+    this.dispatchedAsks.delete(callId);
+    const entry = this.tools.get(callId);
+    this.#status({ phase: 'approval', code: 'waiting-approval', text: 'Waiting for your answer…', args: { tool: entry?.card.name ?? '' } });
+    return this.#card(callId, { state: 'proposed', effect: clip(reason ?? entry?.card.effect ?? 'Needs your approval.', 400) });
+  }
+
   decide(callId, outcome) {
     if (!this.tools.has(callId)) return null;
     // `approved` is what lets the card say "Approved" (the user answered) rather than "Ran" (it never asked).

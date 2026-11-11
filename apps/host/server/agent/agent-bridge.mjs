@@ -241,13 +241,6 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
     const workdir = join(root, 'run');
     const hp = new HarnessProcess({
       harness: h, home, patchFile, cwd: workdir, env: profile.env, nodePath, logFile: join(root, 'harness.log'), pidFile: join(root, 'harness.pid'),
-      // The fleet auto-continue plugin's tool-repeat loop guard (identical call AND result, default 5)
-      // cancels a turn before the Harness's own repeat guard finishes its ladder (reminders at 3/5/8,
-      // force stop at 12 with the model-visible instruction) — the upstream stop was unreachable.
-      // Above 12 the fleet guard yields the in-turn loop to the Harness and keeps covering loops that
-      // outlive a restart. The settings service resolves schema defaults over a patch row's config, so
-      // this goes through the settings user layer, seeded into a fresh Harness home.
-      settingsSeed: 'auto-continue:\n  loopToolRepeat: 13\n',
       onExit: exit => {
         log(`agent · the Harness process exited (code ${exit.code})`);
         if (rt?.hp === hp) { lastError = 'The agent process stopped.'; rt = null; }
@@ -387,8 +380,10 @@ export function createAgentBridge({ dataDir, componentsDir = null, bundledDir = 
         pending.set(`${frame.sessionId}:${frame.callId}`, { rpcId, approvalId: frame.approvalId, sessionId: frame.sessionId, callId: frame.callId, tool: frame.toolName, reason: frame.reason ?? null, at: Date.now() });
         // The ask card is the dispatch's to show, not the audit event's: 0.2.3's session approval cache
         // resolves an already-approved shape before dispatching (only the asked/decided audit pair lands),
-        // and a card rendered from the bare event would ask for an answer no channel can carry.
-        routeItemTo(frame.sessionId, { type: 'event', event: { seq: 0, time: Date.now(), type: 'approval/dispatched', data: { callId: frame.callId, reason: frame.reason ?? null } } });
+        // and a card rendered from the bare event would ask for an answer no channel can carry. The item
+        // type bypasses the parent's seq gate: the dispatch is not a session event, and the harness
+        // dispatches after appending the asked event, so the two channels race.
+        routeItemTo(frame.sessionId, { type: 'approval-dispatch', id: frame.approvalId, callId: frame.callId, reason: frame.reason ?? null });
         return;
       }
       case 'approval/resolved': {
@@ -775,6 +770,11 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
       if (turn.finished) return;
       turn.lastActivity = Date.now();
       turn.heard = turn.lastActivity;
+      if (item.type === 'approval-dispatch') {
+        const proposed = projector.askDispatched(item.callId, item.reason);
+        if (proposed) emit(proposed);
+        return;
+      }
       if (item.type === 'event') {
         const e = item.event;
         if (e.seq <= turn.lastSeq) return;
@@ -810,6 +810,11 @@ ${note.text}`, key: note.key, values: note.values, noteReason: 'cut' });
       const fold = item => {
         if (turn.finished) return;
         turn.lastActivity = turn.heard = Date.now();
+        if (item.type === 'approval-dispatch') {
+          const proposed = cp.askDispatched(item.callId, item.reason);
+          if (proposed) emit(proposed);
+          return;
+        }
         // A helper that finishes before its throttled "working" row went out would show queued -> completed and never "working": send the held row first.
         if (item.type === 'event' && item.event.type === 'turn/end' && child.rowPending) emitRow(child, true);
         const { frames, row } = cp.consume(item);

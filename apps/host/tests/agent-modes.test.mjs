@@ -74,7 +74,7 @@ test('mode mapping: three presets, Manual by default, unknown values fall back t
 
 test('projection: under "never" no card ever offers Approve; "ask" marks the approved card', () => {
   const call = { type: 'event', event: { seq: 1, time: 1, type: 'tool/call', data: { callId: 'c1', name: 'write', arguments: { file_path: 'x.txt', content: 'x' } } } };
-  const asked = { type: 'event', event: { seq: 2, time: 2, type: 'approval/asked', data: { id: 'a1', callId: 'c1', reason: 'escalate sandbox to workspace-write: because' } } };
+  const asked = { type: 'event', event: { seq: 2, time: 2, type: 'approval/dispatched', data: { id: 'a1', callId: 'c1', reason: 'escalate sandbox to workspace-write: because' } } };
   const rejected = { type: 'event', event: { seq: 3, time: 3, type: 'approval/decided', data: { id: 'a1', outcome: 'rejected' } } };
   const failed = { type: 'event', event: { seq: 4, time: 4, type: 'tool/result', data: { message: { toolCallId: 'c1', isError: true, content: [{ type: 'text', text: 'Error: the user rejected escalating' }] } } } };
   const never = new TurnProjector({ policy: 'never' });
