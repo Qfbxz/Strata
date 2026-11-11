@@ -62,6 +62,7 @@ async function startHost({ python } = {}) {
     await wait(100);
   }
   child.kill('SIGKILL');
+  await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {});   // the suite hang of 2026-11-10: 1377 leaked scratch homes
   throw new Error('the host did not become healthy');
 }
 

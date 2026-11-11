@@ -48,7 +48,11 @@ async function startHost(extraEnv = {}, spawnOptions = {}) {
   });
   let up = false;
   for (let i = 0; i < 120 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${port}/api/health`)).ok; } catch { await delay(100); } }
-  assert.ok(up, 'host started');
+  if (!up) {   // the suite hang of 2026-11-10: a failed start left the host alive, and its file process then never exited
+    host.kill('SIGKILL');
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {});
+    assert.ok(false, 'host started');
+  }
   return { host, port, home, done: () => rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 

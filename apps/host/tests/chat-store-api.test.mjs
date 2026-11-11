@@ -25,7 +25,11 @@ async function startHost(home) {
   const exit = new Promise(r => host.once('exit', (code, signal) => r({ code, signal })));
   let up = false;
   for (let i = 0; i < 150 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${port}/api/health`)).ok; } catch { await delay(100); } }
-  assert.ok(up, 'host started');
+  if (!up) {   // the suite hang of 2026-11-10: a failed start left the host alive, and its file process then never exited
+    host.kill('SIGKILL'); await exit;
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {});
+    assert.ok(false, 'host started');
+  }
   const base = `http://127.0.0.1:${port}`;
   return { base, stop: async () => { host.kill('SIGKILL'); await exit; } };
 }

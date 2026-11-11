@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { openSync, closeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import net from 'node:net';
@@ -26,12 +27,19 @@ async function startHost() {
     LOCALAPPDATA: join(home, 'Local'), APPDATA: join(home, 'Roaming'), XDG_DATA_HOME: join(home, 'xdg-data'),
     XDG_STATE_HOME: join(home, 'xdg-state'), XDG_CONFIG_HOME: join(home, 'xdg-config'),
   };
-  const host = spawn(process.execPath, ['server/index.mjs'], { cwd: root, stdio: 'ignore', env });
+  // The suite hang of 2026-11-10: hosts that never became healthy were left alive by the failed
+  // assert (their file process then never exited); and a silently-blocked boot left no evidence.
+  // The stderr now lands in the scratch home, and a failed start kills the child before throwing.
+  const errPath = join(home, 'host-stderr.log');
+  const errFd = openSync(errPath, 'a');
+  const host = spawn(process.execPath, ['server/index.mjs'], { cwd: root, stdio: ['ignore', 'ignore', errFd], env });
+  const closeErr = () => { try { closeSync(errFd); } catch { /* gone */ } };
   const exit = new Promise(r => host.once('exit', (code, signal) => r({ code, signal })));
+  const die = async why => { host.kill('SIGKILL'); await exit; closeErr(); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); throw new Error(`${why} (host stderr: ${errPath})`); };
   let up = false;
   for (let i = 0; i < 150 && !up; i++) { try { up = (await fetch(`http://127.0.0.1:${port}/api/health`)).ok; } catch { await delay(100); } }
-  assert.ok(up, 'host started');
-  return { host, port, sharePort, exit, done: async () => { host.kill('SIGKILL'); await exit; await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); } };
+  if (!up) await die('host started');
+  return { host, port, sharePort, exit, done: async () => { host.kill('SIGKILL'); await exit; closeErr(); await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }).catch(() => {}); } };
 }
 
 /** One raw HTTP request on its own socket: the bytes are sent as written and the first response is returned. */
