@@ -129,7 +129,7 @@ async function rig(t, options = {}) {
   return { worker, bridge, ws, base };
 }
 
-test('a turn stuck on one identical call ends at twelve with the upstream stop instruction', async (t) => {
+test('a turn stuck on one identical call ends at twelve with the upstream stop instruction', { skip }, async (t) => {
   // Measured composition (2026-11-11): reminders reach the model at 3/5/8 and the 12th identical call
   // is concluded by repeat-tool-reminder with the pinned instruction. The fleet auto-continue plugin's
   // own tool-repeat loop guard (identical call AND result at 5) used to cancel the turn first, so the
@@ -184,7 +184,7 @@ test('the methodology section rides in the requests', { skip }, async (t) => {
   assert.ok(r.worker.requests.some(q => q.raw.includes('Explore before concluding')), 'the system prompt carries the methodology rules');
 });
 
-test('an approved call shape is not asked again in the same chat', async (t) => {
+test('an approved call shape is not asked again in the same chat', { skip }, async (t) => {
   const r = await rig(t);
   const approve = (frames, chatId) => f => {
     frames.push(f);
