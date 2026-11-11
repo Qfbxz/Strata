@@ -3585,5 +3585,7 @@
  "s9099": "Reformulation des messages",
  "s9100": "Modèle secondaire léger",
  "s9101": "Enregistré. Pris en compte au prochain démarrage du modèle.",
- "s9102": "Enregistré ici. Le serveur de modèle ne tourne pas, ce sera donc pris en compte à son prochain démarrage."
+ "s9102": "Enregistré ici. Le serveur de modèle ne tourne pas, ce sera donc pris en compte à son prochain démarrage.",
+ "s9103": "Depuis la bibliothèque de modèles…",
+ "s9104": "Parcourir…"
 }

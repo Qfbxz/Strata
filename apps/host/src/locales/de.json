@@ -3585,5 +3585,7 @@
  "s9099": "Nachrichten neu formulieren",
  "s9100": "Kleines Nebenmodell",
  "s9101": "Gespeichert. Gilt ab dem nächsten Start des Modells.",
- "s9102": "Hier gespeichert. Der Modellserver läuft nicht, gilt also ab dessen nächstem Start."
+ "s9102": "Hier gespeichert. Der Modellserver läuft nicht, gilt also ab dessen nächstem Start.",
+ "s9103": "Aus der Modellbibliothek…",
+ "s9104": "Durchsuchen…"
 }

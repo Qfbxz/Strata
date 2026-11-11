@@ -22,6 +22,7 @@ import { projectInstructions, projectInstructionsSection } from './project-instr
 import { officeSkills } from './agent/plugins/office-skills.mjs';
 import { featuresView, sanitizeFeatures } from './feature-flags.mjs';
 import { smallModelView, sanitizeSmallModel, smallModelConfigLeaves } from './small-model.mjs';
+import { chooseFile } from './file-dialog.mjs';
 import { rewriteMessages, parseRewrite, wrapForMainModel } from './prompt-rewrite.mjs';
 import { scanSkillFolders, uniqueDest } from './skill-scan.mjs';
 import { systemFonts } from './fonts.mjs';
@@ -2289,6 +2290,30 @@ async function api(req, res, path, method, url) {  if(path==='/api/fonts'&&metho
   if (path === '/api/features' && method === 'PUT') {
     try { const saved = sanitizeFeatures(await readBody(req)); store.update({ features: saved }); try { rescanSkills(); } catch (e) { console.warn('skills · could not rescan after a feature change:', e.message); } return json(res, 200, featuresView(saved)); }
     catch (e) { return error(res, 400, e.message); }
+  }
+  if (path === '/api/small-model/library' && method === 'GET') {
+    // The GGUFs already on this machine, for the small model's three paths: the models folder, its
+    // small-model subfolder, and the last-used directory.  Plain names with their folder; capped so a
+    // huge library cannot flood the picker.
+    const dirs = new Set([store.MODELS_DIR, join(store.MODELS_DIR, 'small-model'), join(store.MODELS_DIR, '..', 'small-model')].map(d => d && resolve(String(d))));
+    const ggufs = [];
+    for (const dir of dirs) {
+      try {
+        for (const name of readdirSync(dir)) {
+          if (name.toLowerCase().endsWith('.gguf')) {
+            let mb = 0; try { mb = Math.round(statSync(join(dir, name)).size / 1048576); } catch { /* vanished */ }
+            ggufs.push({ path: join(dir, name), name, mb });
+          }
+        }
+      } catch { /* folder missing */ }
+    }
+    return json(res, 200, { ggufs: ggufs.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 200) });
+  }
+  if (path === '/api/small-model/pick' && method === 'POST') {
+    const picked = await chooseFile('Choose the small model file');
+    if (!picked) return json(res, 501, { error: { message: 'this platform has no file chooser; type the path in' } });
+    if (picked.cancelled || !picked.path) return json(res, 200, { cancelled: true });
+    return json(res, 200, { path: picked.path });
   }
   if (path === '/api/small-model' && method === 'GET') {
     const view = smallModelView(store.get().smallModel);

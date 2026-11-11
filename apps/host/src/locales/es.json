@@ -3585,5 +3585,7 @@
  "s9099": "Reescritura de mensajes",
  "s9100": "Modelo pequeño secundario",
  "s9101": "Guardado. Se usa desde el próximo arranque del modelo.",
- "s9102": "Guardado aquí. El servidor del modelo no está corriendo, así que se usa desde su próximo arranque."
+ "s9102": "Guardado aquí. El servidor del modelo no está corriendo, así que se usa desde su próximo arranque.",
+ "s9103": "De la biblioteca de modelos…",
+ "s9104": "Examinar…"
 }

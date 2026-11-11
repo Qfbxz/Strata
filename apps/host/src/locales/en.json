@@ -3585,5 +3585,7 @@
  "s9099": "Prompt rewrite",
  "s9100": "Small model sidecar",
  "s9101": "Saved. Used from the next start of the model.",
- "s9102": "Saved here. The model server is not running, so this is used from its next start."
+ "s9102": "Saved here. The model server is not running, so this is used from its next start.",
+ "s9103": "From the model library…",
+ "s9104": "Browse…"
 }
