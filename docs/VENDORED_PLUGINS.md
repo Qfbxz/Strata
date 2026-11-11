@@ -60,3 +60,11 @@ bundle 注入；真源同上档案目录。除 harness 外的依赖（`@deepseek
 非插件，是 staging 时重放到 bundle 依赖上的字节补丁：`harness-budget.mjs` 的 `strata-pi-ai-context-safety-v2`，小窗口的安全边距按比例收敛（>=64K 维持旧值），前后 SHA-256 记进 `BUNDLE.json` 的 `patches[]`；重复应用或未知原件大声失败，绝不写第二遍。
 
 - **复核**：`STRATA_TEST_PI_AI_DIR=<bundle> node --test apps/host/tests/harness-budget.test.mjs`（含"原始安装件哈希不变"用例）；或直接 `shasum -a 256` 比对 `BUNDLE.json` 的 after 值。
+
+## 已知问题：Harness 源码检出里的 vendor/strata 空骨架（外部工具残留，非 staging 产物）
+
+staging 用的 Harness 源码检出（DeepSeek-Harness）的 `vendor/strata/` 下曾两次出现只有空目录的骨架（`apps/` 等，无 `package.json`；2026-11-05 23:44 与 11-11 07:53，都落在 staging 活动窗口内）。DSH 的 `gen-third-party-notices` 当时对每个 `vendor/*` 目录强制读 `package.json`，两次都以 ENOENT 崩溃。免疫已在 DSH 侧落地（Qfbxz/deepseek-harness#12：无 manifest 的 vendor 目录直接跳过），现在只剩外观问题。
+
+追查结论：**不是本仓库代码写的**。`stage-harness.mjs` 对 `--src` 只读（第 73 行的 `indexWorkspace` 只 `readdirSync`），所有写入都落在 `--out`（staged bundle）；`flatten-pnpm`、`harness-prune`、`harness-budget` 只操作 staged 副本，`harness-runtime` 只写 Harness home 与 profile 插件软链。定点重放实验：把 DSH 检出 APFS 克隆后作为 `--src` 跑完整 staging，先落标记文件再 `find <src>/vendor -newer <marker>`——不产生 `vendor/strata`（对照：pnpm reconcile 新建的 `vendor/*/node_modules/.bin` 能被同一标记捕获，方法有效）；单独跑 `pnpm deploy --legacy --prod` 同样零写入。六个会话记录库（Kimi、Claude、Codex、DSH CLI、DeepStrata、宿主 harness home）里唯一创建过 `vendor/strata` 的命令是 `git clone …/Strata vendor/strata`，目标是 DeepStrata 自己的 vendor（11-08 全量克隆）；没有任何会话命令指向 `<DSH>/vendor/strata`。写入者是未记录的会话工具操作，与 DSH PR #12 "stray tool-created scaffold" 的定性一致。
+
+**预防**：staging 前先 `rm -rf <DSH>/vendor/strata`（无 manifest 的空骨架对 staging 与 DSH 都无价值）。若 DSH 侧再出现该目录，直接删除即可——staging 链路不会重建它。
