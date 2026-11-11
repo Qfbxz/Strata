@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import collections
 import ctypes
+import json
 import os
 import platform
 from strata_control import sysinfo
@@ -280,15 +281,60 @@ def metal_working_set():
         return None
 
 
+_SENSORS_BRIDGE = "/var/run/dsx-sensors.json"
+_DSX_SMC = os.path.expanduser("~/.local/bin/dsx-smc")
+_sensor_cache = (0.0, None, None)          # (when, temp, power) - read() runs per GPU per cycle
+
+
+def _apple_sensor_readings():
+    """(gpu_temp_c, gpu_power_w) on macOS, or (None, None) when neither source is present.  Two sources, both
+    optional and both honest about absence: the sensors bridge (/var/run/dsx-sensors.json, written by the optional
+    root daemon com.deepstrata.sensors - `powermetrics` is root-only and its JSON format was removed, so the daemon
+    parses the text output), and for the temperature alone the unprivileged dsx-smc reader (the Stats-app SMC
+    protocol: AppleSMC selector 2 with the subcommand in data8; a temperature read needs no root).  A bridge entry
+    older than 15 s is treated as absent.  Measured on an M3 Max / macOS 27.2 (2026-11-11): Tp05=CPU, Tg0D=GPU,
+    Ts0S=SoC, TB0T=battery; Tp01/Tp09/Tg0F/TH0x answer SMC key-absent (0x84)."""
+    global _sensor_cache
+    now = time.time()
+    if now - _sensor_cache[0] < 2.0:
+        return _sensor_cache[1], _sensor_cache[2]
+    temp = power = None
+    try:
+        with open(_SENSORS_BRIDGE, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        if isinstance(doc, dict) and abs(now - float(doc.get("ts", 0))) <= 15.0:
+            temps, watts = doc.get("temps"), doc.get("power")
+            if isinstance(temps, dict) and isinstance(temps.get("gpu"), (int, float)):
+                temp = float(temps["gpu"])
+            if isinstance(watts, dict) and isinstance(watts.get("gpu"), (int, float)):
+                power = float(watts["gpu"])
+    except (OSError, ValueError):
+        pass
+    if temp is None and os.access(_DSX_SMC, os.X_OK):
+        try:
+            r = subprocess.run([_DSX_SMC], capture_output=True, text=True, timeout=5)
+            doc = json.loads(r.stdout or "{}")
+            if isinstance(doc.get("gpu"), (int, float)):
+                temp = float(doc["gpu"])
+        except (OSError, ValueError, subprocess.SubprocessError):
+            pass
+    _sensor_cache = (now, temp, power)
+    return temp, power
+
+
 class _Metal:
     """macOS: an Apple GPU's readings from the IOKit registry (`ioreg -l -w0 -r -c IOAccelerator`, 22 ms), with
     _Nvml's interface: the load and the memory are the driver's PerformanceStatistics of the index'th accelerator
     node - Device Utilization % and the in-use system memory in bytes.  The total is the device's Metal working set,
-    the budget one app gets of the unified memory.  No temperature or power reading exists without root
-    (`powermetrics`), and an Apple Silicon GPU sits on the die, so the PCIe cards have nothing to show."""
-    note = ("no GPU temperature or power reading without root (powermetrics), and an Apple Silicon GPU sits on the "
-            "die, so there is no PCIe link to show; the engine's own figures are in its log")
+    the budget one app gets of the unified memory.  The temperature comes from the SMC (unprivileged, through the
+    dsx-smc reader or the sensors bridge - the Stats-app protocol: AppleSMC selector 2 with the subcommand in
+    data8), and the power from the sensors bridge (`powermetrics` needs root; measured on an M3 Max / macOS 27.2,
+    2026-11-11).  An Apple Silicon GPU sits on the die, so the PCIe cards have nothing to show."""
+    note = ("GPU temperature from the SMC (no root needed), power through the optional sensors bridge "
+            "(powermetrics needs root); an Apple Silicon GPU sits on the die, so there is no PCIe link to show; "
+            "the engine's own figures are in its log")
     cmd = ("ioreg", "-l", "-w0", "-r", "-c", "IOAccelerator")
+    _GL_NODE = ("AppleMetalOpenGLRenderer", "AppleMetalGLRenderer", "GLRenderer")
 
     def __init__(self, index=0, run=None):
         self.index = index
@@ -308,12 +354,22 @@ class _Metal:
             return ""
 
     def _blocks(self):
-        """The accelerator nodes, in the registry's order: every node that carries a PerformanceStatistics."""
+        """The accelerator nodes, in the registry's order: every node that carries a PerformanceStatistics,
+        minus the GL software-renderer nodes - they carry one too (a mirrored copy of the real accelerator's
+        numbers at 0%), and with them counted the index no longer addresses the real GPUs."""
         try:
             out = self._run() or ""
         except OSError:                     # ioreg missing, or a caller's runner that raises
             return []
-        return [b for b in re.split(r"^\s*\+-o ", out, flags=re.M) if '"PerformanceStatistics"' in b]
+        blocks = []
+        for b in re.split(r"^\s*\+-o ", out, flags=re.M):
+            if '"PerformanceStatistics"' not in b:
+                continue
+            head = b[:80]
+            if any(marker in head for marker in self._GL_NODE):
+                continue
+            blocks.append(b)
+        return blocks
 
     def _block(self):
         b = self._blocks()
@@ -343,6 +399,11 @@ class _Metal:
         used = num("In use system memory")
         out["mem_used"] = int(used) if used is not None else None
         out["mem_total"] = metal_working_set()
+        temp, power = _apple_sensor_readings()
+        if temp is not None:
+            out["temp"] = temp
+        if power is not None:
+            out["power"] = power
         return out
 
 
