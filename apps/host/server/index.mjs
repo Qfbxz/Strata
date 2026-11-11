@@ -1180,6 +1180,8 @@ const engineWatcher = createEngineUpdateWatcher({
 });
 
 /** The instance the model server talks about (the first ready one), or null while none runs. */
+function statSyncSafe(p) { try { statSync(p); return true; } catch { return false; } }
+
 function defaultInstance() {
   const list = runtimeState().instances ?? [];
   return list[0] ?? null;
@@ -2342,6 +2344,58 @@ async function api(req, res, path, method, url) {  if(path==='/api/fonts'&&metho
       mmproj: mmproj?.mmproj ?? null, mmprojName: mmproj?.mmprojName ?? null, mmprojMb: mmproj?.mmprojMb ?? null,
       found: !!(candidates[0]?.exe && model && mmproj),
     });
+  }
+  let smallModelDl = null;   // { file, received, total, done, error } — one at a time, in memory
+  const SMALL_DL_FILES = [
+    { name: 'Qwen3VL-4B-Instruct-Q8_0.gguf', mb: 4082 },
+    { name: 'mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf', mb: 433 },
+  ];
+  const SMALL_DL_BASE = 'https://modelscope.cn/models/Qwen/Qwen3-VL-4B-Instruct-GGUF/resolve/master/';
+  async function smallModelDownloadLoop() {
+    const dir = join(store.MODELS_DIR, 'small-model');
+    mkdirSync(dir, { recursive: true });
+    for (const file of SMALL_DL_FILES) {
+      if (smallModelDl.error) return;
+      const dest = join(dir, file.name);
+      try { if (statSync(dest).isFile() && statSync(dest).size > 1024 * 1024) { smallModelDl.received += file.mb * 1048576; smallModelDl.total += file.mb * 1048576; smallModelDl.done = file.name; continue; } } catch { /* not there */ }
+      smallModelDl.file = file.name; smallModelDl.total = file.mb * 1048576; smallModelDl.received = 0;
+      let last = 0;
+      for (let attempt = 0; attempt < 3 && !smallModelDl.error; attempt++) {
+        try {
+          const from = attempt === 0 ? 0 : smallModelDl.received;
+          const headers = from > 0 ? { Range: `bytes=${from}-` } : {};
+          const res = await fetch(SMALL_DL_BASE + file.name, { headers });
+          if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+          const tmp = dest + '.part';
+          const f = createWriteStream(tmp, from > 0 ? { flags: 'a' } : {});
+          const reader = res.body.getReader();
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            f.write(value); smallModelDl.received += value.length;
+            if (smallModelDl.received - last > 4 * 1048576) { last = smallModelDl.received; }
+          }
+          f.close();
+          if (smallModelDl.received >= smallModelDl.total * 0.99) { renameSync(tmp, dest); smallModelDl.done = file.name; break; }
+          throw new Error(`short read: ${smallModelDl.received} of ${smallModelDl.total}`);
+        } catch (e) {
+          if (attempt === 2) smallModelDl.error = `download failed: ${String(e.message ?? e).slice(0, 200)}`;
+          else await new Promise(r => setTimeout(r, 3000));
+        }
+      }
+    }
+  }
+  if (path === '/api/small-model/download' && method === 'POST') {
+    if (smallModelDl && !smallModelDl.done && !smallModelDl.error && smallModelDl.file) return json(res, 409, { error: { message: 'a download is already running' } });
+    smallModelDl = { file: null, received: 0, total: 0, done: null, error: null };
+    void smallModelDownloadLoop().catch(e => { if (smallModelDl) smallModelDl.error = String(e.message ?? e).slice(0, 200); });
+    return json(res, 202, { started: true });
+  }
+  if (path === '/api/small-model/download' && method === 'GET') {
+    if (!smallModelDl) return json(res, 200, { idle: true });
+    const { file, received, total, done, error } = smallModelDl;
+    const allThere = SMALL_DL_FILES.every(f => statSyncSafe(join(store.MODELS_DIR, 'small-model', f.name)));
+    return json(res, 200, { file, received, total, done: done ?? null, error, finished: !!(error || allThere) });
   }
   if (path === '/api/small-model/pick' && method === 'POST') {
     const picked = await chooseFile('Choose the small model file');

@@ -62,6 +62,16 @@ export function FeatureFlagsSetting() {    const [features, setFeatures] = useSt
     useEffect(() => { fetch('/api/small-model/library').then(r => r.json()).then(d => setLibrary(d.ggufs ?? [])).catch(() => {}); }, []);
     const [found, setFound] = useState<{ exe: string | null; model: string | null; modelName: string | null; modelMb: number | null; mmproj: string | null; mmprojName: string | null; mmprojMb: number | null; found: boolean } | null>(null);
     useEffect(() => { fetch('/api/small-model/discover').then(r => r.json()).then(d => setFound(d)).catch(() => {}); }, []);
+    const [dl, setDl] = useState<{ file?: string; received?: number; total?: number; done?: string | null; error?: string | null; finished?: boolean; idle?: boolean } | null>(null);
+    const redetect = () => fetch('/api/small-model/discover').then(r => r.json()).then(d => setFound(d)).catch(() => {});
+    useEffect(() => {
+      if (!dl || dl.finished || dl.error) return;
+      const t = setInterval(() => { fetch('/api/small-model/download').then(r => r.json()).then(d => { setDl(d); if (d.finished && !d.error) redetect(); }).catch(() => {}); }, 1000);
+      return () => clearInterval(t);
+    }, [dl?.finished, dl?.error]);
+    function startDownload() {
+      fetch('/api/small-model/download', { method: 'POST' }).then(r => { if (r.status === 202) { fetch('/api/small-model/download').then(r2 => r2.json()).then(d => setDl(d)); } }).catch(() => {});
+    }
     useEffect(() => { fetch('/api/small-model').then(r => r.json()).then(d => setSmall(d)).catch(() => {}); }, []);
     function saveSmall(patch: Partial<SmallModelView>) {
         if (!small) return;
@@ -91,7 +101,9 @@ export function FeatureFlagsSetting() {    const [features, setFeatures] = useSt
             {small?.enabled && found && <p className="feature-flags__found">
                 {found.found
                     ? tr("Detected on this machine: {0} ({1} MB) with its picture projector — nothing to type.", [found.modelName ?? '', String(found.modelMb ?? '')])
-                    : tr("No small model found on this machine yet — install one into the models folder, or set the three paths below.")}
+                    : dl?.error ? <span className="inline-error">{dl.error}</span>
+                    : dl && !dl.idle && !dl.finished ? <span className="feature-flags__progress">{tr("Downloading {0}…", [dl.file ?? ''])}<span className="feature-flags__bar"><span className="feature-flags__bar-fill" style={{ width: `${dl.total ? Math.round((dl.received ?? 0) / dl.total * 100) : 0}%` }}/></span> <span className="muted">{Math.round(((dl.received ?? 0) / 1048576))} / {Math.round((dl.total ?? 0) / 1048576)} MB</span></span>
+                    : <span className="feature-flags__dlrow"><button type="button" className="st-btn st-btn--primary" onClick={startDownload}>{tr("Download the small model (4.5 GB)")}</button><span className="muted feature-flags__hint">{tr("Qwen3-VL-4B with its picture projector, saved into the models folder. Runs on this machine; nothing leaves it.")}</span></span>}
             </p>}
             {small?.enabled && <div className="feature-flags__row">
                 <span className="feature-flags__name">{tr("Stop the small model after (seconds)")}</span>

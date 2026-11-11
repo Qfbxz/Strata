@@ -3587,5 +3587,8 @@
  "s9101": "Saved. Used from the next start of the model.",
  "s9102": "Saved here. The model server is not running, so this is used from its next start.",
  "s9103": "From the model library…",
- "s9104": "Browse…"
+ "s9104": "Browse…",
+ "s9105": "Downloading {0}…",
+ "s9106": "Download the small model (4.5 GB)",
+ "s9107": "Qwen3-VL-4B with its picture projector, saved into the models folder. Runs on this machine; nothing leaves it."
 }

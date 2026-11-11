@@ -3587,5 +3587,8 @@
  "s9101": "Guardado. Se usa desde el próximo arranque del modelo.",
  "s9102": "Guardado aquí. El servidor del modelo no está corriendo, así que se usa desde su próximo arranque.",
  "s9103": "De la biblioteca de modelos…",
- "s9104": "Examinar…"
+ "s9104": "Examinar…",
+ "s9105": "Descargando {0}…",
+ "s9106": "Descargar el modelo pequeño (4,5 GB)",
+ "s9107": "Qwen3-VL-4B con su proyector de imágenes, guardado en la carpeta de modelos. Se ejecuta en esta máquina; nada sale de ella."
 }

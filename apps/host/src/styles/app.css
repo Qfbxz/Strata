@@ -9110,3 +9110,12 @@ html[data-motion='reduced'] .native-progress__bar[data-indeterminate] > i { anim
 .branchmgr__row[data-current] { border-color: var(--st-accent); }
 
 .wspanel__branchswitch { display: flex; flex-wrap: wrap; gap: 10px; padding: 6px 0; }
+
+/* The small model's download progress (Settings → Assistant → Small model sidecar). */
+.feature-flags__progress { display: flex; align-items: center; gap: 10px; }
+
+.feature-flags__bar { display: inline-block; width: 160px; height: 6px; border-radius: 3px; background: var(--st-line, rgba(128, 128, 128, .3)); overflow: hidden; }
+
+.feature-flags__bar-fill { display: block; height: 100%; background: var(--st-accent, currentColor); border-radius: 3px; transition: width .4s ease; }
+
+.feature-flags__dlrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

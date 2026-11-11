@@ -3587,5 +3587,8 @@
  "s9101": "Enregistré. Pris en compte au prochain démarrage du modèle.",
  "s9102": "Enregistré ici. Le serveur de modèle ne tourne pas, ce sera donc pris en compte à son prochain démarrage.",
  "s9103": "Depuis la bibliothèque de modèles…",
- "s9104": "Parcourir…"
+ "s9104": "Parcourir…",
+ "s9105": "Téléchargement de {0}…",
+ "s9106": "Télécharger le modèle léger (4,5 Go)",
+ "s9107": "Qwen3-VL-4B avec son projeteur d'images, enregistré dans le dossier des modèles. Tourne sur cette machine ; rien n'en sort."
 }
